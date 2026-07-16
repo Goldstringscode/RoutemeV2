@@ -1,0 +1,101 @@
+{
+  "theme": "Light",
+  "typography": {
+    "headings": {
+      "family": "Outfit, sans-serif",
+      "weights": ["400", "500", "600"],
+      "usage": "Use Outfit for all headings. It brings a friendly yet highly legible geometric feel, breaking away from standard SaaS Inter."
+    },
+    "body": {
+      "family": "Manrope, sans-serif",
+      "weights": ["400", "500", "600", "700"],
+      "usage": "Manrope is highly legible even at small sizes, crucial for nurses looking at their phones in stressful conditions."
+    }
+  },
+  "colors": {
+    "archetype": "Organic & Earthy (Calm, Grounded, Professional)",
+    "background": {
+      "primary": "#F9F8F6",
+      "secondary": "#FFFFFF",
+      "tertiary": "#F2EFEB"
+    },
+    "primary": {
+      "DEFAULT": "#D95D39",
+      "hover": "#C05030",
+      "foreground": "#FFFFFF",
+      "description": "Terracotta - adds warmth, life, and stands out from generic medical blues."
+    },
+    "accent": {
+      "DEFAULT": "#7FA08B",
+      "foreground": "#FFFFFF",
+      "description": "Sage Green - represents healing, calmness, and success states (e.g., optimized route)."
+    },
+    "text": {
+      "primary": "#1C1C1C",
+      "secondary": "#57534E",
+      "tertiary": "#78716C"
+    },
+    "hipaa_badge": {
+      "background": "#D1FAE5",
+      "text": "#065F46",
+      "pulse": "rgba(16, 185, 129, 0.4)"
+    }
+  },
+  "visual_enhancers": {
+    "borders": "1px solid #E7E5E4 (stone-200) everywhere to create 'Neo-Brutalist' crisp utility without hard black lines.",
+    "shadows": "Minimal. Use shadow-sm for cards. Focus on 1px borders instead of heavy shadows.",
+    "border_radius": "rounded-2xl for major containers, rounded-xl for inner elements.",
+    "textures": "No heavy gradients. Flat, matte colors. Keep the UI feeling like premium paper/tactile material."
+  },
+  "components": {
+    "dashboard": "Use the 'Bento' grid layout. Asymmetrical grid (e.g., md:grid-cols-8) to display stats, next visit, and a stylized map.",
+    "hipaa_badge": "A persistent pill-shaped badge floating at the top-right or bottom-right of the screen. Needs a pulsing green dot animation to indicate active protection. Do not make the background completely transparent.",
+    "voice_notes": "A prominent FAB or fixed button. On click, open a 'Glassmorphism' modal covering the screen, showing a large animated soundwave or pulsing circle and real-time mock transcription.",
+    "map": "Stylized map. Instead of standard Google Maps UI, use the provided warm line art map background with absolutely positioned numbered 'Stops' (1, 2, 3) connected by a dashed SVG line. Adds a designed, premium feel.",
+    "schedule_builder": "List of clients with drag-and-drop affordances (mocked visually). Show preferred time windows next to each.",
+    "cards": "Remove Vercel-look. Flat white background, 1px stone-200 border, no generic shadow. Inner padding p-6."
+  },
+  "grids_and_layouts": {
+    "spacing": "Generous. p-6 to p-8 inside cards. gap-6 between dashboard elements.",
+    "mobile_first": "Ensure text is large enough (text-base default) and touch targets are min 44x44px. Images/Maps must not exceed 60vh on mobile."
+  },
+  "motion": {
+    "transitions": "Use specific properties: transition-colors duration-200, transition-transform duration-300.",
+    "hover_states": "Slight lift (-translate-y-1) for interactive cards, background color shifts for buttons.",
+    "voice_animation": "When voice recording is active, use a continuous scale animation (pulse) on the microphone button."
+  },
+  "accessibility": {
+    "contrast": "Ensure APCA contrast. Dark text on light background. White text on primary buttons.",
+    "data_testid": "MANDATORY. Add data-testid to all interactive elements, e.g., data-testid='hipaa-badge', data-testid='voice-record-btn'."
+  },
+  "media": {
+    "icons": "Use lucide-react. Choose icons with soft, rounded edges to match the organic tone.",
+    "image_urls": [
+      {
+        "category": "nurse_avatar",
+        "url": "https://images.unsplash.com/photo-1594824476967-48c8b964273f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHwyfHxudXJzZSUyMHBvcnRyYWl0JTIwc21pbGluZ3xlbnwwfHx8fDE3ODQyMzM0OTl8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Smiling nurse portrait for the user profile."
+      },
+      {
+        "category": "patient_avatar_1",
+        "url": "https://images.unsplash.com/photo-1668622168008-90faecb4d3cd?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MTJ8MHwxfHNlYXJjaHw0fHxzZW5pb3IlMjBwYXRpZW50JTIwcG9ydHJhaXR8ZW58MHx8fHwxNzg0MjMzNDk5fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Senior male patient."
+      },
+      {
+        "category": "stylized_map",
+        "url": "https://images.unsplash.com/photo-1622593587600-919f704f4ba0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHwxfHx3YXJtJTIwYWJzdHJhY3QlMjBsaW5lJTIwYXJ0JTIwbWFwfGVufDB8fHx8MTc4NDIzMzQ5OXww&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract line art to act as the stylized map background."
+      }
+    ]
+  },
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You MUST build this prototype completely in the frontend, mocking interactions and data using useState and standard React patterns.",
+    "Do not use generic centered layouts or simplistic UI slop. Use the specified font and color system strictly.",
+    "The HIPAA privacy badge must be persistent across all screens.",
+    "Implement the 'stylized map mockup' as an interactive element using the provided background image overlayed with absolute positioned SVGs/Nodes indicating stops and the route.",
+    "Create a beautiful Voice-to-Text modal component for visit notes. When opened, it should have a 'listening' state and slowly type out text to mock transcription.",
+    "Ensure all interactive elements have data-testid attributes."
+  ],
+  "instructions_to_main_agent": "Read this JSON. Use Outfit for Headings and Manrope for Body (load from Google Fonts in index.html). Setup the mock data for clients and today's schedule. Implement a multi-page feel (Dashboard, Route Map, Client List) using state-based navigation. Focus on the premium, calm UI with Terracotta and Sage green. DO NOT use generic blue buttons or completely transparent overlays.",
+  "general_ui_ux_guidelines": "Always ensure text color is high-contrast. Avoid universal `transition: all`. Do not center-align the main app layout (avoid `text-align: center` on body). Keep typography left-aligned except for major numbers. Ensure spacing is 2x larger than standard SaaS default."
+}
