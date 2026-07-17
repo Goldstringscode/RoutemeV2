@@ -2,193 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ---------- RouteMe design tokens ---------- */
+/* RouteMe — Design tokens */
 :root {
-    /* Backgrounds */
-    --rm-bg: #f9f8f6;
-    --rm-bg-alt: #f2efeb;
-    --rm-surface: #ffffff;
-
-    /* Brand */
-    --rm-terra: #d95d39;
-    --rm-terra-hover: #c05030;
-    --rm-terra-soft: #f7e5dd;
-    --rm-sage: #7fa08b;
-    --rm-sage-soft: #e3ece5;
-    --rm-ink: #1c1c1c;
-    --rm-ink-2: #57534e;
-    --rm-ink-3: #78716c;
-    --rm-stone: #e7e5e4;
-    --rm-cream: #efe9df;
-
-    /* shadcn overrides mapped to our palette */
-    --background: 40 25% 97%;
-    --foreground: 0 0% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 11%;
-    --primary: 14 68% 54%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 30 12% 92%;
-    --secondary-foreground: 0 0% 11%;
-    --muted: 30 12% 94%;
-    --muted-foreground: 20 6% 45%;
-    --accent: 138 15% 56%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 30 8% 90%;
-    --input: 30 8% 90%;
-    --ring: 14 68% 54%;
-    --radius: 1rem;
+  --rm-bg: #F9F8F6;
+  --rm-terra: #D95D39;
+  --rm-sage: #7FA08B;
+  --rm-ink: #1C1917;
 }
 
-* {
-    border-color: hsl(var(--border));
-}
+/* Google Fonts loaded in index.html */
 
-html,
-body {
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
     background: var(--rm-bg);
     color: var(--rm-ink);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
-    font-feature-settings: "ss01", "cv11";
+  }
 }
 
-.font-display {
-    font-family: "Outfit", ui-sans-serif, system-ui, sans-serif;
+@layer utilities {
+  .font-display {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-weight: 600;
     letter-spacing: -0.02em;
-}
-.font-serif-i {
-    font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  }
+  .font-serif-i {
+    font-family: 'Instrument Serif', Georgia, serif;
     font-style: italic;
-    letter-spacing: -0.01em;
-}
+    font-weight: 400;
+  }
 
-/* Selection & scrollbars */
-::selection {
-    background: var(--rm-terra);
-    color: #fff;
-}
-::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-}
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-::-webkit-scrollbar-thumb {
-    background: var(--rm-stone);
-    border-radius: 999px;
-    border: 2px solid var(--rm-bg);
-}
+  /* Staggered fade-in */
+  .rm-fade-up {
+    animation: rmFadeUp 0.5s ease-out both;
+  }
+  @keyframes rmFadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
 
-/* ---------- HIPAA badge pulse ---------- */
-@keyframes rm-pulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55);
-    }
-    70% {
-        box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-    }
-}
-.rm-pulse-dot::before {
-    content: "";
+  /* Lift hover */
+  .rm-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .rm-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  }
+
+  /* Waveform bars */
+  .rm-bar {
+    animation: rmPulse 1.2s ease-in-out infinite;
+  }
+  @keyframes rmPulse {
+    0%, 100% { transform: scaleY(0.6); }
+    50%      { transform: scaleY(1); }
+  }
+
+  /* Grain overlay */
+  .rm-grain::after {
+    content: '';
     position: absolute;
     inset: 0;
-    border-radius: 999px;
-    animation: rm-pulse 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* ---------- Voice sound-wave ---------- */
-@keyframes rm-wave {
-    0%,
-    100% {
-        transform: scaleY(0.35);
-    }
-    50% {
-        transform: scaleY(1);
-    }
-}
-.rm-bar {
-    animation: rm-wave 1s ease-in-out infinite;
-    transform-origin: center;
-}
-
-/* ---------- Route dash line ---------- */
-@keyframes rm-dash {
-    to {
-        stroke-dashoffset: -32;
-    }
-}
-.rm-route-path {
-    stroke-dasharray: 8 6;
-    animation: rm-dash 3s linear infinite;
-}
-
-/* ---------- Marquee ---------- */
-@keyframes rm-marquee {
-    0% {
-        transform: translateX(0);
-    }
-    100% {
-        transform: translateX(-50%);
-    }
-}
-.rm-marquee {
-    animation: rm-marquee 34s linear infinite;
-}
-
-/* ---------- Grain background ---------- */
-.rm-grain {
-    position: relative;
-}
-.rm-grain::after {
-    content: "";
-    position: absolute;
-    inset: 0;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     pointer-events: none;
-    opacity: 0.05;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-}
-
-/* ---------- Reveal-in ---------- */
-@keyframes rm-fade-up {
-    from {
-        opacity: 0;
-        transform: translateY(12px);
-    }
-    to {
-        opacity: 1;
-        transform: none;
-    }
-}
-.rm-fade-up {
-    animation: rm-fade-up 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-}
-
-/* Card lift */
-.rm-lift {
-    transition:
-        transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1),
-        border-color 0.2s ease,
-        background-color 0.2s ease;
-}
-.rm-lift:hover {
-    transform: translateY(-4px);
-    border-color: #d6d3d1;
-}
-
-/* Custom text-selection cursor for map */
-.rm-map-cursor {
-    cursor:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><circle cx='12' cy='12' r='6' fill='%23D95D39'/></svg>")
-            12 12,
-        auto;
+  }
 }

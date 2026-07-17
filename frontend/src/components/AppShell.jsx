@@ -2,7 +2,7 @@ import React from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Home, Map, Users, Calendar, User, LogOut, Mic, Plus } from "lucide-react";
 import HipaaBadge from "@/components/HipaaBadge";
-import VoiceNoteModal from "@/components/VoiceNoteModal";
+import NoteModal from "@/components/VoiceNoteModal";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { supabase } from "@/lib/supabase";
 
@@ -122,19 +122,19 @@ export default function AppShell() {
           <Outlet />
         </main>
 
-        {/* Floating voice FAB */}
+        {/* Floating note FAB */}
         <button
-          data-testid="voice-fab"
+          data-testid="note-fab"
           onClick={() => openVoice(schedule[0]?.id)}
           className="fixed bottom-6 right-6 z-40 group inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white pl-4 pr-5 py-3 shadow-lg shadow-[#D95D39]/30 transition-transform duration-300 hover:-translate-y-0.5"
         >
           <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white/15">
-            <Mic className="h-4 w-4" />
+            <Plus className="h-4 w-4" />
           </span>
-          <span className="text-sm font-semibold hidden sm:inline">Voice note</span>
+          <span className="text-sm font-semibold hidden sm:inline">New note</span>
         </button>
 
-        <VoiceNoteModal />
+        <NoteModal />
       </div>
     </div>
   );

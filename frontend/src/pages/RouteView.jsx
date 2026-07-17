@@ -3,10 +3,10 @@ import StylizedMap from "@/components/StylizedMap";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { MAP_STOPS } from "@/lib/mockData";
 import { fetchRoute, metersToMiles, secondsToTime, googleMapsUrl, appleMapsUrl } from "@/lib/directions";
-import { Sparkles, Clock, MapPin, Mic, Phone, ChevronRight, Route, Navigation, ExternalLink, ArrowLeft, ArrowRight, ArrowUp, CornerDownRight, CornerUpRight } from "lucide-react";
+import { Sparkles, Clock, MapPin, Mic, Phone, ChevronRight, Route, Navigation, ExternalLink, ArrowLeft, ArrowRight, ArrowUp, CornerDownRight, CornerUpRight, StickyNote, Eye } from "lucide-react";
 
 export default function RouteView() {
-  const { schedule, optimize, optimized, openVoice } = useRouteMe();
+  const { schedule, optimize, optimized, openVoice, notes, setNoteViewMode, setVoiceOpen, setVoiceTarget } = useRouteMe();
   const [selected, setSelected] = useState(schedule[0]?.id);
   const [routeData, setRouteData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -255,6 +255,55 @@ export default function RouteView() {
               )}
             </div>
           </div>
+
+          {/* Latest note */}
+              {active && notes[active.id]?.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-stone-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold flex items-center gap-1.5">
+                      <StickyNote className="h-3 w-3" /> Latest note
+                    </p>
+                    <button
+                      onClick={() => {
+                        setVoiceTarget(active.id);
+                        setNoteViewMode("history");
+                        setVoiceOpen(true);
+                      }}
+                      className="text-[10px] font-semibold text-[#D95D39] hover:underline flex items-center gap-1"
+                    >
+                      <Eye className="h-3 w-3" /> View all ({notes[active.id].length})
+                    </button>
+                  </div>
+                  <div className="rounded-xl bg-[#F9F8F6] border border-stone-200 p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] text-stone-500">
+                        {(() => {
+                          const d = new Date(notes[active.id][0].date);
+                          return d.toLocaleDateString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+                        })()}
+                      </span>
+                      {notes[active.id][0].visitType && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border border-stone-200 bg-white text-stone-600">
+                          {notes[active.id][0].visitType}
+                        </span>
+                      )}
+                      {notes[active.id][0].status && (
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${
+                          notes[active.id][0].status === "Completed" ? "bg-[#E3ECE5] text-emerald-900 border-emerald-100" :
+                          notes[active.id][0].status === "Follow-up needed" ? "bg-amber-50 text-amber-800 border-amber-200" :
+                          notes[active.id][0].status === "Escalated" ? "bg-[#F7E5DD] text-[#D95D39] border-[#F0D2C4]" :
+                          "bg-stone-100 text-stone-600 border-stone-200"
+                        }`}>
+                          {notes[active.id][0].status}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-stone-700 leading-relaxed line-clamp-2">
+                      {notes[active.id][0].text}
+                    </p>
+                  </div>
+                </div>
+              )}
 
           {/* Loading indicator */}
           {loading && (

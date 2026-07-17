@@ -29,7 +29,8 @@ export function RouteMeProvider({ children }) {
   const [optimized, setOptimized] = useState(initial?.optimized ?? true);
   const [supabaseReady, setSupabaseReady] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
-  const [voiceTarget, setVoiceTarget] = useState(null);
+    const [voiceTarget, setVoiceTarget] = useState(null);
+    const [noteViewMode, setNoteViewMode] = useState("compose"); // "compose" | "history"
 
   // Check Supabase session on mount
   useEffect(() => {
@@ -106,21 +107,22 @@ export function RouteMeProvider({ children }) {
     pushAudit("Route re-optimized", "route");
   };
 
-  const addNote = (clientId, text) => {
-    setNotes((n) => ({
-      ...n,
-      [clientId]: [
-        { id: Math.random().toString(36).slice(2, 8), text, date: new Date().toISOString() },
-        ...(n[clientId] ?? []),
-      ],
-    }));
-    pushAudit("Voice note transcribed", "note");
-  };
+  const addNote = (clientId, text, visitType = "Routine visit", status = "Completed") => {
+      setNotes((n) => ({
+        ...n,
+        [clientId]: [
+          { id: Math.random().toString(36).slice(2, 8), text, visitType, status, date: new Date().toISOString() },
+          ...(n[clientId] ?? []),
+        ],
+      }));
+      pushAudit("Visit note recorded", "note");
+    };
 
-  const openVoice = (clientId) => {
-    setVoiceTarget(clientId);
-    setVoiceOpen(true);
-  };
+    const openVoice = (clientId, mode = "compose") => {
+      setVoiceTarget(clientId);
+      setNoteViewMode(mode);
+      setVoiceOpen(true);
+    };
 
   const value = {
       authed,
@@ -142,10 +144,12 @@ export function RouteMeProvider({ children }) {
     updateClient,
     removeClient,
     voiceOpen,
-    setVoiceOpen,
-    voiceTarget,
-    setVoiceTarget,
-    openVoice,
+        setVoiceOpen,
+        voiceTarget,
+        setVoiceTarget,
+        openVoice,
+        noteViewMode,
+        setNoteViewMode,
   };
 
   return <RouteMeContext.Provider value={value}>{children}</RouteMeContext.Provider>;

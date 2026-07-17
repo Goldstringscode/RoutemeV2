@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, Search, Phone, MapPin, Mic, X, StickyNote } from "lucide-react";
+import { Plus, Search, Phone, MapPin, Mic, X, StickyNote, Eye } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
@@ -18,7 +18,7 @@ const emptyClient = {
 };
 
 export default function Clients() {
-  const { clients, addClient, notes, openVoice } = useRouteMe();
+  const { clients, addClient, notes, openVoice, setNoteViewMode, setVoiceOpen, setVoiceTarget } = useRouteMe();
   const [q, setQ] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(emptyClient);
@@ -137,28 +137,47 @@ export default function Clients() {
               </div>
 
               <div className="mt-5 pt-4 border-t border-stone-200 flex items-center justify-between">
-                <span className="text-xs text-stone-500 flex items-center gap-1">
-                  <StickyNote className="h-3 w-3" /> {noteCount} note{noteCount === 1 ? "" : "s"}
-                </span>
-                <button
-                  onClick={() => openVoice(c.id)}
-                  data-testid={`client-voice-${c.id}`}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-3 py-1.5 text-xs font-semibold transition-colors"
-                >
-                  <Mic className="h-3 w-3" /> Note
-                </button>
-              </div>
+                              <button
+                                onClick={() => {
+                                  setVoiceTarget(c.id);
+                                  setNoteViewMode("history");
+                                  setVoiceOpen(true);
+                                }}
+                                className="text-xs text-stone-500 hover:text-[#D95D39] flex items-center gap-1 transition-colors"
+                              >
+                                <StickyNote className="h-3 w-3" /> {noteCount} note{noteCount === 1 ? "" : "s"}
+                              </button>
+                              <button
+                                onClick={() => openVoice(c.id)}
+                                data-testid={`client-voice-${c.id}`}
+                                className="inline-flex items-center gap-1.5 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-3 py-1.5 text-xs font-semibold transition-colors"
+                              >
+                                <Mic className="h-3 w-3" /> New note
+                              </button>
+                            </div>
 
-              {noteCount > 0 && (
-                <div className="mt-3 rounded-xl bg-[#F9F8F6] border border-stone-200 p-3">
-                  <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold mb-1">
-                    Latest note
-                  </p>
-                  <p className="text-xs text-stone-700 line-clamp-2">
-                    {notes[c.id][0].text}
-                  </p>
-                </div>
-              )}
+                            {noteCount > 0 && (
+                              <div className="mt-3 rounded-xl bg-[#F9F8F6] border border-stone-200 p-3">
+                                <div className="flex items-center justify-between mb-1">
+                                  <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">
+                                    Latest note
+                                  </p>
+                                  <button
+                                    onClick={() => {
+                                      setVoiceTarget(c.id);
+                                      setNoteViewMode("history");
+                                      setVoiceOpen(true);
+                                    }}
+                                    className="text-[10px] font-semibold text-[#D95D39] hover:underline flex items-center gap-1"
+                                  >
+                                    <Eye className="h-3 w-3" /> View all
+                                  </button>
+                                </div>
+                                <p className="text-xs text-stone-700 line-clamp-2">
+                                  {notes[c.id][0].text}
+                                </p>
+                              </div>
+                            )}
             </article>
           );
         })}
