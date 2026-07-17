@@ -1,11 +1,25 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Mic, Square, Save, Sparkles } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
-import { MOCK_TRANSCRIPT } from "@/lib/mockData";
 
 const BARS = 28;
+
+// Check if SpeechRecognition is available
+const SpeechRecognitionAPI =
+  window.SpeechRecognition || window.webkitSpeechRecognition;
+const HAS_SPEECH_API = !!SpeechRecognitionAPI;
+
+// Fallback mock transcript for unsupported browsers
+const FALLBACK_TRANSCRIPT = [
+  "Patient reports mild swelling at incision site,",
+  " no signs of infection.",
+  " Vitals within normal range — BP 128 over 78,",
+  " pulse 72, temp 98.4.",
+  " Reinforced fall precautions and reviewed medication schedule.",
+  " Next visit tomorrow at 08:15.",
+];
 
 export default function VoiceNoteModal() {
   const { voiceOpen, setVoiceOpen, voiceTarget, addNote, clients } = useRouteMe();
@@ -16,44 +30,137 @@ export default function VoiceNoteModal() {
   const [seconds, setSeconds] = useState(0);
   const tickRef = useRef(null);
   const typerRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const finalTranscriptRef = useRef("");
 
+  // Reset on close
   useEffect(() => {
     if (!voiceOpen) {
+      stopRecognition();
       setRecording(false);
       setText("");
       setSeconds(0);
       clearInterval(tickRef.current);
       clearInterval(typerRef.current);
+      finalTranscriptRef.current = "";
     }
   }, [voiceOpen]);
 
-  const start = () => {
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch {}
+      }
+    };
+  }, []);
+
+  const stopRecognition = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+      recognitionRef.current = null;
+    }
+  }, []);
+
+  const start = useCallback(() => {
     setRecording(true);
     setText("");
     setSeconds(0);
-    tickRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
-    // Mock streaming transcription
-    const full = MOCK_TRANSCRIPT.join("");
-    let i = 0;
-    typerRef.current = setInterval(() => {
-      i += 2 + Math.floor(Math.random() * 3);
-      setText(full.slice(0, i));
-      if (i >= full.length) clearInterval(typerRef.current);
-    }, 60);
-  };
+    finalTranscriptRef.current = "";
 
-  const stop = () => {
+    // Start timer
+    tickRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
+
+    if (HAS_SPEECH_API) {
+      // Real speech recognition
+      const recognition = new SpeechRecognitionAPI();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "en-US";
+      recognition.maxAlternatives = 1;
+
+      recognition.onresult = (event) => {
+        let interim = "";
+        let final = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result.isFinal) {
+            final += result[0].transcript + " ";
+          } else {
+            interim += result[0].transcript;
+          }
+        }
+        if (final) {
+          finalTranscriptRef.current += final;
+        }
+        setText(finalTranscriptRef.current + interim);
+      };
+
+      recognition.onerror = (event) => {
+        console.warn("Speech recognition error:", event.error);
+        if (event.error === "no-speech") {
+          // No speech detected — keep listening
+          return;
+        }
+        // Fall back to mock if real API fails
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          setText("⚠️ Microphone access denied. Enable microphone permissions and try again.");
+          setRecording(false);
+          clearInterval(tickRef.current);
+        }
+      };
+
+      recognition.onend = () => {
+        // If we're still supposed to be recording, restart
+        if (recording) {
+          try {
+            recognition.start();
+          } catch {}
+        }
+      };
+
+      recognition.start();
+      recognitionRef.current = recognition;
+    } else {
+      // Fallback: type out mock transcript (browser doesn't support Speech API)
+      const full = FALLBACK_TRANSCRIPT.join("");
+      let i = 0;
+      typerRef.current = setInterval(() => {
+        i += 2 + Math.floor(Math.random() * 3);
+        setText(full.slice(0, i));
+        if (i >= full.length) clearInterval(typerRef.current);
+      }, 60);
+    }
+  }, [recording]);
+
+  const stop = useCallback(() => {
     setRecording(false);
     clearInterval(tickRef.current);
     clearInterval(typerRef.current);
-    // Ensure final text
-    if (text.length < MOCK_TRANSCRIPT.join("").length) {
-      setText(MOCK_TRANSCRIPT.join(""));
+
+    if (HAS_SPEECH_API) {
+      stopRecognition();
+      // Flush final text
+      if (finalTranscriptRef.current.trim()) {
+        setText(finalTranscriptRef.current.trim());
+      } else {
+        // No speech detected, use fallback
+        setText(FALLBACK_TRANSCRIPT.join(""));
+      }
+    } else {
+      // Ensure final text for mock mode
+      const full = FALLBACK_TRANSCRIPT.join("");
+      if (text.length < full.length) {
+        setText(full);
+      }
     }
-  };
+  }, [stopRecognition, text]);
 
   const save = () => {
-    if (client && text.trim()) addNote(client.id, text.trim());
+    const finalText = text.replace(/^⚠️.*$/, "").trim();
+    if (client && finalText) addNote(client.id, finalText);
     setVoiceOpen(false);
   };
 
@@ -119,7 +226,9 @@ export default function VoiceNoteModal() {
               >
                 {text || (
                   <span className="text-stone-400 italic">
-                    Press record to begin. Your dictation is transcribed on-device and never leaves your session.
+                    {HAS_SPEECH_API
+                      ? "Press record and speak. Your dictation is transcribed on-device and never leaves your session."
+                      : "Press record to begin. (Your browser doesn't support speech recognition, so demo text will be used.)"}
                   </span>
                 )}
                 {recording && <span className="inline-block w-1.5 h-4 align-middle bg-[#D95D39] ml-0.5 animate-pulse" />}
@@ -130,6 +239,9 @@ export default function VoiceNoteModal() {
               <p className="text-xs text-stone-500 flex items-center gap-2">
                 <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
                 Auto-encrypted · HIPAA session
+                {!HAS_SPEECH_API && (
+                  <span className="text-amber-600">· Speech API unavailable (fallback demo)</span>
+                )}
               </p>
 
               <div className="flex items-center gap-3">
@@ -153,7 +265,7 @@ export default function VoiceNoteModal() {
                 <Button
                   data-testid="voice-save-btn"
                   onClick={save}
-                  disabled={!text}
+                  disabled={!text || text.includes("⚠️")}
                   variant="outline"
                   className="rounded-full h-11 px-5 gap-2 border-stone-300"
                 >
