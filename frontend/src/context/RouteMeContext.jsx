@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { CLIENTS_SEED, NURSE, AUDIT_LOG } from "@/lib/mockData";
+import { supabase, signOut } from "@/lib/supabase";
 
 const KEY = "routeme.state.v1";
 
@@ -26,8 +27,27 @@ export function RouteMeProvider({ children }) {
   const [notes, setNotes] = useState(initial?.notes ?? {}); // { clientId: [{id, text, date}] }
   const [audit, setAudit] = useState(initial?.audit ?? AUDIT_LOG);
   const [optimized, setOptimized] = useState(initial?.optimized ?? true);
+  const [supabaseReady, setSupabaseReady] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [voiceTarget, setVoiceTarget] = useState(null);
+
+  // Check Supabase session on mount
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data?.session) {
+        setAuthed(true);
+      }
+      setSupabaseReady(true);
+    });
+
+    // Listen for auth state changes
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN") setAuthed(true);
+      if (event === "SIGNED_OUT") setAuthed(false);
+    });
+
+    return () => listener?.subscription?.unsubscribe();
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(
@@ -103,9 +123,10 @@ export function RouteMeProvider({ children }) {
   };
 
   const value = {
-    authed,
-    setAuthed,
-    nurse: NURSE,
+      authed,
+      setAuthed,
+      supabaseReady,
+      nurse: NURSE,
     clients,
     setClients,
     schedule,

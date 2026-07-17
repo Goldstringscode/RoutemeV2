@@ -4,6 +4,7 @@ import { Home, Map, Users, Calendar, User, LogOut, Mic, Plus } from "lucide-reac
 import HipaaBadge from "@/components/HipaaBadge";
 import VoiceNoteModal from "@/components/VoiceNoteModal";
 import { useRouteMe } from "@/context/RouteMeContext";
+import { supabase } from "@/lib/supabase";
 
 const NAV = [
   { to: "/app/dashboard", label: "Today", icon: Home, testId: "nav-dashboard" },
@@ -17,10 +18,11 @@ export default function AppShell() {
   const { nurse, setAuthed, openVoice, schedule } = useRouteMe();
   const navigate = useNavigate();
 
-  const logout = () => {
-    setAuthed(false);
-    navigate("/login");
-  };
+  const logout = async () => {
+      await supabase.auth.signOut();
+      setAuthed(false);
+      navigate("/login");
+    };
 
   return (
     <div className="min-h-screen bg-[#F9F8F6] text-stone-900 flex">

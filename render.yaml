@@ -12,6 +12,10 @@ services:
         value: "false"
       - key: NODE_OPTIONS
         value: "--max-old-space-size=2048"
+      - key: REACT_APP_SUPABASE_URL
+        sync: false
+      - key: REACT_APP_SUPABASE_ANON_KEY
+        sync: false
     headers:
       - path: /*
         name: X-Frame-Options
