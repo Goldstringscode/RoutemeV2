@@ -1,28 +1,33 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
+import mapboxgl from "mapbox-gl";
 import { MAP_STOPS } from "@/lib/mockData";
 import { useRouteMe } from "@/context/RouteMeContext";
 
+const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
+
 /**
- * Stylized illustrated map: warm cream background with drawn "roads" (SVG),
- * absolute-positioned numbered stops connected with a dashed animated path
- * following the schedule order.
+ * Stylized illustrated map: real Mapbox map as background with
+ * hand-drawn SVG overlays (numbered stops, dashed route, compass, legend).
  */
 export default function StylizedMap({ compact = false, onStopClick }) {
   const { schedule } = useRouteMe();
+  const mapContainer = useRef(null);
+  const mapRef = useRef(null);
 
-  // Get positions in schedule order (fallback to seed positions)
+  // Get positions in schedule order
   const stopMap = Object.fromEntries(MAP_STOPS.map((s) => [s.id, s]));
   const orderedStops = schedule
     .map((c, idx) => {
       const pos = stopMap[c.id] || {
-        // fallback: distribute new clients along a curve
         x: 150 + ((idx * 120) % 700),
         y: 260 + ((idx * 47) % 200),
+        lat: 34.05 + (idx * 0.02),
+        lng: -118.3 - (idx * 0.03),
       };
       return { ...pos, id: c.id, label: String(idx + 1), name: c.fullName };
     });
 
-  // Path connecting stops with smooth curves
+  // SVG path connecting stops with smooth curves
   const pathD = orderedStops.reduce((acc, s, i, arr) => {
     if (i === 0) return `M ${s.x} ${s.y}`;
     const prev = arr[i - 1];
@@ -31,6 +36,41 @@ export default function StylizedMap({ compact = false, onStopClick }) {
     return `${acc} Q ${midX} ${midY} ${s.x} ${s.y}`;
   }, "");
 
+  // Initialize Mapbox map
+  useEffect(() => {
+    if (!mapContainer.current || mapRef.current || !TOKEN) return;
+
+    mapboxgl.accessToken = TOKEN;
+
+    // Compute center from all stops
+    const lats = orderedStops.map((s) => s.lat);
+    const lngs = orderedStops.map((s) => s.lng);
+    const centerLat = lats.reduce((a, b) => a + b, 0) / lats.length;
+    const centerLng = lngs.reduce((a, b) => a + b, 0) / lngs.length;
+
+    const map = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: "mapbox://styles/mapbox/light-v11",
+      center: [centerLng, centerLat],
+      zoom: compact ? 9.5 : 9,
+      interactive: !compact,
+      attributionControl: false,
+      logoPosition: "bottom-right",
+    });
+
+    map.on("load", () => {
+      // Hide labels for a cleaner stylized look
+      map.setLayoutProperty("country-label", "visibility", "none");
+    });
+
+    mapRef.current = map;
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, [compact]);
+
   return (
     <div
       data-testid="stylized-map"
@@ -38,19 +78,13 @@ export default function StylizedMap({ compact = false, onStopClick }) {
         compact ? "aspect-[16/9]" : "aspect-[16/10]"
       }`}
     >
-      {/* Warm background with hand-drawn map illustration */}
-      <div
-        className="absolute inset-0 opacity-70 mix-blend-multiply"
-        style={{
-          backgroundImage:
-            "url(https://images.unsplash.com/photo-1622593587600-919f704f4ba0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHwxfHx3YXJtJTIwYWJzdHJhY3QlMjBsaW5lJTIwYXJ0JTIwbWFwfGVufDB8fHx8MTc4NDIzMzQ5OXww&ixlib=rb-4.1.0&q=85)",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-br from-[#F9F8F6]/40 via-transparent to-[#D95D39]/10" />
+      {/* Real Mapbox map as background */}
+      <div ref={mapContainer} className="absolute inset-0" />
 
-      {/* SVG overlay */}
+      {/* Warm gradient overlay to match the stylized aesthetic */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#F9F8F6]/30 via-transparent to-[#D95D39]/5 pointer-events-none" />
+
+      {/* SVG overlay — identical styling, unchanged layout */}
       <svg
         viewBox="0 0 1000 600"
         preserveAspectRatio="xMidYMid slice"
