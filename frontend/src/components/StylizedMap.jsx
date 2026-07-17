@@ -108,44 +108,60 @@ export default function StylizedMap({ compact = false, onStopClick, routeGeoJson
   }, [compact]);
 
   // Update route data when routeGeoJson changes
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
+    useEffect(() => {
+      const map = mapRef.current;
+      if (!map) return;
 
-    const source = map.getSource(ROUTE_SOURCE);
-    if (!source) return;
+      const applyRoute = () => {
+        if (!map.isStyleLoaded()) return false;
 
-    if (routeGeoJson) {
-      source.setData({
-        type: "FeatureCollection",
-        features: [
-          {
-            type: "Feature",
-            properties: {},
-            geometry: routeGeoJson,
-          },
-        ],
-      });
-      // Show layers
-      map.setLayoutProperty(ROUTE_GLOW, "visibility", "visible");
-      map.setLayoutProperty(ROUTE_LAYER, "visibility", "visible");
+        const source = map.getSource(ROUTE_SOURCE);
+        if (!source) return false;
 
-      // Fit the map to the route bounds
-      if (!compact && routeGeoJson.coordinates) {
-        const bounds = routeGeoJson.coordinates.reduce(
-          (b, coord) => b.extend(coord),
-          new mapboxgl.LngLatBounds(routeGeoJson.coordinates[0], routeGeoJson.coordinates[0])
-        );
-        map.fitBounds(bounds, { padding: 80, maxZoom: 11 });
+        if (routeGeoJson) {
+          source.setData({
+            type: "FeatureCollection",
+            features: [
+              {
+                type: "Feature",
+                properties: {},
+                geometry: routeGeoJson,
+              },
+            ],
+          });
+          try {
+            map.setLayoutProperty(ROUTE_GLOW, "visibility", "visible");
+            map.setLayoutProperty(ROUTE_LAYER, "visibility", "visible");
+          } catch {}
+
+          // Fit the map to the route bounds
+          if (!compact && routeGeoJson.coordinates?.length) {
+            try {
+              const bounds = routeGeoJson.coordinates.reduce(
+                (b, coord) => b.extend(coord),
+                new mapboxgl.LngLatBounds(routeGeoJson.coordinates[0], routeGeoJson.coordinates[0])
+              );
+              map.fitBounds(bounds, { padding: 80, maxZoom: 11 });
+            } catch {}
+          }
+        } else {
+          try {
+            map.setLayoutProperty(ROUTE_GLOW, "visibility", "none");
+            map.setLayoutProperty(ROUTE_LAYER, "visibility", "none");
+          } catch {}
+        }
+        return true;
+      };
+
+      // Try immediately; if style isn't ready, wait for it
+      if (!applyRoute()) {
+        const onStyle = () => {
+          applyRoute();
+          map.off("style.load", onStyle);
+        };
+        map.on("style.load", onStyle);
       }
-    } else {
-      // No real route — hide layers
-      try {
-        map.setLayoutProperty(ROUTE_GLOW, "visibility", "none");
-        map.setLayoutProperty(ROUTE_LAYER, "visibility", "none");
-      } catch {}
-    }
-  }, [routeGeoJson, compact]);
+    }, [routeGeoJson, compact]);
 
   return (
     <div

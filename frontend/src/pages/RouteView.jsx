@@ -3,7 +3,7 @@ import StylizedMap from "@/components/StylizedMap";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { MAP_STOPS } from "@/lib/mockData";
 import { fetchRoute, metersToMiles, secondsToTime, googleMapsUrl, appleMapsUrl } from "@/lib/directions";
-import { Sparkles, Clock, MapPin, Mic, Phone, ChevronRight, Route, Navigation, ExternalLink, ArrowLeft, ArrowRight, Straight, ArrowUp, CornerDownRight, CornerUpRight } from "lucide-react";
+import { Sparkles, Clock, MapPin, Mic, Phone, ChevronRight, Route, Navigation, ExternalLink, ArrowLeft, ArrowRight, ArrowUp, CornerDownRight, CornerUpRight } from "lucide-react";
 
 export default function RouteView() {
   const { schedule, optimize, optimized, openVoice } = useRouteMe();
