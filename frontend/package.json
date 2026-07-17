@@ -62,7 +62,8 @@
     "tailwind-merge": "3.2.0",
     "tailwindcss-animate": "1.0.7",
     "vaul": "1.1.2",
-    "zod": "3.24.4"
+    "zod": "3.24.4",
+    "ajv": "^8.17.1"
   },
   "scripts": {
     "start": "craco start",
@@ -138,6 +139,11 @@
     "**/micromatch/picomatch": "2.3.2",
     "**/readdirp/picomatch": "2.3.2",
     "**/jest-util/picomatch": "2.3.2",
-    "**/tinyglobby/picomatch": "4.0.4"
-      }
-    }
+    "**/tinyglobby/picomatch": "4.0.4",
+    "ajv": "8.17.1",
+    "ajv-keywords": "5.1.0"
+  },
+  "overrides": {
+    "ajv": "^8.17.1"
+  }
+}
