@@ -2,8 +2,11 @@ services:
   - type: web
     name: routeme-v2
     env: static
-    buildCommand: cd frontend && npm install && npm run build
+    buildCommand: cd frontend && npm install --legacy-peer-deps && npm run build
     staticPublishPath: frontend/build/
+    envVars:
+      - key: NODE_VERSION
+        value: 20
     headers:
       - path: /*
         name: X-Frame-Options
