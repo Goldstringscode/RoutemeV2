@@ -1,9 +1,7 @@
 services:
-  - type: static
+  - type: web
     name: routeme-v2
-    runtime: static
-    repo: https://github.com/Goldstringscode/RoutemeV2
-    branch: master
+    env: static
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/build/
     headers:
