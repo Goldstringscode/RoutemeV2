@@ -1,9 +1,8 @@
 services:
-  - type: web
+  - type: static_site
     name: routeme-v2
-    env: static
     buildCommand: cd frontend && npm install --legacy-peer-deps && npm run build
-    staticPublishPath: frontend/build/
+    staticPublishPath: ./frontend/build
     envVars:
       - key: NODE_VERSION
         value: 20
