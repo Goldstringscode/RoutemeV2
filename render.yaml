@@ -6,6 +6,12 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 20
+      - key: REACT_APP_MAPBOX_TOKEN
+        sync: false
+      - key: GENERATE_SOURCEMAP
+        value: "false"
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=2048"
     headers:
       - path: /*
         name: X-Frame-Options
