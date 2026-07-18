@@ -11,8 +11,40 @@ import Clients from "@/pages/Clients";
 import Profile from "@/pages/Profile";
 
 function Protected({ children }) {
-  const { authed } = useRouteMe();
+  const { authed, supabaseReady, dataReady, loadingError } = useRouteMe();
+
+  // Still checking auth
+  if (!supabaseReady) {
+    return (
+      <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-10 w-10 rounded-full border-2 border-[#D95D39] border-t-transparent animate-spin mx-auto" />
+          <p className="mt-4 text-sm text-stone-500">Connecting...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Not signed in — redirect to login
   if (!authed) return <Navigate to="/login" replace />;
+
+  // Signed in but data still loading
+  if (!dataReady) {
+    return (
+      <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-10 w-10 rounded-full border-2 border-[#D95D39] border-t-transparent animate-spin mx-auto" />
+          <p className="mt-4 text-sm text-stone-500">Loading your workspace...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Data loaded with errors — show warning but still render
+  if (loadingError) {
+    console.warn('RouteMe: Data loaded with errors:', loadingError);
+  }
+
   return children;
 }
 
