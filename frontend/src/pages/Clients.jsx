@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, Search, Phone, MapPin, Mic, X, StickyNote, Eye, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Phone, MapPin, Mic, X, StickyNote, Eye, Pencil, Trash2, Users } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
@@ -246,7 +246,40 @@ export default function Clients() {
         })}
       </div>
 
-      {/* Add Dialog */}
+            {/* Empty states */}
+            {clients.length === 0 ? (
+              <div className="rounded-3xl border border-stone-200 bg-white p-8 flex flex-col items-center justify-center text-center min-h-[250px]">
+                <div className="h-14 w-14 rounded-2xl bg-[#F9F8F6] border border-stone-200 flex items-center justify-center mb-4">
+                  <Users className="h-7 w-7 text-stone-400" />
+                </div>
+                <h3 className="font-display text-xl">No clients yet</h3>
+                <p className="text-sm text-stone-500 mt-1 max-w-sm">
+                  Add your first client to start building your care roster.
+                </p>
+                <button
+                  onClick={() => setAddOpen(true)}
+                  className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-5 py-2.5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="h-4 w-4" /> Add your first client
+                </button>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="rounded-3xl border border-stone-200 bg-white p-8 flex flex-col items-center justify-center text-center min-h-[200px]">
+                <Search className="h-8 w-8 text-stone-300 mb-2" />
+                <h3 className="font-display text-lg">No clients match your search</h3>
+                <p className="text-sm text-stone-500 mt-1">
+                  Try a different name or address.
+                </p>
+                <button
+                  onClick={() => setQ("")}
+                  className="mt-4 text-sm font-semibold text-[#D95D39] hover:underline"
+                >
+                  Clear search
+                </button>
+              </div>
+            ) : null}
+
+            {/* Add Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="max-w-lg border-0 p-0 overflow-hidden">
           <div className="bg-white rounded-2xl p-6 border border-stone-200">

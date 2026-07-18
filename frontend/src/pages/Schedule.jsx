@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { GripVertical, Sparkles, Clock, MapPin } from "lucide-react";
+import { GripVertical, Sparkles, Clock, MapPin, Users } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 
 export default function Schedule() {
@@ -49,7 +49,8 @@ export default function Schedule() {
         </button>
       </div>
 
-      <ul className="space-y-3">
+      {schedule.length > 0 ? (
+        <ul className="space-y-3">
         {schedule.map((c, idx) => (
           <li
             key={c.id}
@@ -90,6 +91,17 @@ export default function Schedule() {
           </li>
         ))}
       </ul>
+      ) : (
+        <div className="rounded-3xl border border-stone-200 bg-white p-8 flex flex-col items-center justify-center text-center min-h-[250px]">
+          <div className="h-14 w-14 rounded-2xl bg-[#F9F8F6] border border-stone-200 flex items-center justify-center mb-4">
+            <Users className="h-7 w-7 text-stone-400" />
+          </div>
+          <h3 className="font-display text-xl">No scheduled visits</h3>
+          <p className="text-sm text-stone-500 mt-1 max-w-sm">
+            Add clients to your roster first, then their visit windows and priorities will appear here.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Clock, Fuel, Route, ArrowUpRight, Phone, ShieldCheck, Mic, TrendingUp, Coffee } from "lucide-react";
+import { Clock, Fuel, Route, ArrowUpRight, Phone, ShieldCheck, Mic, TrendingUp, Coffee, Users, FileText } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import StylizedMap from "@/components/StylizedMap";
 
@@ -22,69 +22,90 @@ export default function Dashboard() {
             Good morning, <span className="font-serif-i text-[#D95D39]">{nurse.name.split(" ")[0]}</span>.
           </h1>
           <p className="mt-2 text-stone-600">
-            {schedule.length} visits planned · route optimized {" "}
-            <span className="text-emerald-700 font-semibold">2 min ago</span>.
+            {schedule.length > 0
+              ? `${schedule.length} visits planned · route optimized 2 min ago.`
+              : "No visits scheduled for today."}
           </p>
         </div>
-        <Link
-          to="/app/route"
-          data-testid="start-route-btn"
-          className="inline-flex items-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 text-white px-5 py-3 text-sm font-semibold transition-colors self-start"
-        >
-          Start route <ArrowUpRight className="h-4 w-4" />
-        </Link>
+        {schedule.length > 0 && (
+          <Link
+            to="/app/route"
+            data-testid="start-route-btn"
+            className="inline-flex items-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 text-white px-5 py-3 text-sm font-semibold transition-colors self-start"
+          >
+            Start route <ArrowUpRight className="h-4 w-4" />
+          </Link>
+        )}
       </div>
 
       {/* Bento grid */}
       <div className="grid grid-cols-1 md:grid-cols-8 gap-4">
-        {/* Next visit */}
-        <div className="md:col-span-5 rounded-3xl border border-stone-200 bg-white p-6 rm-lift">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-stone-500 font-semibold">
-                Next visit · in ~14 min
-              </p>
-              <h2 className="font-display text-3xl mt-2">{next?.fullName}</h2>
-              <p className="text-sm text-stone-600 mt-1">{next?.condition}</p>
-            </div>
-            <span className="text-[10px] uppercase tracking-widest font-semibold px-2 py-1 rounded-full bg-[#F7E5DD] text-[#D95D39]">
-              {next?.priority} priority
-            </span>
-          </div>
-
-          <div className="mt-6 grid grid-cols-3 gap-4">
-            <MiniStat icon={Clock} label="Window" value={next?.window} />
-            <MiniStat icon={Route} label="Duration" value={`${next?.duration} min`} />
-            <MiniStat icon={Phone} label="Contact" value={next?.phone} />
-          </div>
-
-          <div className="mt-5 flex flex-wrap gap-2">
-            {next?.flags.map((f) => (
-              <span
-                key={f}
-                className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#E3ECE5] text-emerald-900 border border-emerald-100"
-              >
-                {f}
+        {/* Next visit — or empty state */}
+        {schedule.length > 0 ? (
+          <div className="md:col-span-5 rounded-3xl border border-stone-200 bg-white p-6 rm-lift">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.22em] text-stone-500 font-semibold">
+                  Next visit · in ~14 min
+                </p>
+                <h2 className="font-display text-3xl mt-2">{next.fullName}</h2>
+                <p className="text-sm text-stone-600 mt-1">{next.condition}</p>
+              </div>
+              <span className="text-[10px] uppercase tracking-widest font-semibold px-2 py-1 rounded-full bg-[#F7E5DD] text-[#D95D39]">
+                {next.priority} priority
               </span>
-            ))}
-          </div>
+            </div>
 
-          <div className="mt-6 flex items-center gap-3">
-            <button
-              onClick={() => openVoice(next?.id)}
-              data-testid="dashboard-voice-btn"
-              className="inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-4 py-2.5 text-sm font-semibold transition-colors"
-            >
-              <Mic className="h-4 w-4" /> Start visit note
-            </button>
+            <div className="mt-6 grid grid-cols-3 gap-4">
+              <MiniStat icon={Clock} label="Window" value={next.window} />
+              <MiniStat icon={Route} label="Duration" value={`${next.duration} min`} />
+              <MiniStat icon={Phone} label="Contact" value={next.phone} />
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              {next.flags.map((f) => (
+                <span
+                  key={f}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#E3ECE5] text-emerald-900 border border-emerald-100"
+                >
+                  {f}
+                </span>
+              ))}
+            </div>
+
+            <div className="mt-6 flex items-center gap-3">
+              <button
+                onClick={() => openVoice(next.id)}
+                data-testid="dashboard-voice-btn"
+                className="inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-4 py-2.5 text-sm font-semibold transition-colors"
+              >
+                <Mic className="h-4 w-4" /> Start visit note
+              </button>
+              <Link
+                to="/app/clients"
+                className="text-sm font-semibold text-stone-700 underline underline-offset-4 decoration-stone-300 hover:decoration-stone-800"
+              >
+                View chart
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="md:col-span-5 rounded-3xl border border-stone-200 bg-white p-8 rm-lift flex flex-col items-center justify-center text-center min-h-[200px]">
+            <div className="h-14 w-14 rounded-2xl bg-[#F9F8F6] border border-stone-200 flex items-center justify-center mb-4">
+              <Users className="h-7 w-7 text-stone-400" />
+            </div>
+            <h3 className="font-display text-xl">No visits today</h3>
+            <p className="text-sm text-stone-500 mt-1 max-w-sm">
+              Your day is clear. Add clients to your roster and schedule their visits to get started.
+            </p>
             <Link
               to="/app/clients"
-              className="text-sm font-semibold text-stone-700 underline underline-offset-4 decoration-stone-300 hover:decoration-stone-800"
+              className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-5 py-2.5 text-sm font-semibold transition-colors"
             >
-              View chart
+              <Users className="h-4 w-4" /> Add clients
             </Link>
           </div>
-        </div>
+        )}
 
         {/* Time saved */}
         <div className="md:col-span-3 rounded-3xl border border-stone-200 bg-stone-900 text-white p-6 relative overflow-hidden rm-lift">
@@ -113,15 +134,19 @@ export default function Dashboard() {
                 Today&apos;s route
               </p>
               <p className="font-display text-xl mt-1">
-                {schedule.length} stops · {totalHours}h {totalMinutes % 60}m of care
+                {schedule.length > 0
+                  ? `${schedule.length} stops · ${totalHours}h ${totalMinutes % 60}m of care`
+                  : "No route to plan today"}
               </p>
             </div>
-            <Link
-              to="/app/route"
-              className="text-sm font-semibold text-[#D95D39] hover:underline underline-offset-4"
-            >
-              Open route →
-            </Link>
+            {schedule.length > 0 && (
+              <Link
+                to="/app/route"
+                className="text-sm font-semibold text-[#D95D39] hover:underline underline-offset-4"
+              >
+                Open route →
+              </Link>
+            )}
           </div>
         </div>
 
@@ -150,25 +175,33 @@ export default function Dashboard() {
             </div>
             <ShieldCheck className="h-5 w-5 text-emerald-600" />
           </div>
-          <ul className="mt-5 divide-y divide-stone-200">
-            {audit.slice(0, 6).map((a, i) => (
-              <li key={i} className="py-2.5 flex items-center gap-3 text-sm">
-                <span className="tabular-nums text-xs text-stone-500 w-14">{a.t}</span>
-                <span
-                  className={`inline-block h-1.5 w-1.5 rounded-full ${
-                    a.type === "read"
-                      ? "bg-emerald-500"
-                      : a.type === "write"
-                        ? "bg-[#D95D39]"
-                        : a.type === "note"
-                          ? "bg-stone-800"
-                          : "bg-amber-500"
-                  }`}
-                />
-                <span className="text-stone-700">{a.label}</span>
-              </li>
-            ))}
-          </ul>
+          {audit.length > 0 ? (
+            <ul className="mt-5 divide-y divide-stone-200">
+              {audit.slice(0, 6).map((a, i) => (
+                <li key={i} className="py-2.5 flex items-center gap-3 text-sm">
+                  <span className="tabular-nums text-xs text-stone-500 w-14">{a.t}</span>
+                  <span
+                    className={`inline-block h-1.5 w-1.5 rounded-full ${
+                      a.type === "read"
+                        ? "bg-emerald-500"
+                        : a.type === "write"
+                          ? "bg-[#D95D39]"
+                          : a.type === "note"
+                            ? "bg-stone-800"
+                            : "bg-amber-500"
+                    }`}
+                  />
+                  <span className="text-stone-700">{a.label}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="mt-5 flex flex-col items-center text-center py-6">
+              <FileText className="h-8 w-8 text-stone-300 mb-2" />
+              <p className="text-sm text-stone-500">No audit events yet.</p>
+              <p className="text-xs text-stone-400 mt-1">Activity will appear here as you use RouteMe.</p>
+            </div>
+          )}
         </div>
 
         {/* Fuel efficiency */}
@@ -205,6 +238,7 @@ export default function Dashboard() {
               stroke="#D95D39"
               strokeWidth="2.5"
               strokeLinecap="round"
+              strokeLinejoin="round"
             />
           </svg>
         </div>
@@ -215,11 +249,11 @@ export default function Dashboard() {
 
 function MiniStat({ icon: Icon, label, value }) {
   return (
-    <div className="rounded-xl bg-[#F9F8F6] border border-stone-200 p-3">
-      <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-stone-500 font-semibold">
+    <div>
+      <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold flex items-center gap-1">
         <Icon className="h-3 w-3" /> {label}
-      </div>
-      <div className="mt-1.5 text-sm font-semibold text-stone-800 truncate">{value}</div>
+      </p>
+      <p className="mt-1 font-display text-lg">{value}</p>
     </div>
   );
 }
