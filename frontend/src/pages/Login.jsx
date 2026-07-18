@@ -13,41 +13,49 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const isNetworkError = (msg) =>
+    !msg ||
+    msg === "Failed to fetch" ||
+    msg === "NetworkError when attempting to fetch resource" ||
+    msg === "Load failed" ||
+    msg?.toLowerCase().includes("network") ||
+    msg?.toLowerCase().includes("fetch");
+
   const submit = async (e) => {
-      e.preventDefault();
-      setError("");
-      setLoading(true);
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-      try {
-        const { data, error: authError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-        if (authError) {
-          setError(
-            authError.message === "Failed to fetch"
-              ? "Cannot reach the database. This can happen if the Supabase project was paused due to inactivity. Please try again in a moment."
-              : authError.message
-          );
-          setLoading(false);
-          return;
-        }
-
-        if (data?.session) {
-          setAuthed(true);
-          pushAudit("Signed in — Supabase auth", "read");
-          navigate("/app/dashboard");
-        }
-      } catch (err) {
+      if (authError) {
         setError(
-          err?.message === "Failed to fetch"
+          isNetworkError(authError.message)
             ? "Cannot reach the database. This can happen if the Supabase project was paused due to inactivity. Please try again in a moment."
-            : err?.message || "An unexpected error occurred. Please try again."
+            : authError.message
         );
+        setLoading(false);
+        return;
       }
-      setLoading(false);
-    };
+
+      if (data?.session) {
+        setAuthed(true);
+        pushAudit("Signed in — Supabase auth", "read");
+        navigate("/app/dashboard");
+      }
+    } catch (err) {
+      setError(
+        isNetworkError(err?.message)
+          ? "Cannot reach the database. This can happen if the Supabase project was paused due to inactivity. Please try again in a moment."
+          : err?.message || "An unexpected error occurred. Please try again."
+      );
+    }
+    setLoading(false);
+  };
 
   return (
     <div className="min-h-screen bg-[#F9F8F6] grid lg:grid-cols-2">
