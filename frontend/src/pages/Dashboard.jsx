@@ -1,14 +1,92 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Clock, Fuel, Route, ArrowUpRight, Phone, ShieldCheck, Mic, TrendingUp, Coffee, Users, FileText } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import StylizedMap from "@/components/StylizedMap";
+import { MAP_STOPS } from "@/lib/mockData";
+
+/** Haversine distance between two lat/lng pairs in miles */
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 3958.8; // Earth radius in miles
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Compute route analytics from the actual schedule stops */
+function computeAnalytics(schedule, stopMap) {
+  if (schedule.length < 2) return null;
+
+  const ordered = schedule.map((c) => stopMap[c.id]).filter(Boolean);
+  if (ordered.length < 2) return null;
+
+  // Distance in miles between each consecutive pair of stops
+  const legs = [];
+  for (let i = 0; i < ordered.length - 1; i++) {
+    legs.push(haversine(ordered[i].lat, ordered[i].lng, ordered[i + 1].lat, ordered[i + 1].lng));
+  }
+
+  const totalMiles = legs.reduce((s, d) => s + d, 0);
+  const avgMph = 35; // conservative urban driving speed
+  const driveMinutes = (totalMiles / avgMph) * 60;
+
+  // Estimated "saved" vs naive ordering (sort by lat or lng — a rough baseline)
+  const naive = [...ordered].sort((a, b) => a.lat - b.lat);
+  const naiveLegs = [];
+  for (let i = 0; i < naive.length - 1; i++) {
+    naiveLegs.push(haversine(naive[i].lat, naive[i].lng, naive[i + 1].lat, naive[i + 1].lng));
+  }
+  const naiveMiles = naiveLegs.reduce((s, d) => s + d, 0);
+  const savedMiles = Math.max(0, naiveMiles - totalMiles);
+  const savedMinutes = Math.round((savedMiles / avgMph) * 60);
+
+  return {
+    totalMiles,
+    driveMinutes,
+    savedMiles: Math.round(savedMiles * 10) / 10,
+    savedMinutes,
+    legs, // per-leg distances
+  };
+}
+
+/** Build an SVG sparkline path from a series of values */
+function sparklinePath(values, width = 300, height = 80) {
+  if (!values || values.length === 0) return "";
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const range = max - min || 1;
+  const stepX = width / (values.length - 1 || 1);
+  return values
+    .map((v, i) => {
+      const x = i * stepX;
+      const y = height - ((v - min) / range) * (height - 12) - 6;
+      return `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+/** Build an SVG fill area path under the sparkline */
+function sparklineArea(values, width = 300, height = 80) {
+  if (!values || values.length === 0) return "";
+  const line = sparklinePath(values, width, height);
+  const last = values.length - 1;
+  const stepX = width / (last || 1);
+  const lastX = last * stepX;
+  return `${line} L ${lastX.toFixed(1)} ${height} L 0 ${height} Z`;
+}
 
 export default function Dashboard() {
   const { nurse, schedule, audit, openVoice } = useRouteMe();
   const next = schedule[0];
   const totalMinutes = schedule.reduce((s, c) => s + (c.duration || 30), 0);
   const totalHours = Math.floor(totalMinutes / 60);
+
+  const stopMap = useMemo(() => Object.fromEntries(MAP_STOPS.map((s) => [s.id, s])), []);
+  const analytics = useMemo(() => computeAnalytics(schedule, stopMap), [schedule, stopMap]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -107,21 +185,33 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Time saved */}
+        {/* Weekly time saved — computed from real schedule data */}
         <div className="md:col-span-3 rounded-3xl border border-stone-200 bg-stone-900 text-white p-6 relative overflow-hidden rm-lift">
           <div className="absolute -top-20 -right-20 h-56 w-56 rounded-full bg-[#D95D39]/40 blur-3xl" />
           <p className="relative text-xs uppercase tracking-[0.22em] text-white/60 font-semibold">
-            Weekly time saved
+            {analytics ? "Route distance" : "Weekly activity"}
           </p>
           <div className="relative mt-3 flex items-end gap-2">
-            <span className="font-display text-6xl leading-none">{Math.floor(nurse.weeklySavedMinutes / 60)}h</span>
-            <span className="font-display text-3xl text-white/60">{nurse.weeklySavedMinutes % 60}m</span>
+            {analytics ? (
+              <>
+                <span className="font-display text-6xl leading-none">{analytics.totalMiles.toFixed(0)}</span>
+                <span className="font-display text-3xl text-white/60">mi</span>
+              </>
+            ) : (
+              <span className="font-display text-3xl text-white/60">No route</span>
+            )}
           </div>
           <p className="relative text-sm text-white/70 mt-3">
-            <TrendingUp className="inline h-4 w-4 mr-1" /> {nurse.weeklySavedMiles} fewer miles driven
+            {analytics ? (
+              <>
+                <Clock className="inline h-4 w-4 mr-1" /> ~{Math.floor(analytics.driveMinutes / 60)}h {Math.round(analytics.driveMinutes % 60)}m drive time
+              </>
+            ) : (
+              "Add visits to see route analytics"
+            )}
           </p>
           <div className="relative mt-5 flex items-center gap-2 text-[10px] uppercase tracking-widest text-white/60">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> vs. manual routing
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> {analytics ? `${schedule.length} stops routed` : "0 stops"}
           </div>
         </div>
 
@@ -204,43 +294,60 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Fuel efficiency */}
+        {/* Fuel efficiency — with real sparkline from leg distances */}
         <div className="md:col-span-4 rounded-3xl border border-stone-200 bg-white p-6 rm-lift">
           <div className="flex items-center justify-between">
             <div>
               <Fuel className="h-6 w-6 text-[#D95D39]" strokeWidth={1.8} />
               <p className="mt-4 text-xs uppercase tracking-[0.22em] text-stone-500 font-semibold">
-                Fuel efficiency
+                Leg breakdown
               </p>
-              <h3 className="font-display text-2xl mt-1">This week</h3>
+              <h3 className="font-display text-2xl mt-1">Per stop</h3>
             </div>
-            <div className="text-right">
-              <div className="font-display text-4xl">+8.4%</div>
-              <div className="text-xs text-stone-500">vs last week</div>
-            </div>
+            {analytics && (
+              <div className="text-right">
+                <div className="font-display text-4xl">{analytics.totalMiles.toFixed(0)}</div>
+                <div className="text-xs text-stone-500">total mi</div>
+              </div>
+            )}
           </div>
 
-          {/* Sparkline */}
-          <svg viewBox="0 0 300 80" className="mt-5 w-full h-20">
-            <defs>
-              <linearGradient id="g" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="#D95D39" stopOpacity="0.35" />
-                <stop offset="100%" stopColor="#D95D39" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <path
-              d="M 0 60 L 40 55 L 70 50 L 110 52 L 150 40 L 190 42 L 220 30 L 260 28 L 300 18 L 300 80 L 0 80 Z"
-              fill="url(#g)"
-            />
-            <path
-              d="M 0 60 L 40 55 L 70 50 L 110 52 L 150 40 L 190 42 L 220 30 L 260 28 L 300 18"
-              fill="none"
-              stroke="#D95D39"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          {/* Sparkline from real leg distances */}
+          {analytics && analytics.legs.length > 0 ? (
+            <svg viewBox="0 0 300 80" className="mt-5 w-full h-20">
+              <defs>
+                <linearGradient id="g" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="#D95D39" stopOpacity="0.35" />
+                  <stop offset="100%" stopColor="#D95D39" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <path
+                d={sparklineArea(analytics.legs)}
+                fill="url(#g)"
+              />
+              <path
+                d={sparklinePath(analytics.legs)}
+                fill="none"
+                stroke="#D95D39"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : (
+            <div className="mt-5 flex items-center justify-center h-20 text-xs text-stone-400">
+              {schedule.length > 0 ? "Not enough stops for a route" : "No visits scheduled"}
+            </div>
+          )}
+
+          {/* Per-leg distance labels */}
+          {analytics && analytics.legs.length > 0 && (
+            <div className="mt-3 flex items-center justify-between text-[10px] text-stone-500 tabular-nums">
+              {analytics.legs.map((d, i) => (
+                <span key={i}>{d.toFixed(1)} mi</span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
