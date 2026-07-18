@@ -25,7 +25,11 @@ export default function Login() {
         });
 
         if (authError) {
-          setError(authError.message);
+          setError(
+            authError.message === "Failed to fetch"
+              ? "Cannot reach the database. This can happen if the Supabase project was paused due to inactivity. Please try again in a moment."
+              : authError.message
+          );
           setLoading(false);
           return;
         }
