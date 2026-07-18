@@ -50,10 +50,10 @@ export default function RouteView() {
             Route · Today
           </p>
           <h1 className="font-display text-4xl md:text-5xl leading-tight">
-            {schedule.length > 0
-              ? `${schedule.length} stops, ` + `<span className="font-serif-i text-[#D95D39]">one calm ribbon</span>.`
-              : "Plan your route"}
-          </h1>
+                      {schedule.length > 0
+                        ? <>{schedule.length} stops, <span className="font-serif-i text-[#D95D39]">one calm ribbon</span>.</>
+                        : "Plan your route"}
+                    </h1>
         </div>
         {schedule.length > 0 && (
           <button
