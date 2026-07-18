@@ -1,7 +1,7 @@
 /* eslint-disable no-restricted-globals */
 /* A self-contained service worker for RouteMe PWA (no Workbox build-time injection) */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const STATIC_CACHE = `routeme-static-${CACHE_VERSION}`;
 const MAPBOX_TILES_CACHE = `routeme-mapbox-tiles-${CACHE_VERSION}`;
 const MAPBOX_API_CACHE = `routeme-mapbox-api-${CACHE_VERSION}`;
