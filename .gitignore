@@ -87,3 +87,4 @@ credentials.json
 *.key
 .credentials
 supabase/.temp
+token.txt

@@ -26,7 +26,41 @@ export function RouteMeProvider({ children }) {
   // Track last loaded user to avoid duplicate loads
   const lastUserId = useRef(null);
 
-  // --- Load all data from Supabase ---
+  // Map a Supabase client row to frontend camelCase props
+  function mapClientFromDB(c) {
+    return {
+      id: c.id,
+      initials: c.initials || '',
+      fullName: c.full_name,
+      dob: c.dob,
+      phone: c.phone || '',
+      address: c.address || '',
+      window: c.time_window || '',
+      duration: c.duration || 30,
+      priority: c.priority || 'medium',
+      flags: c.flags || [],
+      condition: c.condition || '',
+      lastVisit: c.last_visit || 'New client',
+      photo: c.photo_url || null,
+    };
+  }
+
+  function mapClientToDB(c) {
+    return {
+      full_name: c.fullName,
+      initials: c.initials || '',
+      dob: c.dob || null,
+      phone: c.phone || '',
+      address: c.address || '',
+      time_window: c.window || '',
+      duration: c.duration || 30,
+      priority: c.priority || 'medium',
+      flags: c.flags || [],
+      condition: c.condition || '',
+      last_visit: c.lastVisit || 'New client',
+      photo_url: c.photo || null,
+    };
+  }
   const loadData = useCallback(async (userId) => {
     if (!userId) return;
     setLoadingError(null);
@@ -59,11 +93,11 @@ export function RouteMeProvider({ children }) {
         .order('created_at', { ascending: false });
 
       if (clientErr) {
-        console.error('Client load error:', clientErr.message);
-        setClients(CLIENTS_SEED);
-      } else {
-        setClients(clientData || []);
-      }
+              console.error('Client load error:', clientErr.message);
+              setClients(CLIENTS_SEED);
+            } else {
+              setClients((clientData || []).map(mapClientFromDB));
+            }
 
       // Load today's schedule with client details
       const today = new Date().toISOString().split('T')[0];
@@ -260,7 +294,7 @@ export function RouteMeProvider({ children }) {
     }
 
     // 3. Update local state
-    setClients((cs) => [newClient, ...cs]);
+        setClients((cs) => [mapClientFromDB(newClient), ...cs]);
     setScheduleEntries((se) => [...se, {
       id: 'tmp',
       nurse_id: userId,
