@@ -14,28 +14,36 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   const submit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+      e.preventDefault();
+      setError("");
+      setLoading(true);
 
-    const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+      try {
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-    if (authError) {
-      setError(authError.message);
+        if (authError) {
+          setError(authError.message);
+          setLoading(false);
+          return;
+        }
+
+        if (data?.session) {
+          setAuthed(true);
+          pushAudit("Signed in — Supabase auth", "read");
+          navigate("/app/dashboard");
+        }
+      } catch (err) {
+        setError(
+          err?.message === "Failed to fetch"
+            ? "Cannot reach the database. This can happen if the Supabase project was paused due to inactivity. Please try again in a moment."
+            : err?.message || "An unexpected error occurred. Please try again."
+        );
+      }
       setLoading(false);
-      return;
-    }
-
-    if (data?.session) {
-      setAuthed(true);
-      pushAudit("Signed in — Supabase auth", "read");
-      navigate("/app/dashboard");
-    }
-    setLoading(false);
-  };
+    };
 
   return (
     <div className="min-h-screen bg-[#F9F8F6] grid lg:grid-cols-2">
