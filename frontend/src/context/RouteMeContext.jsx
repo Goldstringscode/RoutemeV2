@@ -24,7 +24,8 @@ export function RouteMeProvider({ children }) {
   const [noteViewMode, setNoteViewMode] = useState("compose"); // "compose" | "history"
 
   // Track last loaded user to avoid duplicate loads
-  const lastUserId = useRef(null);
+    const lastUserId = useRef(null);
+    const userIdRef = useRef(null); // current user ID for mutations
 
   // Map a Supabase client row to frontend camelCase props
   function mapClientFromDB(c) {
@@ -176,35 +177,38 @@ export function RouteMeProvider({ children }) {
   // --- Auth handling ---
   useEffect(() => {
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data?.session) {
-        setAuthed(true);
-        const uid = data.session.user.id;
-        lastUserId.current = uid;
-        await loadData(uid);
-      }
-      setSupabaseReady(true);
-    };
-    init();
+          const { data } = await supabase.auth.getSession();
+          if (data?.session) {
+            setAuthed(true);
+            const uid = data.session.user.id;
+            userIdRef.current = uid;
+            lastUserId.current = uid;
+            await loadData(uid);
+          }
+          setSupabaseReady(true);
+        };
+        init();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        setAuthed(true);
-        const uid = session.user.id;
-        if (uid !== lastUserId.current) {
-          lastUserId.current = uid;
-          await loadData(uid);
-        }
-      } else if (event === 'SIGNED_OUT') {
-        setAuthed(false);
-        setDataReady(false);
-        setClients([]);
-        setScheduleEntries([]);
-        setNotes({});
-        setAudit([]);
-        lastUserId.current = null;
-      }
-    });
+        const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'SIGNED_IN' && session) {
+            setAuthed(true);
+            const uid = session.user.id;
+            userIdRef.current = uid;
+            if (uid !== lastUserId.current) {
+              lastUserId.current = uid;
+              await loadData(uid);
+            }
+          } else if (event === 'SIGNED_OUT') {
+            setAuthed(false);
+            setDataReady(false);
+            setClients([]);
+            setScheduleEntries([]);
+            setNotes({});
+            setAudit([]);
+            userIdRef.current = null;
+            lastUserId.current = null;
+          }
+        });
 
     return () => listener?.subscription?.unsubscribe();
   }, [loadData]);
@@ -221,16 +225,15 @@ export function RouteMeProvider({ children }) {
   const scheduleIds = useMemo(() => schedule.map((c) => c.id), [schedule]);
 
   // --- Audit helper ---
-  const pushAudit = useCallback(async (label, type = 'read') => {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-    if (!userId) return;
+    const pushAudit = useCallback(async (label, type = 'read') => {
+      const userId = userIdRef.current;
+      if (!userId) return;
 
-    const { error } = await supabase.from('audit_logs').insert({
-      nurse_id: userId,
-      label,
-      type,
-    });
+      const { error } = await supabase.from('audit_logs').insert({
+        nurse_id: userId,
+        label,
+        type,
+      });
 
     if (error) {
       console.warn('Audit insert error:', error.message);
@@ -246,9 +249,8 @@ export function RouteMeProvider({ children }) {
 
   // --- Client CRUD ---
   const addClient = useCallback(async (c) => {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-    if (!userId) return;
+      const userId = userIdRef.current;
+      if (!userId) return;
 
     // 1. Insert client
     const { data: newClient, error: clientErr } = await supabase
@@ -355,9 +357,8 @@ export function RouteMeProvider({ children }) {
 
   // --- Schedule operations ---
   const reorder = useCallback(async (ids) => {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-    if (!userId) return;
+      const userId = userIdRef.current;
+      if (!userId) return;
 
     // Update sort_order for each entry in the new order
     const today = new Date().toISOString().split('T')[0];
@@ -395,10 +396,9 @@ export function RouteMeProvider({ children }) {
   }, [schedule, reorder, pushAudit]);
 
   // --- Notes ---
-  const addNote = useCallback(async (clientId, text, visitType = 'Routine visit', status = 'Completed') => {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-    if (!userId) return;
+    const addNote = useCallback(async (clientId, text, visitType = 'Routine visit', status = 'Completed') => {
+      const userId = userIdRef.current;
+      if (!userId) return;
 
     const { data: newNote, error } = await supabase
       .from('visit_notes')
