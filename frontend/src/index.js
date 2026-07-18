@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "@/index.css";
 import App from "@/App";
+import * as serviceWorkerRegistration from "@/serviceWorkerRegistration";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,3 +23,6 @@ root.render(
     </QueryClientProvider>
   </React.StrictMode>,
 );
+
+// Register service worker for offline support and PWA
+serviceWorkerRegistration.register();

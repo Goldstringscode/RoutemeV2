@@ -95,10 +95,10 @@ let webpackConfig = {
       };
 
       // Add health check plugin to webpack if enabled
-      if (config.enableHealthCheck && healthPluginInstance) {
-        webpackConfig.plugins.push(healthPluginInstance);
-      }
-      return webpackConfig;
+            if (config.enableHealthCheck && healthPluginInstance) {
+              webpackConfig.plugins.push(healthPluginInstance);
+            }
+            return webpackConfig;
     },
   },
 };
