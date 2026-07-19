@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Clock, Fuel, Route, ArrowUpRight, Phone, ShieldCheck, Mic, TrendingUp, Coffee, Users, FileText } from "lucide-react";
+import { Clock, Fuel, Route, ArrowUpRight, Phone, ShieldCheck, Mic, TrendingUp, Coffee, Users, FileText, Bookmark } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import StylizedMap from "@/components/StylizedMap";
 import { MAP_STOPS } from "@/lib/mockData";
@@ -80,7 +80,7 @@ function sparklineArea(values, width = 300, height = 80) {
 }
 
 export default function Dashboard() {
-  const { nurse, schedule, audit, openVoice } = useRouteMe();
+  const { nurse, schedule, audit, openVoice, savedRoutes, loadRoute } = useRouteMe();
   const next = schedule[0];
   const totalMinutes = schedule.reduce((s, c) => s + (c.duration || 30), 0);
   const totalHours = Math.floor(totalMinutes / 60);
@@ -178,10 +178,18 @@ export default function Dashboard() {
             </p>
             <Link
               to="/app/clients"
-              className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-5 py-2.5 text-sm font-semibold transition-colors"
+              className="inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-5 py-2.5 text-sm font-semibold transition-colors"
             >
               <Users className="h-4 w-4" /> Add clients
             </Link>
+            {savedRoutes.length > 0 && (
+              <Link
+                to="/app/schedule"
+                className="mt-2 inline-flex items-center gap-2 rounded-full border border-stone-300 hover:bg-stone-50 text-stone-700 px-5 py-2.5 text-sm font-semibold transition-colors"
+              >
+                <Bookmark className="h-4 w-4" /> Load saved route
+              </Link>
+            )}
           </div>
         )}
 

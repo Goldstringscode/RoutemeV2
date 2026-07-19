@@ -17,6 +17,7 @@ export function RouteMeProvider({ children }) {
   const [audit, setAudit] = useState([]);
   const [nurse, setNurse] = useState(NURSE_FALLBACK);
   const [optimized, setOptimized] = useState(true);
+  const [savedRoutes, setSavedRoutes] = useState([]);
 
   // UI state (no persistence needed)
   const [voiceOpen, setVoiceOpen] = useState(false);
@@ -24,8 +25,8 @@ export function RouteMeProvider({ children }) {
   const [noteViewMode, setNoteViewMode] = useState("compose"); // "compose" | "history"
 
   // Track last loaded user to avoid duplicate loads
-    const lastUserId = useRef(null);
-    const userIdRef = useRef(null); // current user ID for mutations
+  const lastUserId = useRef(null);
+  const userIdRef = useRef(null); // current user ID for mutations
 
   // Map a Supabase client row to frontend camelCase props
   function mapClientFromDB(c) {
@@ -62,6 +63,7 @@ export function RouteMeProvider({ children }) {
       photo_url: c.photo || null,
     };
   }
+
   const loadData = useCallback(async (userId) => {
     if (!userId) return;
     setLoadingError(null);
@@ -94,11 +96,11 @@ export function RouteMeProvider({ children }) {
         .order('created_at', { ascending: false });
 
       if (clientErr) {
-              console.error('Client load error:', clientErr.message);
-              setClients(CLIENTS_SEED);
-            } else {
-              setClients((clientData || []).map(mapClientFromDB));
-            }
+        console.error('Client load error:', clientErr.message);
+        setClients(CLIENTS_SEED);
+      } else {
+        setClients((clientData || []).map(mapClientFromDB));
+      }
 
       // Load today's schedule with client details
       const today = new Date().toISOString().split('T')[0];
@@ -162,6 +164,19 @@ export function RouteMeProvider({ children }) {
         })));
       }
 
+      // Load saved routes
+      const { data: routeData, error: routeErr } = await supabase
+        .from('saved_routes')
+        .select('*')
+        .eq('nurse_id', userId)
+        .order('updated_at', { ascending: false });
+
+      if (routeErr) {
+        console.warn('Saved routes load error:', routeErr.message);
+      } else if (routeData) {
+        setSavedRoutes(routeData);
+      }
+
       setDataReady(true);
     } catch (err) {
       console.error('Data load failed:', err);
@@ -177,38 +192,39 @@ export function RouteMeProvider({ children }) {
   // --- Auth handling ---
   useEffect(() => {
     const init = async () => {
-          const { data } = await supabase.auth.getSession();
-          if (data?.session) {
-            setAuthed(true);
-            const uid = data.session.user.id;
-            userIdRef.current = uid;
-            lastUserId.current = uid;
-            await loadData(uid);
-          }
-          setSupabaseReady(true);
-        };
-        init();
+      const { data } = await supabase.auth.getSession();
+      if (data?.session) {
+        setAuthed(true);
+        const uid = data.session.user.id;
+        userIdRef.current = uid;
+        lastUserId.current = uid;
+        await loadData(uid);
+      }
+      setSupabaseReady(true);
+    };
+    init();
 
-        const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-          if (event === 'SIGNED_IN' && session) {
-            setAuthed(true);
-            const uid = session.user.id;
-            userIdRef.current = uid;
-            if (uid !== lastUserId.current) {
-              lastUserId.current = uid;
-              await loadData(uid);
-            }
-          } else if (event === 'SIGNED_OUT') {
-            setAuthed(false);
-            setDataReady(false);
-            setClients([]);
-            setScheduleEntries([]);
-            setNotes({});
-            setAudit([]);
-            userIdRef.current = null;
-            lastUserId.current = null;
-          }
-        });
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        setAuthed(true);
+        const uid = session.user.id;
+        userIdRef.current = uid;
+        if (uid !== lastUserId.current) {
+          lastUserId.current = uid;
+          await loadData(uid);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setAuthed(false);
+        setDataReady(false);
+        setClients([]);
+        setScheduleEntries([]);
+        setNotes({});
+        setAudit([]);
+        setSavedRoutes([]);
+        userIdRef.current = null;
+        lastUserId.current = null;
+      }
+    });
 
     return () => listener?.subscription?.unsubscribe();
   }, [loadData]);
@@ -225,15 +241,15 @@ export function RouteMeProvider({ children }) {
   const scheduleIds = useMemo(() => schedule.map((c) => c.id), [schedule]);
 
   // --- Audit helper ---
-    const pushAudit = useCallback(async (label, type = 'read') => {
-      const userId = userIdRef.current;
-      if (!userId) return;
+  const pushAudit = useCallback(async (label, type = 'read') => {
+    const userId = userIdRef.current;
+    if (!userId) return;
 
-      const { error } = await supabase.from('audit_logs').insert({
-        nurse_id: userId,
-        label,
-        type,
-      });
+    const { error } = await supabase.from('audit_logs').insert({
+      nurse_id: userId,
+      label,
+      type,
+    });
 
     if (error) {
       console.warn('Audit insert error:', error.message);
@@ -249,8 +265,8 @@ export function RouteMeProvider({ children }) {
 
   // --- Client CRUD ---
   const addClient = useCallback(async (c) => {
-      const userId = userIdRef.current;
-      if (!userId) return;
+    const userId = userIdRef.current;
+    if (!userId) return;
 
     // 1. Insert client
     const { data: newClient, error: clientErr } = await supabase
@@ -296,7 +312,7 @@ export function RouteMeProvider({ children }) {
     }
 
     // 3. Update local state
-        setClients((cs) => [mapClientFromDB(newClient), ...cs]);
+    setClients((cs) => [mapClientFromDB(newClient), ...cs]);
     setScheduleEntries((se) => [...se, {
       id: 'tmp',
       nurse_id: userId,
@@ -357,8 +373,8 @@ export function RouteMeProvider({ children }) {
 
   // --- Schedule operations ---
   const reorder = useCallback(async (ids) => {
-      const userId = userIdRef.current;
-      if (!userId) return;
+    const userId = userIdRef.current;
+    if (!userId) return;
 
     // Update sort_order for each entry in the new order
     const today = new Date().toISOString().split('T')[0];
@@ -395,10 +411,100 @@ export function RouteMeProvider({ children }) {
     pushAudit('Route re-optimized', 'route');
   }, [schedule, reorder, pushAudit]);
 
+  // --- Saved Routes ---
+  const saveRoute = useCallback(async (name) => {
+    const userId = userIdRef.current;
+    if (!userId) return;
+
+    const stops = schedule.map((c) => c.id);
+    if (stops.length === 0) return;
+
+    const { data: newRoute, error } = await supabase
+      .from('saved_routes')
+      .insert({
+        nurse_id: userId,
+        name,
+        stops,
+        stop_count: stops.length,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Save route error:', error.message);
+      return;
+    }
+
+    setSavedRoutes((rs) => [newRoute, ...rs]);
+    pushAudit(`Route saved — "${name}"`, 'route');
+  }, [schedule, pushAudit]);
+
+  const deleteSavedRoute = useCallback(async (routeId) => {
+    const { error } = await supabase
+      .from('saved_routes')
+      .delete()
+      .eq('id', routeId);
+
+    if (error) {
+      console.error('Delete saved route error:', error.message);
+      return;
+    }
+
+    setSavedRoutes((rs) => rs.filter((r) => r.id !== routeId));
+    pushAudit('Saved route deleted', 'route');
+  }, [pushAudit]);
+
+  const loadRoute = useCallback(async (routeId) => {
+    const userId = userIdRef.current;
+    if (!userId) return;
+
+    const route = savedRoutes.find((r) => r.id === routeId);
+    if (!route) return;
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // 1. Delete existing schedule for today
+    await supabase
+      .from('schedules')
+      .delete()
+      .eq('nurse_id', userId)
+      .eq('visit_date', today);
+
+    // 2. Insert new schedule entries from saved route
+    const inserts = route.stops.map((clientId, i) => ({
+      nurse_id: userId,
+      client_id: clientId,
+      visit_date: today,
+      sort_order: i,
+    }));
+
+    if (inserts.length > 0) {
+      const { error } = await supabase
+        .from('schedules')
+        .insert(inserts);
+
+      if (error) {
+        console.error('Load route insert error:', error.message);
+        return;
+      }
+    }
+
+    // 3. Update local state
+    setScheduleEntries(route.stops.map((clientId, i) => ({
+      client_id: clientId,
+      sort_order: i,
+      visit_date: today,
+      nurse_id: userId,
+    })));
+    setOptimized(false);
+
+    pushAudit(`Route loaded — "${route.name}"`, 'route');
+  }, [savedRoutes, pushAudit]);
+
   // --- Notes ---
-    const addNote = useCallback(async (clientId, text, visitType = 'Routine visit', status = 'Completed') => {
-      const userId = userIdRef.current;
-      if (!userId) return;
+  const addNote = useCallback(async (clientId, text, visitType = 'Routine visit', status = 'Completed') => {
+    const userId = userIdRef.current;
+    if (!userId) return;
 
     const { data: newNote, error } = await supabase
       .from('visit_notes')
@@ -469,6 +575,10 @@ export function RouteMeProvider({ children }) {
     openVoice,
     noteViewMode,
     setNoteViewMode,
+    savedRoutes,
+    saveRoute,
+    loadRoute,
+    deleteSavedRoute,
   };
 
   return <RouteMeContext.Provider value={value}>{children}</RouteMeContext.Provider>;
