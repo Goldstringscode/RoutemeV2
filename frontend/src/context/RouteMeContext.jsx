@@ -44,6 +44,8 @@ export function RouteMeProvider({ children }) {
       condition: c.condition || '',
       lastVisit: c.last_visit || 'New client',
       photo: c.photo_url || null,
+      lat: c.lat,
+      lng: c.lng,
     };
   }
 
@@ -499,9 +501,45 @@ export function RouteMeProvider({ children }) {
     setOptimized(false);
 
     pushAudit(`Route loaded — "${route.name}"`, 'route');
-  }, [savedRoutes, pushAudit]);
+      }, [savedRoutes, pushAudit]);
 
-  // --- Notes ---
+      // --- Add existing client to today's schedule ---
+      const addToSchedule = useCallback(async (clientId) => {
+        const userId = userIdRef.current;
+        if (!userId) return;
+
+        // Check if already scheduled today
+        const today = new Date().toISOString().split('T')[0];
+        const alreadyScheduled = scheduleEntries.some((s) => s.client_id === clientId);
+        if (alreadyScheduled) return;
+
+        const nextOrder = scheduleEntries.length;
+
+        const { error } = await supabase
+          .from('schedules')
+          .insert({
+            nurse_id: userId,
+            client_id: clientId,
+            visit_date: today,
+            sort_order: nextOrder,
+          });
+
+        if (error) {
+          console.error('Add to schedule error:', error.message);
+          return;
+        }
+
+        setScheduleEntries((se) => [...se, {
+          client_id: clientId,
+          sort_order: nextOrder,
+          visit_date: today,
+          nurse_id: userId,
+        }]);
+        setOptimized(false);
+        pushAudit('Client added to today\'s route', 'route');
+      }, [scheduleEntries, pushAudit]);
+
+      // --- Notes ---
   const addNote = useCallback(async (clientId, text, visitType = 'Routine visit', status = 'Completed') => {
     const userId = userIdRef.current;
     if (!userId) return;
@@ -558,9 +596,10 @@ export function RouteMeProvider({ children }) {
     setClients,
     schedule,
     scheduleIds,
-    reorder,
-    optimize,
-    optimized,
+        reorder,
+        optimize,
+        optimized,
+        addToSchedule,
     notes,
     addNote,
     audit,

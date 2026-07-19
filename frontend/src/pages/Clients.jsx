@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Plus, Search, Phone, MapPin, Mic, X, StickyNote, Eye, Pencil, Trash2, Users } from "lucide-react";
+import { Plus, Search, Phone, MapPin, Mic, X, StickyNote, Eye, Pencil, Trash2, Users, CalendarPlus, Navigation, ExternalLink } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { googleMapsUrl, appleMapsUrl } from "@/lib/directions";
 
 const emptyClient = {
   initials: "",
@@ -18,7 +19,7 @@ const emptyClient = {
 };
 
 export default function Clients() {
-  const { clients, addClient, updateClient, removeClient, notes, openVoice, setNoteViewMode, setVoiceOpen, setVoiceTarget } = useRouteMe();
+  const { clients, addClient, updateClient, removeClient, notes, openVoice, setNoteViewMode, setVoiceOpen, setVoiceTarget, scheduleIds, addToSchedule } = useRouteMe();
   const [q, setQ] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(emptyClient);
@@ -199,25 +200,61 @@ export default function Clients() {
                 ))}
               </div>
 
-              <div className="mt-5 pt-4 border-t border-stone-200 flex items-center justify-between">
-                              <button
-                                onClick={() => {
-                                  setVoiceTarget(c.id);
-                                  setNoteViewMode("history");
-                                  setVoiceOpen(true);
-                                }}
-                                className="text-xs text-stone-500 hover:text-[#D95D39] flex items-center gap-1 transition-colors"
-                              >
-                                <StickyNote className="h-3 w-3" /> {noteCount} note{noteCount === 1 ? "" : "s"}
-                              </button>
-                              <button
-                                onClick={() => openVoice(c.id)}
-                                data-testid={`client-voice-${c.id}`}
-                                className="inline-flex items-center gap-1.5 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-3 py-1.5 text-xs font-semibold transition-colors"
-                              >
-                                <Mic className="h-3 w-3" /> New note
-                              </button>
-                            </div>
+              <div className="mt-5 pt-4 border-t border-stone-200 flex flex-wrap items-center gap-2">
+                {/* Add to route button */}
+                {!scheduleIds.includes(c.id) && (
+                  <button
+                    onClick={() => addToSchedule(c.id)}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#E3ECE5] hover:bg-emerald-200 text-emerald-800 px-3 py-1.5 text-xs font-semibold transition-colors"
+                    title="Add to today's route"
+                  >
+                    <CalendarPlus className="h-3 w-3" /> Add to route
+                  </button>
+                )}
+
+                {/* Navigate buttons */}
+                {c.lat && c.lng && (
+                  <div className="flex items-center gap-1">
+                    <a
+                      href={googleMapsUrl(c.lat, c.lng, c.address)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-full border border-stone-200 hover:bg-stone-50 text-stone-600 px-2.5 py-1.5 text-[10px] font-semibold transition-colors"
+                      title="Open in Google Maps"
+                    >
+                      <ExternalLink className="h-3 w-3" /> Google
+                    </a>
+                    <a
+                      href={appleMapsUrl(c.lat, c.lng)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-full border border-stone-200 hover:bg-stone-50 text-stone-600 px-2.5 py-1.5 text-[10px] font-semibold transition-colors"
+                      title="Open in Apple Maps"
+                    >
+                      <Navigation className="h-3 w-3" /> Apple
+                    </a>
+                  </div>
+                )}
+
+                {/* Notes */}
+                <button
+                  onClick={() => {
+                    setVoiceTarget(c.id);
+                    setNoteViewMode("history");
+                    setVoiceOpen(true);
+                  }}
+                  className="text-xs text-stone-500 hover:text-[#D95D39] flex items-center gap-1 transition-colors"
+                >
+                  <StickyNote className="h-3 w-3" /> {noteCount} note{noteCount === 1 ? "" : "s"}
+                </button>
+                <button
+                  onClick={() => openVoice(c.id)}
+                  data-testid={`client-voice-${c.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-3 py-1.5 text-xs font-semibold transition-colors"
+                >
+                  <Mic className="h-3 w-3" /> New note
+                </button>
+              </div>
 
                             {noteCount > 0 && (
                               <div className="mt-3 rounded-xl bg-[#F9F8F6] border border-stone-200 p-3">
