@@ -45,14 +45,18 @@ export default function StylizedMap({ compact = false, onStopClick, routeGeoJson
     mapboxgl.accessToken = TOKEN;
 
     const lats = orderedStops.map((s) => s.lat);
-    const lngs = orderedStops.map((s) => s.lng);
-    const centerLat = lats.reduce((a, b) => a + b, 0) / lats.length;
-    const centerLng = lngs.reduce((a, b) => a + b, 0) / lngs.length;
+        const lngs = orderedStops.map((s) => s.lng);
+        const centerLat = lats.length > 0
+          ? lats.reduce((a, b) => a + b, 0) / lats.length
+          : 34.0522; // fallback: Los Angeles
+        const centerLng = lngs.length > 0
+          ? lngs.reduce((a, b) => a + b, 0) / lngs.length
+          : -118.2437;
 
-    const map = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: "mapbox://styles/mapbox/light-v11",
-      center: [centerLng, centerLat],
+        const map = new mapboxgl.Map({
+          container: mapContainer.current,
+          style: "mapbox://styles/mapbox/light-v11",
+          center: [centerLng, centerLat],
       zoom: compact ? 9.5 : 9,
       interactive: !compact,
       attributionControl: false,
