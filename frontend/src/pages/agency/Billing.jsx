@@ -4,16 +4,17 @@ import { CreditCard, Check, ArrowUpRight, Download } from "lucide-react";
 
 const PLANS = [
   {
-    name: "Starter",
-    price: 39,
-    seats: 5,
-    features: ["Route optimization", "Voice notes", "Basic audit log"],
+    name: "Solo",
+    price: 0,
+    priceLabel: "Free",
+    seats: 1,
+    features: ["Route optimization", "Voice notes", "Personal audit trail"],
   },
   {
     name: "Growth",
     price: 65,
     seats: 20,
-    features: ["Everything in Starter", "Live activity feed", "Full HIPAA audit trail", "Priority support"],
+    features: ["Everything in Solo", "Agency admin console", "Live Command Center map", "Full HIPAA audit trail", "Priority support"],
     current: true,
   },
   {
@@ -21,6 +22,13 @@ const PLANS = [
     price: 55,
     seats: 100,
     features: ["Everything in Growth", "SSO / SAML", "Custom BAA", "API access", "Dedicated CSM"],
+  },
+  {
+    name: "Enterprise",
+    price: null,
+    priceLabel: "Custom",
+    seats: "unlimited",
+    features: ["Everything in Scale", "White-label branding", "24/7 phone support", "Custom integrations", "Named security officer"],
   },
 ];
 
@@ -103,7 +111,7 @@ export default function AgencyBilling() {
       {/* Plans */}
       <div>
         <h3 className="font-display text-2xl mb-4">Plans</h3>
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
           {PLANS.map((p) => (
             <div
               key={p.name}
@@ -126,13 +134,17 @@ export default function AgencyBilling() {
                   )}
                 </div>
                 <div className="mt-4 flex items-baseline gap-1">
-                  <span className="font-display text-5xl">${p.price}</span>
-                  <span className={`text-sm ${p.current ? "text-white/60" : "text-stone-500"}`}>
-                    /seat/mo
+                  <span className="font-display text-4xl">
+                    {p.price === null ? p.priceLabel : p.price === 0 ? "Free" : `$${p.price}`}
                   </span>
+                  {p.price !== null && p.price > 0 && (
+                    <span className={`text-sm ${p.current ? "text-white/60" : "text-stone-500"}`}>
+                      /seat/mo
+                    </span>
+                  )}
                 </div>
                 <p className={`text-xs mt-1 ${p.current ? "text-white/60" : "text-stone-500"}`}>
-                  Up to {p.seats} seats
+                  {p.seats === "unlimited" ? "Unlimited seats" : `Up to ${p.seats} seat${p.seats === 1 ? "" : "s"}`}
                 </p>
 
                 <ul className="mt-6 space-y-2 text-sm">
@@ -154,10 +166,16 @@ export default function AgencyBilling() {
                   className={`mt-6 w-full inline-flex items-center justify-center gap-2 rounded-full h-11 text-sm font-semibold transition-colors ${
                     p.current
                       ? "bg-white/10 text-white/60 cursor-default"
-                      : "bg-[#D95D39] hover:bg-[#C05030] text-white"
+                      : p.price === null
+                        ? "bg-stone-900 hover:bg-stone-800 text-white"
+                        : "bg-[#D95D39] hover:bg-[#C05030] text-white"
                   }`}
                 >
-                  {p.current ? "Current plan" : "Switch to " + p.name}
+                  {p.current
+                    ? "Current plan"
+                    : p.price === null
+                      ? "Contact sales"
+                      : "Switch to " + p.name}
                   {!p.current && <ArrowUpRight className="h-4 w-4" />}
                 </button>
               </div>

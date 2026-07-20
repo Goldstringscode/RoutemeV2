@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Phone, MessageSquare, Check, X, Route, Clock } from "lucide-react";
+import { Phone, MessageSquare, Check, X, Route, Clock, Shuffle } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
+import ReassignDialog from "@/components/ReassignDialog";
 
 // Positions per nurse on a 1000x600 stylized map (Austin metro spread)
 const PIN_POSITIONS = {
@@ -32,6 +33,7 @@ export default function CommandCenterMap() {
   const active = nurses.filter((n) => n.status === "active");
   const [selectedId, setSelectedId] = useState(null);
   const [messageSentId, setMessageSentId] = useState(null);
+  const [reassignOpen, setReassignOpen] = useState(false);
   useShimmer();
 
   const selected = active.find((n) => n.id === selectedId);
@@ -261,12 +263,26 @@ export default function CommandCenterMap() {
               </button>
             </div>
 
+            <button
+              data-testid={`pin-reassign-${selected.id}`}
+              onClick={() => setReassignOpen(true)}
+              className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 text-white h-10 text-xs font-semibold transition-colors"
+            >
+              <Shuffle className="h-3.5 w-3.5" /> Reassign visit
+            </button>
+
             <p className="text-[10px] text-stone-400 text-center pt-1">
               Encrypted · call & message routed through agency BAA
             </p>
           </div>
         </div>
       )}
+
+      <ReassignDialog
+        open={reassignOpen}
+        onOpenChange={setReassignOpen}
+        fromNurseId={selected?.id}
+      />
     </div>
   );
 }

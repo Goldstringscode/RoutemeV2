@@ -10,6 +10,8 @@ import RouteView from "@/pages/RouteView";
 import Schedule from "@/pages/Schedule";
 import Clients from "@/pages/Clients";
 import Profile from "@/pages/Profile";
+import ClientDetail from "@/pages/ClientDetail";
+import Pricing from "@/pages/Pricing";
 import AgencyLogin from "@/pages/AgencyLogin";
 import AgencyOverview from "@/pages/agency/Overview";
 import AgencyNurses from "@/pages/agency/Nurses";
@@ -17,6 +19,7 @@ import AgencyActivity from "@/pages/agency/Activity";
 import AgencyClientsDir from "@/pages/agency/ClientsDir";
 import AgencyCompliance from "@/pages/agency/Compliance";
 import AgencyBilling from "@/pages/agency/Billing";
+import NurseDetail from "@/pages/agency/NurseDetail";
 
 function Protected({ children }) {
   const { authed } = useRouteMe();
@@ -37,6 +40,7 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Landing />} />
+            <Route path="/pricing" element={<Pricing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/agency/login" element={<AgencyLogin />} />
 
@@ -53,6 +57,7 @@ function App() {
               <Route path="route" element={<RouteView />} />
               <Route path="schedule" element={<Schedule />} />
               <Route path="clients" element={<Clients />} />
+              <Route path="clients/:id" element={<ClientDetail />} />
               <Route path="profile" element={<Profile />} />
             </Route>
 
@@ -67,6 +72,7 @@ function App() {
               <Route index element={<Navigate to="/agency/overview" replace />} />
               <Route path="overview" element={<AgencyOverview />} />
               <Route path="nurses" element={<AgencyNurses />} />
+              <Route path="nurses/:id" element={<NurseDetail />} />
               <Route path="activity" element={<AgencyActivity />} />
               <Route path="clients" element={<AgencyClientsDir />} />
               <Route path="compliance" element={<AgencyCompliance />} />

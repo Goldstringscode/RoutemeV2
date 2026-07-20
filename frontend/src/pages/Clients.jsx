@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Plus, Search, Phone, MapPin, Mic, StickyNote } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Plus, Search, Phone, MapPin, Mic, StickyNote, ChevronDown, ArrowUpRight, Clock, Calendar } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
@@ -24,6 +25,7 @@ export default function Clients() {
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(emptyClient);
   const [flagInput, setFlagInput] = useState("");
+  const [expandedId, setExpandedId] = useState(null);
 
   const filtered = clients.filter(
     (c) =>
@@ -87,13 +89,22 @@ export default function Clients() {
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((c) => {
           const noteCount = notes[c.id]?.length ?? 0;
+          const isExpanded = expandedId === c.id;
           return (
             <article
               key={c.id}
               data-testid={`client-card-${c.id}`}
-              className="rounded-3xl border border-stone-200 bg-white p-5 rm-lift"
+              className={`rounded-3xl border bg-white p-5 transition-all ${
+                isExpanded
+                  ? "border-stone-400 shadow-md md:col-span-2 lg:col-span-3"
+                  : "border-stone-200 rm-lift"
+              }`}
             >
-              <div className="flex items-start justify-between">
+              <button
+                onClick={() => setExpandedId(isExpanded ? null : c.id)}
+                data-testid={`client-expand-${c.id}`}
+                className="w-full text-left flex items-start justify-between gap-3"
+              >
                 <div className="flex items-center gap-3">
                   <div className="h-11 w-11 rounded-2xl bg-[#EFE9DF] border border-stone-200 text-stone-800 font-display font-semibold flex items-center justify-center">
                     {c.initials.slice(0, 3)}
@@ -103,18 +114,23 @@ export default function Clients() {
                     <p className="text-xs text-stone-500">{c.condition}</p>
                   </div>
                 </div>
-                <span
-                  className={`text-[10px] uppercase tracking-widest font-semibold px-2 py-1 rounded-full border ${
-                    c.priority === "high"
-                      ? "bg-[#F7E5DD] text-[#D95D39] border-[#F0D2C4]"
-                      : c.priority === "medium"
-                        ? "bg-[#E3ECE5] text-emerald-900 border-emerald-100"
-                        : "bg-stone-100 text-stone-600 border-stone-200"
-                  }`}
-                >
-                  {c.priority}
-                </span>
-              </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-[10px] uppercase tracking-widest font-semibold px-2 py-1 rounded-full border ${
+                      c.priority === "high"
+                        ? "bg-[#F7E5DD] text-[#D95D39] border-[#F0D2C4]"
+                        : c.priority === "medium"
+                          ? "bg-[#E3ECE5] text-emerald-900 border-emerald-100"
+                          : "bg-stone-100 text-stone-600 border-stone-200"
+                    }`}
+                  >
+                    {c.priority}
+                  </span>
+                  <ChevronDown
+                    className={`h-4 w-4 text-stone-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                  />
+                </div>
+              </button>
 
               <div className="mt-4 space-y-1.5 text-sm">
                 <p className="flex items-center gap-2 text-stone-700">
@@ -127,7 +143,7 @@ export default function Clients() {
               </div>
 
               <div className="mt-4 flex flex-wrap gap-1.5">
-                {c.flags.slice(0, 3).map((f) => (
+                {(isExpanded ? c.flags : c.flags.slice(0, 3)).map((f) => (
                   <span
                     key={f}
                     className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F9F8F6] border border-stone-200 text-stone-600"
@@ -135,19 +151,50 @@ export default function Clients() {
                     {f}
                   </span>
                 ))}
+                {!isExpanded && c.flags.length > 3 && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white border border-stone-200 text-stone-500">
+                    +{c.flags.length - 3}
+                  </span>
+                )}
               </div>
 
-              <div className="mt-5 pt-4 border-t border-stone-200 flex items-center justify-between">
+              {isExpanded && (
+                <div className="mt-5 pt-5 border-t border-stone-200 grid md:grid-cols-3 gap-4 rm-fade-up">
+                  <ExpInfo icon={Calendar} label="Date of birth" value={c.dob} />
+                  <ExpInfo icon={Clock} label="Preferred window" value={c.window} />
+                  <ExpInfo icon={Clock} label="Duration" value={`${c.duration} min`} />
+                  <ExpInfo icon={StickyNote} label="Last visit" value={c.lastVisit} />
+                  <ExpInfo
+                    icon={StickyNote}
+                    label="Visit notes"
+                    value={`${noteCount} recorded`}
+                  />
+                </div>
+              )}
+
+              <div className="mt-5 pt-4 border-t border-stone-200 flex items-center justify-between gap-2">
                 <span className="text-xs text-stone-500 flex items-center gap-1">
                   <StickyNote className="h-3 w-3" /> {noteCount} note{noteCount === 1 ? "" : "s"}
                 </span>
-                <button
-                  onClick={() => openVoice(c.id)}
-                  data-testid={`client-voice-${c.id}`}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-3 py-1.5 text-xs font-semibold transition-colors"
-                >
-                  <Mic className="h-3 w-3" /> Note
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openVoice(c.id);
+                    }}
+                    data-testid={`client-voice-${c.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-3 py-1.5 text-xs font-semibold transition-colors"
+                  >
+                    <Mic className="h-3 w-3" /> Note
+                  </button>
+                  <Link
+                    to={`/app/clients/${c.id}`}
+                    data-testid={`client-view-full-${c.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-stone-300 hover:bg-stone-50 text-stone-800 px-3 py-1.5 text-xs font-semibold transition-colors"
+                  >
+                    Full profile <ArrowUpRight className="h-3 w-3" />
+                  </Link>
+                </div>
               </div>
 
               {noteCount > 0 && (
@@ -155,7 +202,7 @@ export default function Clients() {
                   <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold mb-1">
                     Latest note
                   </p>
-                  <p className="text-xs text-stone-700 line-clamp-2">
+                  <p className={`text-xs text-stone-700 ${isExpanded ? "" : "line-clamp-2"}`}>
                     {notes[c.id][0].text}
                   </p>
                 </div>
@@ -285,6 +332,17 @@ function Field({ label, children }) {
     <div>
       <label className="text-xs font-semibold text-stone-700 tracking-wide block mb-1">{label}</label>
       {children}
+    </div>
+  );
+}
+
+function ExpInfo({ icon: Icon, label, value }) {
+  return (
+    <div className="rounded-xl bg-[#F9F8F6] border border-stone-200 p-3">
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-stone-500 font-semibold">
+        <Icon className="h-3 w-3" /> {label}
+      </div>
+      <div className="mt-1 text-sm font-semibold text-stone-800">{value}</div>
     </div>
   );
 }

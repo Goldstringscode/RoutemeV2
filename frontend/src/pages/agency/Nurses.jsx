@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Search, Copy, Check, MoreHorizontal, Mail, MapPin } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Plus, Search, Copy, Check, MoreHorizontal, Mail, MapPin, ArrowUpRight } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
@@ -27,6 +28,7 @@ const STATUS_STYLES = {
 
 export default function AgencyNurses() {
   const { nurses, inviteNurse, setNurseStatus, removeNurse } = useRouteMe();
+  const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("all");
   const [addOpen, setAddOpen] = useState(false);
@@ -141,12 +143,20 @@ export default function AgencyNurses() {
           </thead>
           <tbody className="divide-y divide-stone-200">
             {filtered.map((n) => (
-              <tr key={n.id} data-testid={`nurse-row-${n.id}`} className="hover:bg-stone-50/50 transition-colors">
+              <tr
+                key={n.id}
+                data-testid={`nurse-row-${n.id}`}
+                onClick={() => navigate(`/agency/nurses/${n.id}`)}
+                className="hover:bg-stone-50 cursor-pointer transition-colors"
+              >
                 <td className="py-4 px-5">
                   <div className="flex items-center gap-3">
                     <NurseAvatar nurse={n} />
                     <div className="min-w-0">
-                      <p className="font-semibold truncate">{n.name}</p>
+                      <p className="font-semibold truncate flex items-center gap-1.5">
+                        {n.name}
+                        <ArrowUpRight className="h-3 w-3 text-stone-400" />
+                      </p>
                       <p className="text-xs text-stone-500 truncate">{n.email}</p>
                     </div>
                   </div>
@@ -167,7 +177,7 @@ export default function AgencyNurses() {
                   <div className="font-display text-lg tabular-nums">{n.visitsToday}</div>
                 </td>
                 <td className="py-4 px-5 text-stone-600">{n.lastActive}</td>
-                <td className="py-4 px-5">
+                <td className="py-4 px-5" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-1">
                     {n.status === "pending" && (
                       <button
@@ -189,6 +199,9 @@ export default function AgencyNurses() {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="rounded-xl">
+                        <DropdownMenuItem onClick={() => navigate(`/agency/nurses/${n.id}`)}>
+                          View full profile
+                        </DropdownMenuItem>
                         {n.status !== "active" && (
                           <DropdownMenuItem onClick={() => setNurseStatus(n.id, "active")}>
                             Activate
@@ -233,7 +246,11 @@ export default function AgencyNurses() {
       {/* Mobile cards */}
       <div className="md:hidden space-y-3">
         {filtered.map((n) => (
-          <div key={n.id} className="rounded-2xl border border-stone-200 bg-white p-4">
+          <Link
+            to={`/agency/nurses/${n.id}`}
+            key={n.id}
+            className="block rounded-2xl border border-stone-200 bg-white p-4 hover:border-stone-400 transition-colors"
+          >
             <div className="flex items-center gap-3">
               <NurseAvatar nurse={n} />
               <div className="min-w-0 flex-1">
@@ -250,14 +267,18 @@ export default function AgencyNurses() {
             </div>
             {n.status === "pending" && (
               <button
-                onClick={() => copyLink(n)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  copyLink(n);
+                }}
                 className="mt-3 w-full inline-flex items-center justify-center gap-2 text-xs font-semibold py-2 rounded-full border border-stone-200"
               >
                 {copied === n.id ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
                 {copied === n.id ? "Copied" : "Copy invite link"}
               </button>
             )}
-          </div>
+          </Link>
         ))}
       </div>
 

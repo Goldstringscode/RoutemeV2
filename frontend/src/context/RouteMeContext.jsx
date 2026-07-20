@@ -41,7 +41,7 @@ export function RouteMeProvider({ children }) {
   const [agency] = useState(AGENCY);
   const [nurses, setNurses] = useState(initial?.nurses ?? NURSES_SEED);
   const [liveActivity, setLiveActivity] = useState(initial?.liveActivity ?? LIVE_ACTIVITY_SEED);
-  const [agencyClients] = useState(AGENCY_CLIENTS);
+  const [agencyClients, setAgencyClients] = useState(initial?.agencyClients ?? AGENCY_CLIENTS);
   const [complianceLog] = useState(COMPLIANCE_LOG_SEED);
 
   useEffect(() => {
@@ -57,9 +57,10 @@ export function RouteMeProvider({ children }) {
         agencyAuthed,
         nurses,
         liveActivity,
+        agencyClients,
       })
     );
-  }, [authed, clients, scheduleIds, notes, audit, optimized, agencyAuthed, nurses, liveActivity]);
+  }, [authed, clients, scheduleIds, notes, audit, optimized, agencyAuthed, nurses, liveActivity, agencyClients]);
 
   const schedule = useMemo(
     () => scheduleIds.map((id) => clients.find((c) => c.id === id)).filter(Boolean),
@@ -172,6 +173,26 @@ export function RouteMeProvider({ children }) {
   const resetAgencyDemo = () => {
     setNurses(NURSES_SEED);
     setLiveActivity(LIVE_ACTIVITY_SEED);
+    setAgencyClients(AGENCY_CLIENTS);
+  };
+
+  const reassignClient = (clientId, newNurseId) => {
+    setAgencyClients((cs) =>
+      cs.map((c) => (c.id === clientId ? { ...c, nurseId: newNurseId } : c))
+    );
+    const newNurse = nurses.find((n) => n.id === newNurseId);
+    const client = agencyClients.find((c) => c.id === clientId);
+    setLiveActivity((a) =>
+      [
+        {
+          t: "just now",
+          nurseId: newNurseId,
+          label: `Reassigned ${client?.name ?? "client"} → ${newNurse?.name.split(",")[0] ?? "nurse"}`,
+          type: "route",
+        },
+        ...a,
+      ].slice(0, 40)
+    );
   };
 
   const value = {
@@ -209,6 +230,7 @@ export function RouteMeProvider({ children }) {
     setNurseStatus,
     removeNurse,
     resetAgencyDemo,
+    reassignClient,
   };
 
   return <RouteMeContext.Provider value={value}>{children}</RouteMeContext.Provider>;

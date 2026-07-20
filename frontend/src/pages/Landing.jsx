@@ -50,6 +50,7 @@ export default function Landing() {
           </div>
           <nav className="hidden md:flex items-center gap-8 text-sm text-stone-600">
             <a href="#features" className="hover:text-stone-900">Features</a>
+            <Link to="/pricing" className="hover:text-stone-900" data-testid="landing-pricing-link">Pricing</Link>
             <a href="#nurses" className="hover:text-stone-900">For nurses</a>
             <a href="#privacy" className="hover:text-stone-900">Privacy</a>
             <Link to="/agency/login" className="hover:text-stone-900" data-testid="landing-agency-link">For agencies</Link>
