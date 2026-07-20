@@ -20,9 +20,10 @@ export function RouteMeProvider({ children }) {
   const [savedRoutes, setSavedRoutes] = useState([]);
 
   // UI state (no persistence needed)
-  const [voiceOpen, setVoiceOpen] = useState(false);
-  const [voiceTarget, setVoiceTarget] = useState(null);
-  const [noteViewMode, setNoteViewMode] = useState("compose"); // "compose" | "history"
+    const [voiceOpen, setVoiceOpen] = useState(false);
+    const [voiceTarget, setVoiceTarget] = useState(null);
+    const [noteViewMode, setNoteViewMode] = useState("compose"); // "compose" | "history"
+    const [optimizationMode, setOptimizationMode] = useState("priority"); // "priority" | "fastest" | "shortest" | "balanced"
 
   // Track last loaded user to avoid duplicate loads
   const lastUserId = useRef(null);
@@ -374,6 +375,18 @@ export function RouteMeProvider({ children }) {
   }, [pushAudit]);
 
   // --- Schedule operations ---
+  /** Haversine distance between two lat/lng pairs in miles */
+  function haversine(lat1, lng1, lat2, lng2) {
+    const R = 3958.8; // Earth radius in miles
+    const toRad = (d) => (d * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
   const reorder = useCallback(async (ids) => {
     const userId = userIdRef.current;
     if (!userId) return;
@@ -400,18 +413,88 @@ export function RouteMeProvider({ children }) {
   }, []);
 
   const optimize = useCallback(() => {
-    const priorityRank = { high: 0, medium: 1, low: 2 };
-    const next = [...schedule]
-      .sort((a, b) => {
-        const p = priorityRank[a.priority] - priorityRank[b.priority];
-        if (p !== 0) return p;
-        return (a.window || '').localeCompare(b.window || '');
-      })
-      .map((c) => c.id);
-    reorder(next);
-    setOptimized(true);
-    pushAudit('Route re-optimized', 'route');
-  }, [schedule, reorder, pushAudit]);
+      const priorityRank = { high: 0, medium: 1, low: 2 };
+      let next;
+
+      switch (optimizationMode) {
+        case "fastest":
+          // Sort by time window (earliest first) — minimize drive time by hitting appointments in order
+          next = [...schedule]
+            .sort((a, b) => (a.window || '').localeCompare(b.window || ''))
+            .map((c) => c.id);
+          break;
+
+        case "shortest": {
+          // Greedy nearest-neighbor — minimize total mileage
+          const remaining = [...schedule];
+          const ordered = [];
+          // Start with the first stop as-is
+          if (remaining.length > 0) {
+            ordered.push(remaining.shift());
+            while (remaining.length > 0) {
+              const last = ordered[ordered.length - 1];
+              let nearestIdx = 0;
+              let nearestDist = Infinity;
+              for (let i = 0; i < remaining.length; i++) {
+                const d = haversine(last.lat, last.lng, remaining[i].lat, remaining[i].lng);
+                if (d < nearestDist) {
+                  nearestDist = d;
+                  nearestIdx = i;
+                }
+              }
+              ordered.push(remaining.splice(nearestIdx, 1)[0]);
+            }
+          }
+          next = ordered.map((c) => c.id);
+          break;
+        }
+
+        case "balanced": {
+          // Group by priority, then nearest-neighbor within each group
+          const groups = { high: [], medium: [], low: [] };
+          for (const c of schedule) {
+            groups[c.priority || 'medium'].push(c);
+          }
+          const ordered = [];
+          for (const level of ['high', 'medium', 'low']) {
+            const group = groups[level];
+            if (group.length === 0) continue;
+            // Nearest-neighbor within the group
+            const remaining = [...group];
+            ordered.push(remaining.shift());
+            while (remaining.length > 0) {
+              const last = ordered[ordered.length - 1];
+              let nearestIdx = 0;
+              let nearestDist = Infinity;
+              for (let i = 0; i < remaining.length; i++) {
+                const d = haversine(last.lat, last.lng, remaining[i].lat, remaining[i].lng);
+                if (d < nearestDist) {
+                  nearestDist = d;
+                  nearestIdx = i;
+                }
+              }
+              ordered.push(remaining.splice(nearestIdx, 1)[0]);
+            }
+          }
+          next = ordered.map((c) => c.id);
+          break;
+        }
+
+        default: // "priority" — current behavior
+          next = [...schedule]
+            .sort((a, b) => {
+              const p = priorityRank[a.priority] - priorityRank[b.priority];
+              if (p !== 0) return p;
+              return (a.window || '').localeCompare(b.window || '');
+            })
+            .map((c) => c.id);
+          break;
+      }
+
+      reorder(next);
+      setOptimized(true);
+      pushAudit('Route re-optimized', 'route');
+    }, [schedule, reorder, pushAudit, optimizationMode]);
 
   // --- Saved Routes ---
   const saveRoute = useCallback(async (name) => {
@@ -597,9 +680,11 @@ export function RouteMeProvider({ children }) {
     schedule,
     scheduleIds,
         reorder,
-        optimize,
-        optimized,
-        addToSchedule,
+                optimize,
+                optimized,
+                optimizationMode,
+                setOptimizationMode,
+                addToSchedule,
     notes,
     addNote,
     audit,

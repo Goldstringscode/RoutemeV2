@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { GripVertical, Sparkles, Clock, MapPin, Users, Save, FolderOpen, Trash2, X, Check, Bookmark } from "lucide-react";
+import { GripVertical, Sparkles, Clock, MapPin, Users, Save, FolderOpen, Trash2, X, Check, Bookmark, Route, ChevronDown } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 
 export default function Schedule() {
-  const { schedule, reorder, optimize, optimized, savedRoutes, saveRoute, loadRoute, deleteSavedRoute } = useRouteMe();
+  const { schedule, reorder, optimize, optimized, savedRoutes, saveRoute, loadRoute, deleteSavedRoute, optimizationMode, setOptimizationMode } = useRouteMe();
   const [dragId, setDragId] = useState(null);
+  const [modeOpen, setModeOpen] = useState(false);
 
   // Save route modal
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -41,10 +42,26 @@ export default function Schedule() {
   };
 
   const openSaveModal = () => {
-    // Auto-generate a name based on today's date
-    setRouteName(`Route — ${new Date().toLocaleDateString([], { month: 'short', day: 'numeric' })}`);
-    setShowSaveModal(true);
-  };
+      // Auto-generate a name based on today's date
+      setRouteName(`Route — ${new Date().toLocaleDateString([], { month: 'short', day: 'numeric' })}`);
+      setShowSaveModal(true);
+    };
+
+    const modeLabels = {
+      priority: "Priority first",
+      fastest: "Fastest route",
+      shortest: "Least mileage",
+      balanced: "Balanced",
+    };
+
+    const modeDescriptions = {
+      priority: "High-priority clients first, then by time window",
+      fastest: "Earliest appointments first — minimize drive time",
+      shortest: "Nearest stop first — minimize total miles",
+      balanced: "Priority groups, then nearest within each group",
+    };
+
+    const modes = ["priority", "fastest", "shortest", "balanced"];
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -85,19 +102,62 @@ export default function Schedule() {
             </button>
           )}
 
-          {/* Optimize button */}
-          <button
-            onClick={optimize}
-            data-testid="schedule-optimize-btn"
-            className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-colors ${
-              optimized
-                ? "bg-white border border-stone-200 text-stone-700"
-                : "bg-[#D95D39] hover:bg-[#C05030] text-white"
-            }`}
-          >
-            <Sparkles className="h-4 w-4" />
-            {optimized ? "Optimized" : "Optimize"}
-          </button>
+          {/* Optimization mode selector + Optimize button */}
+                    {schedule.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        {/* Mode dropdown */}
+                        <div className="relative">
+                          <button
+                            onClick={() => setModeOpen(!modeOpen)}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 hover:bg-stone-50 text-stone-600 px-3.5 py-3 text-xs font-semibold transition-colors"
+                          >
+                            <Route className="h-3.5 w-3.5" />
+                            {modeLabels[optimizationMode]}
+                            <ChevronDown className="h-3 w-3" />
+                          </button>
+                          {modeOpen && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setModeOpen(false)} />
+                              <div className="absolute right-0 top-full mt-1 z-50 w-56 rounded-2xl border border-stone-200 bg-white shadow-lg p-1.5">
+                                {modes.map((m) => (
+                                  <button
+                                    key={m}
+                                    onClick={() => {
+                                      setOptimizationMode(m);
+                                      setModeOpen(false);
+                                    }}
+                                    className={`w-full text-left rounded-xl px-3 py-2.5 text-sm transition-colors ${
+                                      optimizationMode === m
+                                        ? "bg-[#F7E5DD] text-[#D95D39] font-semibold"
+                                        : "text-stone-700 hover:bg-stone-50"
+                                    }`}
+                                  >
+                                    <div className="font-medium">{modeLabels[m]}</div>
+                                    <div className="text-[10px] text-stone-500 mt-0.5 leading-tight">
+                                      {modeDescriptions[m]}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Optimize button */}
+                        <button
+                          onClick={optimize}
+                          data-testid="schedule-optimize-btn"
+                          className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-colors ${
+                            optimized
+                              ? "bg-white border border-stone-200 text-stone-700"
+                              : "bg-[#D95D39] hover:bg-[#C05030] text-white"
+                          }`}
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          {optimized ? "Optimized" : "Optimize"}
+                        </button>
+                      </div>
+                    )}
         </div>
       </div>
 
