@@ -43,6 +43,7 @@ export default function Landing() {
             <a href="#features" className="hover:text-stone-900">Features</a>
             <a href="#nurses" className="hover:text-stone-900">For nurses</a>
             <a href="#privacy" className="hover:text-stone-900">Privacy</a>
+            <Link to="/agency/login" className="hover:text-stone-900" data-testid="landing-agency-link">For agencies</Link>
           </nav>
           <div className="flex items-center gap-3">
             <HipaaBadge compact />

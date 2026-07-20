@@ -110,6 +110,12 @@ export default function Login() {
             <p className="text-xs text-stone-500 text-center pt-2">
               By continuing you accept RouteMe&apos;s HIPAA business associate terms.
             </p>
+            <p className="text-xs text-stone-500 text-center">
+              Agency director?{" "}
+              <a href="/agency/login" data-testid="login-agency-link" className="font-semibold text-stone-800 hover:underline">
+                Sign in to the agency console →
+              </a>
+            </p>
           </form>
         </div>
       </div>
