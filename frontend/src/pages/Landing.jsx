@@ -1,7 +1,8 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import { ArrowRight, ShieldCheck, MapPin, Mic, Clock, Fuel } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, ShieldCheck, MapPin, Mic, Clock, Fuel, Building2 } from "lucide-react";
 import HipaaBadge from "@/components/HipaaBadge";
+import { useRouteMe } from "@/context/RouteMeContext";
 
 const HIGHLIGHTS = [
   {
@@ -25,6 +26,14 @@ const HIGHLIGHTS = [
 ];
 
 export default function Landing() {
+  const { setAgencyAuthed } = useRouteMe();
+  const navigate = useNavigate();
+
+  const enterAgency = () => {
+    setAgencyAuthed(true);
+    navigate("/agency/overview");
+  };
+
   return (
     <div className="min-h-screen bg-[#F9F8F6] text-stone-900">
       {/* Nav */}
@@ -47,6 +56,13 @@ export default function Landing() {
           </nav>
           <div className="flex items-center gap-3">
             <HipaaBadge compact />
+            <button
+              onClick={enterAgency}
+              data-testid="landing-agency-signin-btn"
+              className="hidden sm:inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white hover:bg-stone-50 text-stone-800 px-4 py-2 text-sm font-semibold transition-colors"
+            >
+              <Building2 className="h-4 w-4" /> Agency console
+            </button>
             <Link
               to="/login"
               data-testid="landing-signin-btn"
@@ -85,6 +101,17 @@ export default function Landing() {
                   <ArrowRight className="h-4 w-4" />
                 </span>
               </Link>
+              <button
+                onClick={enterAgency}
+                data-testid="landing-agency-cta"
+                className="group inline-flex items-center gap-2 rounded-full border border-stone-900 hover:bg-stone-900 hover:text-white text-stone-900 pl-5 pr-4 py-3.5 text-sm font-semibold transition-colors"
+              >
+                <Building2 className="h-4 w-4" />
+                Enter agency console
+                <span className="text-[10px] font-semibold rounded-full bg-[#F7E5DD] text-[#D95D39] px-2 py-0.5 group-hover:bg-white/15 group-hover:text-white transition-colors">
+                  DEMO
+                </span>
+              </button>
               <a
                 href="#features"
                 className="text-sm font-semibold text-stone-800 underline underline-offset-4 decoration-stone-300 hover:decoration-stone-800"

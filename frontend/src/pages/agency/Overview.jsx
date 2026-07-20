@@ -12,6 +12,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
+import CommandCenterMap from "@/components/CommandCenterMap";
 
 export default function AgencyOverview() {
   const { agency, nurses, liveActivity, agencyClients } = useRouteMe();
@@ -52,6 +53,9 @@ export default function AgencyOverview() {
         <KpiCard icon={Clock} label="Weekly time saved" value={`${hoursSaved}h`} sub={`${totalWeeklySaved % 60}m across team`} tone="sage" />
         <KpiCard icon={ShieldCheck} label="HIPAA score" value={`${agency.hipaaScore}%`} sub="no incidents 30d" tone="emerald" />
       </div>
+
+      {/* Command Center Map */}
+      <CommandCenterMap />
 
       {/* Bento grid */}
       <div className="grid grid-cols-1 md:grid-cols-8 gap-4">
