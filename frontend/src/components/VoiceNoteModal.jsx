@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
 import { Mic, Square, Save, Sparkles } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
@@ -65,6 +66,10 @@ export default function VoiceNoteModal() {
         data-testid="voice-modal"
         className="max-w-2xl border-0 p-0 overflow-hidden bg-transparent shadow-none"
       >
+        <VisuallyHidden>
+          <DialogTitle>Voice note</DialogTitle>
+          <DialogDescription>Record a HIPAA-safe visit note using voice-to-text.</DialogDescription>
+        </VisuallyHidden>
         <div className="relative rounded-3xl border border-stone-200 bg-white/95 backdrop-blur-xl overflow-hidden">
           {/* Terracotta accent band */}
           <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-[#D95D39]/10 blur-3xl" />

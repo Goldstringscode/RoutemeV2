@@ -1,11 +1,21 @@
 import React, { useMemo, useState } from "react";
 import { useRouteMe } from "@/context/RouteMeContext";
-import { Search, MapPin, User } from "lucide-react";
+import { Search, MapPin, User, Eye, EyeOff, Lock } from "lucide-react";
 
 export default function AgencyClientsDir() {
   const { nurses, agencyClients } = useRouteMe();
   const [q, setQ] = useState("");
   const [nurseId, setNurseId] = useState("all");
+  const [reveal, setReveal] = useState(false);
+
+  const maskName = (name) => {
+    // "Eleanor M." -> "E••••••• M."
+    const parts = name.split(" ");
+    const first = parts[0] || "";
+    const last = parts.slice(1).join(" ");
+    if (!first) return name;
+    return `${first[0]}${"•".repeat(Math.max(3, first.length - 1))} ${last}`;
+  };
 
   const filtered = useMemo(() => {
     return agencyClients.filter((c) => {
@@ -28,8 +38,9 @@ export default function AgencyClientsDir() {
         <h1 className="font-display text-4xl md:text-5xl leading-tight">
           Every person, <span className="font-serif-i text-[#7FA08B]">every nurse</span>.
         </h1>
-        <p className="mt-2 text-stone-600">
-          {agencyClients.length} clients across your agency. PHI shown as initials — full records accessible only through nurse app.
+        <p className="mt-2 text-stone-600 flex items-center gap-2">
+          <Lock className="h-3.5 w-3.5 text-stone-400" />
+          {agencyClients.length} clients across your agency · PHI masked by default
         </p>
       </div>
 
@@ -57,6 +68,18 @@ export default function AgencyClientsDir() {
             </option>
           ))}
         </select>
+        <button
+          data-testid="reveal-phi-btn"
+          onClick={() => setReveal((r) => !r)}
+          className={`inline-flex items-center gap-2 h-11 rounded-full px-4 text-xs font-semibold transition-colors border ${
+            reveal
+              ? "bg-[#F7E5DD] text-[#D95D39] border-[#F0D2C4]"
+              : "bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
+          }`}
+        >
+          {reveal ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          {reveal ? "Hide PHI" : "Reveal PHI"}
+        </button>
       </div>
 
       <div className="rounded-3xl border border-stone-200 bg-white overflow-hidden">
@@ -85,7 +108,9 @@ export default function AgencyClientsDir() {
                       <div className="h-9 w-9 rounded-xl bg-[#EFE9DF] border border-stone-200 text-stone-800 flex items-center justify-center text-[11px] font-semibold shrink-0">
                         {initials.slice(0, 3)}
                       </div>
-                      <p className="font-semibold">{c.name}</p>
+                      <p className="font-semibold tabular-nums">
+                        {reveal ? c.name : maskName(c.name)}
+                      </p>
                     </div>
                   </td>
                   <td className="py-4 px-5">

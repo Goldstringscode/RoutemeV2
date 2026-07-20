@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Plus, Search, Phone, MapPin, Mic, X, StickyNote } from "lucide-react";
+import { Plus, Search, Phone, MapPin, Mic, StickyNote } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 const emptyClient = {
   initials: "",
@@ -167,6 +168,10 @@ export default function Clients() {
       {/* Add Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="max-w-lg border-0 p-0 overflow-hidden">
+          <VisuallyHidden>
+            <DialogTitle>Add client</DialogTitle>
+            <DialogDescription>Create a new patient record.</DialogDescription>
+          </VisuallyHidden>
           <div className="bg-white rounded-2xl p-6 border border-stone-200">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -175,9 +180,6 @@ export default function Clients() {
                 </p>
                 <h3 className="font-display text-2xl">Add someone to your care.</h3>
               </div>
-              <button onClick={() => setAddOpen(false)} className="h-8 w-8 rounded-full border border-stone-200 flex items-center justify-center hover:bg-stone-50">
-                <X className="h-4 w-4" />
-              </button>
             </div>
 
             <form onSubmit={submit} className="space-y-3">

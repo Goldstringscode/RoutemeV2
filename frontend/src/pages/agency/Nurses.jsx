@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Search, Copy, Check, MoreHorizontal, X, Mail, MapPin } from "lucide-react";
+import { Plus, Search, Copy, Check, MoreHorizontal, Mail, MapPin } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -263,6 +264,10 @@ export default function AgencyNurses() {
       {/* Invite dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="max-w-md border-0 p-0 overflow-hidden">
+          <VisuallyHidden>
+            <DialogTitle>Invite nurse</DialogTitle>
+            <DialogDescription>Send a secure invite link to add a nurse to your agency.</DialogDescription>
+          </VisuallyHidden>
           <div className="bg-white rounded-2xl p-6 border border-stone-200">
             <div className="flex items-center justify-between mb-5">
               <div>
@@ -271,12 +276,6 @@ export default function AgencyNurses() {
                 </p>
                 <h3 className="font-display text-2xl">Add someone to the team.</h3>
               </div>
-              <button
-                onClick={() => setAddOpen(false)}
-                className="h-8 w-8 rounded-full border border-stone-200 flex items-center justify-center hover:bg-stone-50"
-              >
-                <X className="h-4 w-4" />
-              </button>
             </div>
 
             {!justCreated ? (

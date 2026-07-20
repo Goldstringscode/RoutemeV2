@@ -35,3 +35,27 @@ Build **RouteMe**, a HIPAA-compliant web app for traveling home health nurses. N
 - **P0 mapping**: Integrate real routing API (Mapbox Optimization / HERE / Google Directions)
 - **P1**: Voice API integration (OpenAI Whisper), real MFA, org admin/dispatcher roles
 - **P2**: Offline PWA, family ETA opt-in flow, encrypted vitals form, insurance billing export
+
+## Feature added — Agency Admin Dashboard (2026-02)
+Multi-tenant surface added on top of the nurse app. Separate `/agency/login` and `/agency/*` routes with their own auth state (`agencyAuthed` in localStorage), fully independent from the nurse app auth.
+
+### Implemented
+- `/agency/login` — split-panel director sign-in with agency code
+- `/agency/overview` — bento dashboard (KPIs, on-shift team, agency-wide savings, live activity, zones coverage, compliance strip)
+- `/agency/nurses` — roster table + Invite dialog (form → success screen with copy-invite link), row menu (Activate/Deactivate/Remove), status filters, search
+- `/agency/activity` — live current-visit cards + chronological event stream with nurse filter
+- `/agency/clients` — agency-wide clients directory with **PHI masking + Reveal toggle** (HIPAA-consistent)
+- `/agency/compliance` — HIPAA score hero (98/100), MFA / BAA / audit metric cards, alerts, full audit log table
+- `/agency/billing` — Growth plan card, seat utilization bar, Starter/Growth/Scale plan comparison, invoices table
+- Nurse app top-bar now shows **agency branding pill** (Sunrise Home Health)
+- Polish: single close X on all dialogs, VisuallyHidden DialogTitle/Description for Radix a11y
+
+### Testing
+- Testing agent: 45/45 functional checks passed
+- Two LOW-priority polish items addressed post-test: duplicate X removed, PHI now masked with reveal toggle
+
+## Backlog updates
+- **P0 Backend multi-tenancy**: Agency → Nurse → Client hierarchy, role-based access (agency admin vs nurse), real invite tokens with email delivery (Resend)
+- **P0 Real routing API**: Mapbox Optimization / HERE
+- **P1**: SSO / SAML for Scale plan, Stripe billing integration
+- **P2**: Family ETA opt-in flow, offline PWA
