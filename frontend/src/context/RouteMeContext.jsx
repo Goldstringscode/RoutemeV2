@@ -387,7 +387,7 @@ export function RouteMeProvider({ children }) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
-  const reorder = useCallback(async (ids) => {
+  const reorder = useCallback(async (ids, keepOptimized = false) => {
     const userId = userIdRef.current;
     if (!userId) return;
 
@@ -409,7 +409,7 @@ export function RouteMeProvider({ children }) {
       visit_date: today,
       nurse_id: userId,
     })));
-    setOptimized(false);
+    if (!keepOptimized) setOptimized(false);
   }, []);
 
   const optimize = useCallback(() => {
@@ -491,7 +491,7 @@ export function RouteMeProvider({ children }) {
           break;
       }
 
-      reorder(next);
+      reorder(next, true);
       setOptimized(true);
       pushAudit('Route re-optimized', 'route');
     }, [schedule, reorder, pushAudit, optimizationMode]);
