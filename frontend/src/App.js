@@ -13,6 +13,10 @@ import Clients from "@/pages/Clients";
 import Profile from "@/pages/Profile";
 import ClientDetail from "@/pages/ClientDetail";
 import Pricing from "@/pages/Pricing";
+import Signup from "@/pages/Signup";
+import Payment from "@/pages/Payment";
+import Welcome from "@/pages/Welcome";
+import NotFound from "@/pages/NotFound";
 import AgencyLogin from "@/pages/AgencyLogin";
 import AgencyOverview from "@/pages/agency/Overview";
 import AgencyNurses from "@/pages/agency/Nurses";
@@ -93,8 +97,11 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Landing />} />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route path="/login" element={<Login />} />
+                        <Route path="/pricing" element={<Pricing />} />
+                        <Route path="/signup" element={<Signup />} />
+                        <Route path="/payment" element={<Payment />} />
+                        <Route path="/welcome" element={<Welcome />} />
+                        <Route path="/login" element={<Login />} />
             <Route path="/agency/login" element={<AgencyLogin />} />
             <Route path="/superadmin/login" element={<SuperAdminLogin />} />
 
@@ -157,7 +164,7 @@ function App() {
               <Route path="system" element={<SuperAdminSystem />} />
             </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </RouteMeProvider>
