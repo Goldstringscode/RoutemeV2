@@ -7,6 +7,19 @@ import {
   AGENCY_CLIENTS,
   COMPLIANCE_LOG_SEED,
 } from "@/lib/agencyMockData";
+import {
+  PLATFORM,
+  SUPER_ADMIN_ME,
+  AGENCIES_SEED,
+  GLOBAL_NURSES_SEED,
+  GLOBAL_CLIENTS_SEED,
+  SUPER_ADMINS_SEED,
+  GLOBAL_AUDIT_SEED,
+  ACTIVE_SESSIONS_SEED,
+  SECURITY_EVENTS_SEED,
+  SYSTEM_METRICS,
+  BILLING_LEDGER_SEED,
+} from "@/lib/superAdminMockData";
 
 const KEY = "routeme.state.v1";
 
@@ -25,12 +38,13 @@ const load = () => {
 export function RouteMeProvider({ children }) {
   const initial = load();
 
+  // Nurse app state
   const [authed, setAuthed] = useState(initial?.authed ?? false);
   const [clients, setClients] = useState(initial?.clients ?? CLIENTS_SEED);
   const [scheduleIds, setScheduleIds] = useState(
     initial?.scheduleIds ?? CLIENTS_SEED.map((c) => c.id)
   );
-  const [notes, setNotes] = useState(initial?.notes ?? {}); // { clientId: [{id, text, date}] }
+  const [notes, setNotes] = useState(initial?.notes ?? {});
   const [audit, setAudit] = useState(initial?.audit ?? AUDIT_LOG);
   const [optimized, setOptimized] = useState(initial?.optimized ?? true);
   const [voiceOpen, setVoiceOpen] = useState(false);
@@ -43,6 +57,24 @@ export function RouteMeProvider({ children }) {
   const [liveActivity, setLiveActivity] = useState(initial?.liveActivity ?? LIVE_ACTIVITY_SEED);
   const [agencyClients, setAgencyClients] = useState(initial?.agencyClients ?? AGENCY_CLIENTS);
   const [complianceLog] = useState(COMPLIANCE_LOG_SEED);
+
+  // Super Admin (Platform) state
+  const [superAdminAuthed, setSuperAdminAuthed] = useState(initial?.superAdminAuthed ?? false);
+  const [platform] = useState(PLATFORM);
+  const [superAdminMe] = useState(SUPER_ADMIN_ME);
+  const [agencies, setAgencies] = useState(initial?.agencies ?? AGENCIES_SEED);
+  const [globalNurses, setGlobalNurses] = useState(initial?.globalNurses ?? GLOBAL_NURSES_SEED);
+  const [globalClients, setGlobalClients] = useState(initial?.globalClients ?? GLOBAL_CLIENTS_SEED);
+  const [superAdmins, setSuperAdmins] = useState(initial?.superAdmins ?? SUPER_ADMINS_SEED);
+  const [globalAudit, setGlobalAudit] = useState(initial?.globalAudit ?? GLOBAL_AUDIT_SEED);
+  const [activeSessions, setActiveSessions] = useState(initial?.activeSessions ?? ACTIVE_SESSIONS_SEED);
+  const [securityEvents] = useState(SECURITY_EVENTS_SEED);
+  const [systemMetrics] = useState(SYSTEM_METRICS);
+  const [billingLedger, setBillingLedger] = useState(initial?.billingLedger ?? BILLING_LEDGER_SEED);
+  const [featureFlags, setFeatureFlags] = useState(initial?.featureFlags ?? SYSTEM_METRICS.featureFlags);
+  const [phiRevealed, setPhiRevealed] = useState(initial?.phiRevealed ?? {});
+  const [maintenanceMode, setMaintenanceMode] = useState(initial?.maintenanceMode ?? false);
+  const [impersonation, setImpersonation] = useState(initial?.impersonation ?? null);
 
   useEffect(() => {
     localStorage.setItem(
@@ -58,9 +90,27 @@ export function RouteMeProvider({ children }) {
         nurses,
         liveActivity,
         agencyClients,
+        superAdminAuthed,
+        agencies,
+        globalNurses,
+        globalClients,
+        superAdmins,
+        globalAudit,
+        activeSessions,
+        billingLedger,
+        featureFlags,
+        phiRevealed,
+        maintenanceMode,
+        impersonation,
       })
     );
-  }, [authed, clients, scheduleIds, notes, audit, optimized, agencyAuthed, nurses, liveActivity, agencyClients]);
+  }, [
+    authed, clients, scheduleIds, notes, audit, optimized,
+    agencyAuthed, nurses, liveActivity, agencyClients,
+    superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
+    globalAudit, activeSessions, billingLedger, featureFlags,
+    phiRevealed, maintenanceMode, impersonation,
+  ]);
 
   const schedule = useMemo(
     () => scheduleIds.map((id) => clients.find((c) => c.id === id)).filter(Boolean),
@@ -98,7 +148,6 @@ export function RouteMeProvider({ children }) {
   };
 
   const optimize = () => {
-    // Mock "optimization": place high-priority first, then sort by window
     const priorityRank = { high: 0, medium: 1, low: 2 };
     const next = [...schedule]
       .sort((a, b) => {
@@ -195,6 +244,97 @@ export function RouteMeProvider({ children }) {
     );
   };
 
+  // Super Admin actions
+  const pushGlobalAudit = (action, resource, agencyId = null, severity = "info") => {
+    setGlobalAudit((a) => [
+      {
+        t: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        actorId: superAdminMe.id,
+        actorName: superAdminMe.name,
+        actorRole: superAdminMe.role,
+        action,
+        resource,
+        agencyId,
+        severity,
+        ip: "10.0.14.22",
+      },
+      ...a,
+    ].slice(0, 200));
+  };
+
+  const setAgencyStatus = (id, status) => {
+    setAgencies((as) => as.map((a) => (a.id === id ? { ...a, status } : a)));
+    const ag = agencies.find((a) => a.id === id);
+    pushGlobalAudit(status === "suspended" ? "Agency suspended" : "Agency reactivated", `Agency · ${ag?.name}`, id, status === "suspended" ? "warn" : "info");
+  };
+
+  const setGlobalNurseStatus = (id, status) => {
+    setGlobalNurses((ns) => ns.map((n) => (n.id === id ? { ...n, status } : n)));
+    const nurse = globalNurses.find((n) => n.id === id);
+    pushGlobalAudit(status === "suspended" ? "Nurse suspended" : "Nurse reactivated", `Nurse · ${nurse?.name}`, nurse?.agencyId, status === "suspended" ? "warn" : "info");
+  };
+
+  const revealClientPHI = (clientId, reason) => {
+    setPhiRevealed((r) => ({ ...r, [clientId]: { at: new Date().toISOString(), reason } }));
+    const client = globalClients.find((c) => c.id === clientId);
+    pushGlobalAudit(`PHI reveal · reason: "${reason}"`, `Client · ${client?.fullName}`, client?.agencyId, "warn");
+  };
+
+  const hideClientPHI = (clientId) => {
+    setPhiRevealed((r) => {
+      const next = { ...r };
+      delete next[clientId];
+      return next;
+    });
+    const client = globalClients.find((c) => c.id === clientId);
+    pushGlobalAudit("PHI concealed", `Client · ${client?.fullName}`, client?.agencyId, "info");
+  };
+
+  const addSuperAdmin = ({ name, email, role }) => {
+    const id = "sa_" + Math.random().toString(36).slice(2, 8);
+    const initials = name.split(" ").map((s) => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+    const newAdmin = { id, name, email, role, initials, lastActive: "invited", mfaEnabled: false, status: "pending" };
+    setSuperAdmins((s) => [newAdmin, ...s]);
+    pushGlobalAudit("Staff invited", `${role} · ${name}`, null, "info");
+  };
+
+  const removeSuperAdmin = (id) => {
+    const admin = superAdmins.find((s) => s.id === id);
+    if (admin?.role === "Owner") return;
+    setSuperAdmins((s) => s.filter((x) => x.id !== id));
+    pushGlobalAudit("Staff removed", `Platform staff · ${admin?.name}`, null, "warn");
+  };
+
+  const killSession = (id) => {
+    const sess = activeSessions.find((s) => s.id === id);
+    setActiveSessions((s) => s.filter((x) => x.id !== id));
+    pushGlobalAudit("Session terminated", `${sess?.name} · ${sess?.device}`, null, "warn");
+  };
+
+  const toggleFeatureFlag = (key) => {
+    setFeatureFlags((flags) => flags.map((f) => (f.key === key ? { ...f, enabled: !f.enabled } : f)));
+    const flag = featureFlags.find((f) => f.key === key);
+    pushGlobalAudit("Feature flag toggled", `${key} → ${flag?.enabled ? "OFF" : "ON"}`, null, "info");
+  };
+
+  const toggleMaintenance = () => {
+    setMaintenanceMode((m) => !m);
+    pushGlobalAudit(maintenanceMode ? "Maintenance mode disabled" : "Maintenance mode enabled", "Platform · global", null, maintenanceMode ? "info" : "critical");
+  };
+
+  const impersonateAgency = (ag) => {
+    setImpersonation({ id: ag.id, name: ag.director.name, role: `Director · ${ag.name}`, kind: "agency" });
+    setAgencyAuthed(true);
+    pushGlobalAudit("Impersonation started", `Director · ${ag.director.name} (${ag.name})`, ag.id, "warn");
+  };
+
+  const stopImpersonation = () => {
+    if (impersonation) {
+      pushGlobalAudit("Impersonation ended", `${impersonation.role}`, null, "info");
+    }
+    setImpersonation(null);
+  };
+
   const value = {
     authed,
     setAuthed,
@@ -231,6 +371,36 @@ export function RouteMeProvider({ children }) {
     removeNurse,
     resetAgencyDemo,
     reassignClient,
+    // Super Admin
+    superAdminAuthed,
+    setSuperAdminAuthed,
+    platform,
+    superAdminMe,
+    agencies,
+    globalNurses,
+    globalClients,
+    superAdmins,
+    globalAudit,
+    activeSessions,
+    securityEvents,
+    systemMetrics,
+    billingLedger,
+    featureFlags,
+    phiRevealed,
+    maintenanceMode,
+    impersonation,
+    pushGlobalAudit,
+    setAgencyStatus,
+    setGlobalNurseStatus,
+    revealClientPHI,
+    hideClientPHI,
+    addSuperAdmin,
+    removeSuperAdmin,
+    killSession,
+    toggleFeatureFlag,
+    toggleMaintenance,
+    impersonateAgency,
+    stopImpersonation,
   };
 
   return <RouteMeContext.Provider value={value}>{children}</RouteMeContext.Provider>;

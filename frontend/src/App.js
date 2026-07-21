@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { RouteMeProvider, useRouteMe } from "@/context/RouteMeContext";
 import AppShell from "@/components/AppShell";
 import AgencyShell from "@/components/AgencyShell";
+import SuperAdminShell from "@/components/SuperAdminShell";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
@@ -20,6 +21,19 @@ import AgencyClientsDir from "@/pages/agency/ClientsDir";
 import AgencyCompliance from "@/pages/agency/Compliance";
 import AgencyBilling from "@/pages/agency/Billing";
 import NurseDetail from "@/pages/agency/NurseDetail";
+import SuperAdminLogin from "@/pages/SuperAdminLogin";
+import SuperAdminOverview from "@/pages/superadmin/Overview";
+import SuperAdminAgencies from "@/pages/superadmin/Agencies";
+import SuperAdminAgencyDetail from "@/pages/superadmin/AgencyDetail";
+import SuperAdminNurses from "@/pages/superadmin/NursesGlobal";
+import SuperAdminNurseDetail from "@/pages/superadmin/NurseGlobalDetail";
+import SuperAdminClients from "@/pages/superadmin/ClientsGlobal";
+import SuperAdminClientPHI from "@/pages/superadmin/ClientPHI";
+import SuperAdminStaff from "@/pages/superadmin/AdminStaff";
+import SuperAdminAudit from "@/pages/superadmin/AuditGlobal";
+import SuperAdminSecurity from "@/pages/superadmin/Security";
+import SuperAdminBilling from "@/pages/superadmin/BillingPlatform";
+import SuperAdminSystem from "@/pages/superadmin/SystemHealth";
 
 function Protected({ children }) {
   const { authed } = useRouteMe();
@@ -33,6 +47,12 @@ function AgencyProtected({ children }) {
   return children;
 }
 
+function SuperAdminProtected({ children }) {
+  const { superAdminAuthed } = useRouteMe();
+  if (!superAdminAuthed) return <Navigate to="/superadmin/login" replace />;
+  return children;
+}
+
 function App() {
   return (
     <div className="App">
@@ -43,6 +63,7 @@ function App() {
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/agency/login" element={<AgencyLogin />} />
+            <Route path="/superadmin/login" element={<SuperAdminLogin />} />
 
             <Route
               path="/app"
@@ -77,6 +98,29 @@ function App() {
               <Route path="clients" element={<AgencyClientsDir />} />
               <Route path="compliance" element={<AgencyCompliance />} />
               <Route path="billing" element={<AgencyBilling />} />
+            </Route>
+
+            <Route
+              path="/superadmin"
+              element={
+                <SuperAdminProtected>
+                  <SuperAdminShell />
+                </SuperAdminProtected>
+              }
+            >
+              <Route index element={<Navigate to="/superadmin/overview" replace />} />
+              <Route path="overview" element={<SuperAdminOverview />} />
+              <Route path="agencies" element={<SuperAdminAgencies />} />
+              <Route path="agencies/:id" element={<SuperAdminAgencyDetail />} />
+              <Route path="nurses" element={<SuperAdminNurses />} />
+              <Route path="nurses/:id" element={<SuperAdminNurseDetail />} />
+              <Route path="clients" element={<SuperAdminClients />} />
+              <Route path="clients/:id" element={<SuperAdminClientPHI />} />
+              <Route path="staff" element={<SuperAdminStaff />} />
+              <Route path="audit" element={<SuperAdminAudit />} />
+              <Route path="security" element={<SuperAdminSecurity />} />
+              <Route path="billing" element={<SuperAdminBilling />} />
+              <Route path="system" element={<SuperAdminSystem />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
