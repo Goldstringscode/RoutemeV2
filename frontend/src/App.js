@@ -97,11 +97,12 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Landing />} />
-                        <Route path="/pricing" element={<Pricing />} />
-                        <Route path="/signup" element={<Signup />} />
-                        <Route path="/payment" element={<Payment />} />
-                        <Route path="/welcome" element={<Welcome />} />
-                        <Route path="/login" element={<Login />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/payment" element={<Payment />} />
+            <Route path="/welcome" element={<Welcome />} />
+            <Route path="/thank-you" element={<Welcome />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/agency/login" element={<AgencyLogin />} />
             <Route path="/superadmin/login" element={<SuperAdminLogin />} />
 
