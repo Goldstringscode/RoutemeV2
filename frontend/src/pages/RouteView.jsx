@@ -1,7 +1,9 @@
 import React, { useState, useCallback, useRef } from "react";
 import StylizedMap from "@/components/StylizedMap";
 import { useRouteMe } from "@/context/RouteMeContext";
-import { Sparkles, Clock, MapPin, Mic, Phone, ChevronRight, Fuel, Route, GripVertical, Lock, Unlock, Brain, Zap, Compass, SlidersHorizontal, Loader, CheckCircle, X, Info, ChevronDown, Map as MapIcon, ArrowUpDown } from "lucide-react";
+import { Sparkles, Clock, MapPin, Mic, Phone, ChevronRight, Fuel, Route, GripVertical, Lock, Unlock, Brain, Zap, Compass, SlidersHorizontal, Loader, CheckCircle, X, Info, ChevronDown, Map as MapIcon, ArrowUpDown, Plus, Trash2 } from "lucide-react";
+import RouteBuilderModal from "@/components/RouteBuilderModal";
+import RemoveFromRouteModal from "@/components/RemoveFromRouteModal";
 
 const OPTIMIZATION_MODES = [
   { id: "ai", label: "AI smart route", icon: Brain, desc: "Balances priority, traffic, time windows, and distance using a weighted heuristic model. Considers day-of-week traffic patterns & weather." },
@@ -12,9 +14,12 @@ const OPTIMIZATION_MODES = [
 ];
 
 export default function RouteView() {
-  const { schedule, optimize, optimized, openVoice, saveRoute, savedRoutes, loadRoute, reorder, routeResult } = useRouteMe();
+  const { schedule, optimize, optimized, openVoice, saveRoute, savedRoutes, loadRoute, reorder, routeResult, clients, scheduleIds, createRoute, removeFromRoute, rescheduleClient, rescheduledClients } = useRouteMe();
   const [selected, setSelected] = useState(schedule[0]?.id);
   const [modalOpen, setModalOpen] = useState(false);
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [removeModalOpen, setRemoveModalOpen] = useState(false);
+  const [clientToRemove, setClientToRemove] = useState(null);
   const [activeMode, setActiveMode] = useState("ai");
   const [dragEnabled, setDragEnabled] = useState(false);
   const [dragIdx, setDragIdx] = useState(null);
@@ -49,7 +54,6 @@ export default function RouteView() {
     setDragIdx(idx);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", String(idx));
-    // Slight delay so the visual updates after the drag starts
     setTimeout(() => {
       e.target.style.opacity = "0.5";
     }, 0);
@@ -103,14 +107,24 @@ export default function RouteView() {
             {schedule.length} stops, <span className="font-serif-i text-[#D95D39]">one calm ribbon</span>.
           </h1>
         </div>
-        <button
-          onClick={openOptimize}
-          data-testid="optimize-btn"
-          className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-colors bg-[#D95D39] hover:bg-[#C05030] text-white shadow-sm"
-        >
-          <Sparkles className="h-4 w-4" />
-          Optimize route
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={openOptimize}
+            data-testid="optimize-btn"
+            className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-colors bg-[#D95D39] hover:bg-[#C05030] text-white shadow-sm"
+          >
+            <Sparkles className="h-4 w-4" />
+            Optimize route
+          </button>
+          <button
+            onClick={() => setBuilderOpen(true)}
+            data-testid="route-create-btn"
+            className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-colors bg-stone-900 hover:bg-stone-800 text-white shadow-sm"
+          >
+            <Plus className="h-4 w-4" />
+            Create route
+          </button>
+        </div>
       </div>
 
       {/* ── Driving conditions chip ── */}
@@ -238,6 +252,19 @@ export default function RouteView() {
                         </p>
                       </div>
                       <ChevronRight className="h-4 w-4 text-stone-400 mt-3 shrink-0" />
+                      {!dragEnabled && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setClientToRemove(c);
+                            setRemoveModalOpen(true);
+                          }}
+                          data-testid={`remove-stop-${idx + 1}`}
+                          className="h-7 w-7 rounded-full flex items-center justify-center text-stone-400 hover:text-[#D95D39] hover:bg-[#F7E5DD] transition-colors shrink-0 mt-2.5"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </button>
                   </li>
                 );
@@ -289,8 +316,8 @@ export default function RouteView() {
 
             <div className="space-y-3">
               <InfoRow label="Address" value={active.address} />
-                            <InfoRow label="Time window" value={active.window} />
-                            <InfoRow label="Last visit" value={active.lastVisit} />
+              <InfoRow label="Time window" value={active.window} />
+              <InfoRow label="Last visit" value={active.lastVisit} />
             </div>
 
             <div className="flex md:flex-col gap-3 md:items-end justify-end">
@@ -444,6 +471,25 @@ export default function RouteView() {
           </div>
         </div>
       )}
+
+      {/* Route Builder Modal */}
+      <RouteBuilderModal
+        open={builderOpen}
+        onClose={() => setBuilderOpen(false)}
+        clients={clients}
+        onScheduleIds={(ids) => createRoute(ids)}
+        onReschedule={(id, day) => rescheduleClient(id, day)}
+        rescheduledClients={rescheduledClients}
+      />
+
+      {/* Remove from Route Modal */}
+      <RemoveFromRouteModal
+        open={removeModalOpen}
+        onClose={() => { setRemoveModalOpen(false); setClientToRemove(null); }}
+        client={clientToRemove}
+        onRemoveFromRoute={removeFromRoute}
+        onReschedule={rescheduleClient}
+      />
     </div>
   );
 }

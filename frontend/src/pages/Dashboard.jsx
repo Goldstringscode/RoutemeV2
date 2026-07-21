@@ -1,11 +1,13 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { Clock, Fuel, Route, ArrowUpRight, Phone, ShieldCheck, Mic, TrendingUp, Coffee } from "lucide-react";
+import { Clock, Fuel, Route, ArrowUpRight, Phone, ShieldCheck, Mic, TrendingUp, Coffee, Plus } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import StylizedMap from "@/components/StylizedMap";
+import RouteBuilderModal from "@/components/RouteBuilderModal";
 
 export default function Dashboard() {
-  const { nurse, schedule, audit, openVoice } = useRouteMe();
+  const { nurse, schedule, audit, openVoice, clients, scheduleIds, createRoute, rescheduledClients, rescheduleClient } = useRouteMe();
+  const [builderOpen, setBuilderOpen] = useState(false);
   const next = schedule[0];
   const totalMinutes = schedule.reduce((s, c) => s + (c.duration || 30), 0);
   const totalHours = Math.floor(totalMinutes / 60);
@@ -22,17 +24,26 @@ export default function Dashboard() {
             Good morning, <span className="font-serif-i text-[#D95D39]">{nurse.name.split(" ")[0]}</span>.
           </h1>
           <p className="mt-2 text-stone-600">
-            {schedule.length} visits planned · route optimized {" "}
+            {schedule.length} visits planned · route optimized{" "}
             <span className="text-emerald-700 font-semibold">2 min ago</span>.
           </p>
         </div>
-        <Link
-          to="/app/route"
-          data-testid="start-route-btn"
-          className="inline-flex items-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 text-white px-5 py-3 text-sm font-semibold transition-colors self-start"
-        >
-          Start route <ArrowUpRight className="h-4 w-4" />
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/app/route"
+            data-testid="start-route-btn"
+            className="inline-flex items-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 text-white px-5 py-3 text-sm font-semibold transition-colors self-start"
+          >
+            Start route <ArrowUpRight className="h-4 w-4" />
+          </Link>
+          <button
+            onClick={() => setBuilderOpen(true)}
+            data-testid="create-route-btn"
+            className="inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-5 py-3 text-sm font-semibold transition-colors self-start"
+          >
+            <Plus className="h-4 w-4" /> Create route
+          </button>
+        </div>
       </div>
 
       {/* Bento grid */}
@@ -209,6 +220,16 @@ export default function Dashboard() {
           </svg>
         </div>
       </div>
+
+      {/* Route Builder Modal */}
+      <RouteBuilderModal
+        open={builderOpen}
+        onClose={() => setBuilderOpen(false)}
+        clients={clients}
+        onScheduleIds={(ids) => createRoute(ids)}
+        onReschedule={(id, day) => rescheduleClient(id, day)}
+        rescheduledClients={rescheduledClients}
+      />
     </div>
   );
 }

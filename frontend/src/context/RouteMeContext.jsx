@@ -110,7 +110,8 @@ export function RouteMeProvider({ children }) {
   const [nurse, setNurse] = useState(NURSE);
   const [savedRoutes, setSavedRoutes] = useState(initial?.savedRoutes ?? []);
   const [optimizationMode, setOptimizationMode] = useState("ai");
-  const [routeResult, setRouteResult] = useState(null);
+    const [routeResult, setRouteResult] = useState(null);
+    const [rescheduledClients, setRescheduledClients] = useState(initial?.rescheduledClients ?? {});
 
   /* ─── Voice note UI state ──────────────────────────── */
   const [voiceOpen, setVoiceOpen] = useState(false);
@@ -392,23 +393,23 @@ export function RouteMeProvider({ children }) {
   }, [loadData]);
 
   /* ─── localStorage persistence ─────────────────────────── */
-  useEffect(() => {
-    try {
-      localStorage.setItem(KEY, JSON.stringify({
-        authed, clients, scheduleIds, notes, audit, optimized, savedRoutes,
-        agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
-        superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
-        globalAudit, activeSessions, billingLedger, featureFlags,
-        phiRevealed, maintenanceMode, impersonation, routeResult,
-      }));
-    } catch { /* quota exceeded — ignore */ }
-  }, [
-    authed, clients, scheduleIds, notes, audit, optimized, savedRoutes,
-        agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
-        superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
-        globalAudit, activeSessions, billingLedger, featureFlags,
-        phiRevealed, maintenanceMode, impersonation, routeResult,
-  ]);
+    useEffect(() => {
+      try {
+        localStorage.setItem(KEY, JSON.stringify({
+          authed, clients, scheduleIds, notes, audit, optimized, savedRoutes,
+          agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
+          superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
+          globalAudit, activeSessions, billingLedger, featureFlags,
+          phiRevealed, maintenanceMode, impersonation, routeResult, rescheduledClients,
+        }));
+      } catch { /* quota exceeded — ignore */ }
+    }, [
+      authed, clients, scheduleIds, notes, audit, optimized, savedRoutes,
+      agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
+      superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
+      globalAudit, activeSessions, billingLedger, featureFlags,
+      phiRevealed, maintenanceMode, impersonation, routeResult, rescheduledClients,
+    ]);
 
   const schedule = useMemo(
     () => scheduleIds.map((id) => clients.find((c) => c.id === id)).filter(Boolean),
@@ -495,9 +496,46 @@ export function RouteMeProvider({ children }) {
   }, [savedRoutes]);
 
   const deleteSavedRoute = useCallback(async (routeId) => {
-    setSavedRoutes(rs => rs.filter(r => r.id !== routeId));
-    await supabase.from('saved_routes').delete().eq('id', routeId);
-  }, []);
+      setSavedRoutes(rs => rs.filter(r => r.id !== routeId));
+      await supabase.from('saved_routes').delete().eq('id', routeId);
+    }, []);
+
+    /* ─── Route management ────────────────────────────── */
+
+    const getWeekStart = useCallback(() => {
+      const now = new Date();
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(now.setDate(diff));
+      return monday.toISOString().split('T')[0];
+    }, []);
+
+    const removeFromRoute = useCallback((id) => {
+      setScheduleIds(ids => ids.filter(sid => sid !== id));
+      pushAudit(`Client removed from route`, "write");
+    }, [pushAudit]);
+
+    const rescheduleClient = useCallback((id, day) => {
+      const weekStart = getWeekStart();
+      setScheduleIds(ids => ids.filter(sid => sid !== id));
+      setRescheduledClients(rc => ({
+        ...rc,
+        [id]: { day, weekStart, clientId: id },
+      }));
+      pushAudit(`Client rescheduled to ${day}`, "write");
+    }, [getWeekStart, pushAudit]);
+
+    const createRoute = useCallback((clientIds) => {
+      setScheduleIds(clientIds);
+      setOptimized(false);
+      setRouteResult(null);
+      pushAudit(`Route created — ${clientIds.length} stops`, "route");
+    }, [pushAudit]);
+
+    const clearRescheduled = useCallback(() => {
+      setRescheduledClients({});
+      pushAudit("Rescheduled clients cleared", "write");
+    }, [pushAudit]);
 
   /* ─── Agency actions ──────────────────────────────── */
 
@@ -630,6 +668,9 @@ export function RouteMeProvider({ children }) {
     voiceOpen, setVoiceOpen, voiceTarget, setVoiceTarget, openVoice, noteViewMode, setNoteViewMode,
     optimizationMode, setOptimizationMode,
         savedRoutes, saveRoute, loadRoute, deleteSavedRoute, routeResult,
+    // Route management
+    removeFromRoute, rescheduleClient, createRoute, clearRescheduled,
+    rescheduledClients, getWeekStart,
     // Agency admin
     agencyAuthed, setAgencyAuthed, agency, nurses, liveActivity, agencyClients, complianceLog,
     inviteNurse, setNurseStatus, removeNurse, resetAgencyDemo, reassignClient,
