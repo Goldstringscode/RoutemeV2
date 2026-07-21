@@ -78,6 +78,26 @@ function mapClientToDB(c) {
 
 /* ─── localStorage helpers ────────────────────────────── */
 
+function getWeekStart() {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(now.setDate(diff));
+  return monday.toISOString().split('T')[0];
+}
+
+function filterStaleRescheduled(rc) {
+  if (!rc || typeof rc !== 'object') return {};
+  const currentWeek = getWeekStart();
+  const filtered = {};
+  for (const [id, entry] of Object.entries(rc)) {
+    if (entry?.weekStart === currentWeek) {
+      filtered[id] = entry;
+    }
+  }
+  return filtered;
+}
+
 const loadState = () => {
   try {
     const raw = localStorage.getItem(KEY);
@@ -111,7 +131,7 @@ export function RouteMeProvider({ children }) {
   const [savedRoutes, setSavedRoutes] = useState(initial?.savedRoutes ?? []);
   const [optimizationMode, setOptimizationMode] = useState("ai");
     const [routeResult, setRouteResult] = useState(null);
-    const [rescheduledClients, setRescheduledClients] = useState(initial?.rescheduledClients ?? {});
+    const [rescheduledClients, setRescheduledClients] = useState(initial ? filterStaleRescheduled(initial?.rescheduledClients) : {});
 
   /* ─── Voice note UI state ──────────────────────────── */
   const [voiceOpen, setVoiceOpen] = useState(false);
@@ -514,13 +534,7 @@ export function RouteMeProvider({ children }) {
 
     /* ─── Route management ────────────────────────────── */
 
-    const getWeekStart = useCallback(() => {
-      const now = new Date();
-      const day = now.getDay();
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-      const monday = new Date(now.setDate(diff));
-      return monday.toISOString().split('T')[0];
-    }, []);
+        const getWeekStart = useCallback(getWeekStart, []);
 
     const removeFromRoute = useCallback((id) => {
       setScheduleIds(ids => ids.filter(sid => sid !== id));
