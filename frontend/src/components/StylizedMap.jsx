@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
 import { MAP_STOPS } from "@/lib/mockData";
 import { useRouteMe } from "@/context/RouteMeContext";
@@ -17,26 +17,26 @@ export default function StylizedMap({ compact = false, onStopClick, routeGeoJson
   const mapRef = useRef(null);
 
   // Get positions in schedule order
-  const stopMap = Object.fromEntries(MAP_STOPS.map((s) => [s.id, s]));
-  const orderedStops = schedule
-    .map((c, idx) => {
-      const pos = stopMap[c.id] || {
-        x: 150 + ((idx * 120) % 700),
-        y: 260 + ((idx * 47) % 200),
-        lat: 34.05 + (idx * 0.02),
-        lng: -118.3 - (idx * 0.03),
-      };
-      return { ...pos, id: c.id, label: String(idx + 1), name: c.fullName };
-    });
+    const stopMap = useMemo(() => Object.fromEntries(MAP_STOPS.map((s) => [s.id, s])), []);
+    const orderedStops = useMemo(() => schedule
+      .map((c, idx) => {
+        const pos = stopMap[c.id] || {
+          x: 150 + ((idx * 120) % 700),
+          y: 260 + ((idx * 47) % 200),
+          lat: 34.05 + (idx * 0.02),
+          lng: -118.3 - (idx * 0.03),
+        };
+        return { ...pos, id: c.id, label: String(idx + 1), name: c.fullName };
+      }), [schedule, stopMap]);
 
   // SVG path connecting stops — only used as fallback when no real route
-  const pathD = orderedStops.reduce((acc, s, i, arr) => {
-    if (i === 0) return `M ${s.x} ${s.y}`;
-    const prev = arr[i - 1];
-    const midX = (prev.x + s.x) / 2;
-    const midY = (prev.y + s.y) / 2 - 30;
-    return `${acc} Q ${midX} ${midY} ${s.x} ${s.y}`;
-  }, "");
+  const pathD = useMemo(() => orderedStops.reduce((acc, s, i, arr) => {
+      if (i === 0) return `M ${s.x} ${s.y}`;
+      const prev = arr[i - 1];
+      const midX = (prev.x + s.x) / 2;
+      const midY = (prev.y + s.y) / 2 - 30;
+      return `${acc} Q ${midX} ${midY} ${s.x} ${s.y}`;
+    }, ""), [orderedStops]);
 
   // Initialize Mapbox map
   useEffect(() => {
@@ -109,7 +109,7 @@ export default function StylizedMap({ compact = false, onStopClick, routeGeoJson
       map.remove();
       mapRef.current = null;
     };
-  }, [compact]);
+  }, [compact, orderedStops]);
 
   // Update route data when routeGeoJson changes
     useEffect(() => {
