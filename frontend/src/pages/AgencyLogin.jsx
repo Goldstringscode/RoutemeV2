@@ -10,9 +10,22 @@ export default function AgencyLogin() {
   const [email, setEmail] = useState(agency.admin.email);
   const [password, setPassword] = useState("demo1234");
   const [code, setCode] = useState("SUNRISE-2026");
+  const [error, setError] = useState("");
 
   const submit = (e) => {
     e.preventDefault();
+    setError("");
+
+    // Demo credential validation
+    const validEmail = "marcia.brown@sunrisehomehealth.com";
+    const validPassword = "demo1234";
+    const validCode = "SUNRISE-2026";
+
+    if (email !== validEmail || password !== validPassword || code !== validCode) {
+      setError("Invalid credentials. Check the agency code, email, and password.");
+      return;
+    }
+
     setAgencyAuthed(true);
     navigate("/agency/overview");
   };
@@ -81,10 +94,17 @@ export default function AgencyLogin() {
               />
             </div>
 
-            <button
-              data-testid="agency-login-submit"
-              type="submit"
-              className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 text-white h-12 text-sm font-semibold transition-colors"
+            {error && (
+                          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 font-medium flex items-center gap-2">
+                            <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
+                            {error}
+                          </div>
+                        )}
+
+                        <button
+                          data-testid="agency-login-submit"
+                          type="submit"
+                          className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 text-white h-12 text-sm font-semibold transition-colors"
             >
               Enter command center
               <ArrowRight className="h-4 w-4" />

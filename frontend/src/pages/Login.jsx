@@ -9,9 +9,21 @@ export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("amara.okafor@nurse.demo");
   const [password, setPassword] = useState("demo1234");
+  const [error, setError] = useState("");
 
   const submit = (e) => {
     e.preventDefault();
+    setError("");
+
+    // Demo credential validation
+    const validEmail = "amara.okafor@nurse.demo";
+    const validPassword = "demo1234";
+
+    if (email !== validEmail || password !== validPassword) {
+      setError("Invalid email or password. Try the demo credentials.");
+      return;
+    }
+
     setAuthed(true);
     pushAudit("Signed in — mocked auth", "read");
     navigate("/app/dashboard");
@@ -98,10 +110,17 @@ export default function Login() {
               />
             </div>
 
-            <button
-              data-testid="login-submit"
-              type="submit"
-              className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white h-12 text-sm font-semibold transition-colors"
+                        {error && (
+                          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 font-medium flex items-center gap-2">
+                            <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
+                            {error}
+                          </div>
+                        )}
+
+                        <button
+                          data-testid="login-submit"
+                          type="submit"
+                          className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white h-12 text-sm font-semibold transition-colors"
             >
               Enter today&apos;s workspace
               <ArrowRight className="h-4 w-4" />

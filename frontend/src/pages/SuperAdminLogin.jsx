@@ -10,12 +10,28 @@ export default function SuperAdminLogin() {
   const [password, setPassword] = useState("super1234");
   const [otp, setOtp] = useState("000000");
   const [step, setStep] = useState(1);
+  const [error, setError] = useState("");
 
   const next = (e) => {
     e.preventDefault();
+    setError("");
+
     if (step === 1) {
+      // Validate step 1: email + password
+      const validEmail = "super@routeme.com";
+      const validPassword = "super1234";
+      if (email !== validEmail || password !== validPassword) {
+        setError("Invalid root email or password.");
+        return;
+      }
       setStep(2);
     } else {
+      // Validate step 2: OTP
+      const validOtp = "000000";
+      if (otp !== validOtp) {
+        setError("Invalid backup code. Try 000000.");
+        return;
+      }
       setSuperAdminAuthed(true);
       navigate("/superadmin/overview");
     }
@@ -74,12 +90,18 @@ export default function SuperAdminLogin() {
                     className="mt-1.5 w-full h-12 rounded-xl border border-white/10 bg-white/5 px-4 text-sm text-white focus:border-[#D95D39] focus:outline-none focus:ring-4 focus:ring-[#D95D39]/20"
                   />
                 </div>
-                <button
-                  data-testid="sa-continue-btn"
-                  type="submit"
-                  className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white h-12 text-sm font-semibold transition-colors"
-                >
-                  Continue to MFA
+                {error && (
+                                  <div className="rounded-xl bg-red-900/40 border border-red-500/30 px-4 py-3 text-sm text-red-200 font-medium flex items-center gap-2">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
+                                    {error}
+                                  </div>
+                                )}
+                                <button
+                                  data-testid="sa-continue-btn"
+                                  type="submit"
+                                  className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white h-12 text-sm font-semibold transition-colors"
+                                >
+                                  Continue to MFA
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </>
@@ -107,12 +129,18 @@ export default function SuperAdminLogin() {
                     className="mt-1.5 w-full h-14 rounded-xl border border-white/10 bg-white/5 px-4 text-2xl tracking-[0.5em] font-display text-center text-white focus:border-[#D95D39] focus:outline-none focus:ring-4 focus:ring-[#D95D39]/20"
                   />
                 </div>
-                <button
-                  data-testid="sa-verify-btn"
-                  type="submit"
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white h-12 text-sm font-semibold transition-colors"
-                >
-                  Verify & enter platform
+                {error && (
+                                  <div className="rounded-xl bg-red-900/40 border border-red-500/30 px-4 py-3 text-sm text-red-200 font-medium flex items-center gap-2">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
+                                    {error}
+                                  </div>
+                                )}
+                                <button
+                                  data-testid="sa-verify-btn"
+                                  type="submit"
+                                  className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white h-12 text-sm font-semibold transition-colors"
+                                >
+                                  Verify & enter platform
                   <ArrowRight className="h-4 w-4" />
                 </button>
                 <button
