@@ -474,13 +474,14 @@ export default function RouteView() {
 
       {/* Route Builder Modal */}
       <RouteBuilderModal
-        open={builderOpen}
-        onClose={() => setBuilderOpen(false)}
-        clients={clients}
-        onScheduleIds={(ids) => createRoute(ids)}
-        onReschedule={(id, day) => rescheduleClient(id, day)}
-        rescheduledClients={rescheduledClients}
-      />
+              open={builderOpen}
+              onClose={() => setBuilderOpen(false)}
+              clients={clients}
+              scheduleIds={scheduleIds}
+              onScheduleIds={(ids) => createRoute(ids)}
+              onReschedule={(id, day) => rescheduleClient(id, day)}
+              rescheduledClients={rescheduledClients}
+            />
 
       {/* Remove from Route Modal */}
       <RemoveFromRouteModal

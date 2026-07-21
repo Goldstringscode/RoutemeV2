@@ -11,16 +11,16 @@ const DAYS = [
   { index: 6, label: "Sunday", short: "Sun" },
 ];
 
-export default function RouteBuilderModal({ open, onClose, clients, onScheduleIds, onReschedule, rescheduledClients }) {
+export default function RouteBuilderModal({ open, onClose, clients, scheduleIds, onScheduleIds, onReschedule, rescheduledClients }) {
   const [selected, setSelected] = useState(new Set());
   const [tab, setTab] = useState("add"); // "add" | "rescheduled"
   const [search, setSearch] = useState("");
 
   // Clients not currently on the route
   const available = useMemo(() => {
-    const onRoute = new Set(onScheduleIds);
+    const onRoute = new Set(scheduleIds || []);
     return clients.filter(c => !onRoute.has(c.id));
-  }, [clients, onScheduleIds]);
+  }, [clients, scheduleIds]);
 
   // Rescheduled clients (with their data)
   const rescheduledList = useMemo(() => {
