@@ -534,9 +534,8 @@ export function RouteMeProvider({ children }) {
 
     /* ─── Route management ────────────────────────────── */
 
-        const getWeekStart = useCallback(getWeekStart, []);
-
-    const removeFromRoute = useCallback((id) => {
+        // getWeekStart is a module-level function — no useCallback needed
+        const removeFromRoute = useCallback((id) => {
       setScheduleIds(ids => ids.filter(sid => sid !== id));
       pushAudit(`Client removed from route`, "write");
     }, [pushAudit]);
@@ -549,7 +548,7 @@ export function RouteMeProvider({ children }) {
         [id]: { day, weekStart, clientId: id },
       }));
       pushAudit(`Client rescheduled to ${day}`, "write");
-    }, [getWeekStart, pushAudit]);
+          }, [pushAudit]);
 
     const createRoute = useCallback((clientIds) => {
       setScheduleIds(clientIds);
