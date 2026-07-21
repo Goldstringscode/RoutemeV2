@@ -124,15 +124,15 @@ export const LIVE_ACTIVITY_SEED = [
 ];
 
 export const AGENCY_CLIENTS = [
-  { id: "ac1", name: "Eleanor M.", nurseId: "n_amara", city: "Austin, TX", condition: "Post-op knee", visitsWeek: 3 },
-  { id: "ac2", name: "Rafael T.", nurseId: "n_amara", city: "Round Rock, TX", condition: "Wound care", visitsWeek: 2 },
-  { id: "ac3", name: "Margaret K.", nurseId: "n_amara", city: "Pflugerville, TX", condition: "COPD monitoring", visitsWeek: 3 },
-  { id: "ac4", name: "Thomas R.", nurseId: "n_marcus", city: "Austin, TX", condition: "Cardiac follow-up", visitsWeek: 2 },
-  { id: "ac5", name: "Sara P.", nurseId: "n_marcus", city: "Cedar Park, TX", condition: "Diabetes management", visitsWeek: 4 },
-  { id: "ac6", name: "Alma H.", nurseId: "n_devi", city: "Austin, TX", condition: "Palliative care", visitsWeek: 5 },
-  { id: "ac7", name: "Mary L.", nurseId: "n_devi", city: "Buda, TX", condition: "Post-stroke rehab", visitsWeek: 3 },
-  { id: "ac8", name: "Frank D.", nurseId: "n_priya", city: "Pflugerville, TX", condition: "Vitals monitoring", visitsWeek: 2 },
-  { id: "ac9", name: "Yolanda G.", nurseId: "n_priya", city: "Austin, TX", condition: "Chemo aftercare", visitsWeek: 3 },
+  { id: "ac1", name: "Eleanor M.", nurseId: "n_amara", city: "Austin, TX", condition: "Post-op knee", visitsWeek: 3, phone: "+1 (512) 555-0142", address: "3421 Elm St, Austin, TX 78701", dob: "Mar 14, 1945", window: "9:00–11:00 AM", lastVisit: "Yesterday", priority: "high", caregiverName: "James M. (son)", caregiverPhone: "+1 (512) 555-0198", flags: ["Fall risk", "Hearing aid"] },
+  { id: "ac2", name: "Rafael T.", nurseId: "n_amara", city: "Round Rock, TX", condition: "Wound care", visitsWeek: 2, phone: "+1 (512) 555-0187", address: "1875 Lake Creek Dr, Round Rock, TX 78664", dob: "Aug 22, 1952", window: "10:00 AM–12:00 PM", lastVisit: "2 days ago", priority: "high", caregiverName: "Linda T. (wife)", caregiverPhone: "+1 (512) 555-0191", flags: ["Diabetes", "Antibiotic protocol"] },
+  { id: "ac3", name: "Margaret K.", nurseId: "n_amara", city: "Pflugerville, TX", condition: "COPD monitoring", visitsWeek: 3, phone: "+1 (512) 555-0163", address: "890 Pecan St, Pflugerville, TX 78660", dob: "Nov 3, 1938", window: "1:00–3:00 PM", lastVisit: "Yesterday", priority: "medium", caregiverName: null, caregiverPhone: null, flags: ["Oxygen dependent", "Limited mobility"] },
+  { id: "ac4", name: "Thomas R.", nurseId: "n_marcus", city: "Austin, TX", condition: "Cardiac follow-up", visitsWeek: 2, phone: "+1 (512) 555-0110", address: "5601 Manor Rd, Austin, TX 78723", dob: "Jun 17, 1949", window: "8:00–10:00 AM", lastVisit: "3 days ago", priority: "high", caregiverName: "Patricia R. (daughter)", caregiverPhone: "+1 (512) 555-0147", flags: ["Pacemaker", "Low sodium diet"] },
+  { id: "ac5", name: "Sara P.", nurseId: "n_marcus", city: "Cedar Park, TX", condition: "Diabetes management", visitsWeek: 4, phone: "+1 (512) 555-0201", address: "2412 Brushy Creek Rd, Cedar Park, TX 78613", dob: "Feb 28, 1957", window: "9:30–11:30 AM", lastVisit: "Yesterday", priority: "medium", caregiverName: "David P. (husband)", caregiverPhone: "+1 (512) 555-0202", flags: ["Insulin dependent", "Dietary plan"] },
+  { id: "ac6", name: "Alma H.", nurseId: "n_devi", city: "Austin, TX", condition: "Palliative care", visitsWeek: 5, phone: "+1 (512) 555-0174", address: "1200 Barton Springs Rd, Austin, TX 78704", dob: "Apr 9, 1935", window: "10:00 AM–12:00 PM", lastVisit: "Today", priority: "high", caregiverName: "Rosa H. (granddaughter)", caregiverPhone: "+1 (512) 555-0178", flags: ["Hospice", "Pain management", "Family alert"] },
+  { id: "ac7", name: "Mary L.", nurseId: "n_devi", city: "Buda, TX", condition: "Post-stroke rehab", visitsWeek: 3, phone: "+1 (512) 555-0135", address: "450 Main St, Buda, TX 78610", dob: "Sep 8, 1942", window: "1:00–3:00 PM", lastVisit: "2 days ago", priority: "high", caregiverName: "Carl L. (son)", caregiverPhone: "+1 (512) 555-0136", flags: ["Speech therapy", "Mobility aid"] },
+  { id: "ac8", name: "Frank D.", nurseId: "n_priya", city: "Pflugerville, TX", condition: "Vitals monitoring", visitsWeek: 2, phone: "+1 (512) 555-0123", address: "780 Heather Ln, Pflugerville, TX 78660", dob: "Dec 19, 1950", window: "8:00–9:30 AM", lastVisit: "5 days ago", priority: "low", caregiverName: null, caregiverPhone: null, flags: [] },
+  { id: "ac9", name: "Yolanda G.", nurseId: "n_priya", city: "Austin, TX", condition: "Chemo aftercare", visitsWeek: 3, phone: "+1 (512) 555-0159", address: "300 E Riverside Dr, Austin, TX 78704", dob: "Jul 5, 1960", window: "11:00 AM–1:00 PM", lastVisit: "Yesterday", priority: "high", caregiverName: "Michael G. (brother)", caregiverPhone: "+1 (512) 555-0160", flags: ["Immunocompromised", "Nausea protocol"] },
 ];
 
 export const COMPLIANCE_LOG_SEED = [
