@@ -17,6 +17,7 @@ import Signup from "@/pages/Signup";
 import Payment from "@/pages/Payment";
 import Welcome from "@/pages/Welcome";
 import NotFound from "@/pages/NotFound";
+import EmailPreview from "@/pages/EmailPreview";
 import AgencyLogin from "@/pages/AgencyLogin";
 import AgencyOverview from "@/pages/agency/Overview";
 import AgencyNurses from "@/pages/agency/Nurses";
@@ -68,6 +69,7 @@ function App() {
             <Route path="/signup" element={<Signup />} />
             <Route path="/payment" element={<Payment />} />
             <Route path="/welcome" element={<Welcome />} />
+            <Route path="/emails" element={<EmailPreview />} />
             <Route path="/login" element={<Login />} />
             <Route path="/agency/login" element={<AgencyLogin />} />
             <Route path="/superadmin/login" element={<SuperAdminLogin />} />
