@@ -133,13 +133,13 @@ export default function Signup() {
   const submit = (e) => {
     e.preventDefault();
     if (!canSubmit) return;
+    const fullName = `${form.firstName} ${form.lastName}`;
     if (isFree) {
-      setAuthed(true);
-      navigate("/app/dashboard");
+      navigate(`/welcome?plan=solo&name=${encodeURIComponent(fullName)}`);
       return;
     }
     if (isEnterprise) {
-      window.location.href = `mailto:sales@routeme.app?subject=Enterprise inquiry — ${form.orgName || form.firstName}`;
+      navigate(`/welcome?plan=enterprise&name=${encodeURIComponent(fullName)}`);
       return;
     }
     // paid → continue to payment
@@ -148,7 +148,7 @@ export default function Signup() {
       seats: String(seats),
       billing,
       total: String(dueToday),
-      name: `${form.firstName} ${form.lastName}`,
+      name: fullName,
       email: form.email,
       org: form.orgName,
     }).toString();

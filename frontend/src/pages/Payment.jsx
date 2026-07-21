@@ -16,7 +16,6 @@ import {
   Users,
 } from "lucide-react";
 import HipaaBadge from "@/components/HipaaBadge";
-import { useRouteMe } from "@/context/RouteMeContext";
 
 const TIER_ICONS = { solo: Users, growth: Sparkles, scale: Zap, enterprise: Crown };
 const TIER_NAMES = { solo: "Solo", growth: "Growth", scale: "Scale", enterprise: "Enterprise" };
@@ -34,7 +33,6 @@ export default function Payment() {
   const tierName = TIER_NAMES[plan] ?? "Growth";
 
   const navigate = useNavigate();
-  const { setAgencyAuthed, setAuthed } = useRouteMe();
 
   const [method, setMethod] = useState("card"); // card | ach
   const [processing, setProcessing] = useState(false);
@@ -74,14 +72,8 @@ export default function Payment() {
       setProcessing(false);
       setSuccess(true);
       setTimeout(() => {
-        // Route based on plan audience: solo → nurse app, else → agency
-        if (plan === "solo") {
-          setAuthed(true);
-          navigate("/app/dashboard");
-        } else {
-          setAgencyAuthed(true);
-          navigate("/agency/overview");
-        }
+        const q = new URLSearchParams({ plan, name }).toString();
+        navigate(`/welcome?${q}`);
       }, 1600);
     }, 1600);
   };
