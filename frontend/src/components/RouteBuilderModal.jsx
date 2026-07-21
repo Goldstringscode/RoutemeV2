@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { X, Check, Plus, Search, Users, ArrowRight, Clock, MapPin, Loader } from "lucide-react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { X, Check, Plus, Search, Users, ArrowRight, Clock, MapPin, Loader, UserPlus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRouteMe } from "@/context/RouteMeContext";
 
 const DAYS = [
   { index: 0, label: "Monday", short: "Mon" },
@@ -13,10 +14,13 @@ const DAYS = [
 ];
 
 export default function RouteBuilderModal({ open, onClose, clients, scheduleIds, onScheduleIds, onReschedule, rescheduledClients }) {
+  const { addClient } = useRouteMe();
   const [selected, setSelected] = useState(new Set());
   const [tab, setTab] = useState("add"); // "add" | "rescheduled"
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newClient, setNewClient] = useState({ fullName: "", condition: "", address: "", phone: "" });
 
   // Simulate data loading when modal opens
   useEffect(() => {
@@ -25,6 +29,8 @@ export default function RouteBuilderModal({ open, onClose, clients, scheduleIds,
       setSelected(new Set());
       setSearch("");
       setTab("add");
+      setCreateOpen(false);
+      setNewClient({ fullName: "", condition: "", address: "", phone: "" });
       const t = setTimeout(() => setLoading(false), 350);
       return () => clearTimeout(t);
     }
@@ -78,6 +84,27 @@ export default function RouteBuilderModal({ open, onClose, clients, scheduleIds,
     setSelected(new Set());
     onClose();
   };
+
+  // Quick-create a new client and auto-select them for the route
+  const handleCreateClient = useCallback((e) => {
+    e.preventDefault();
+    if (!newClient.fullName.trim()) return;
+    const initials = newClient.fullName
+      .split(" ").map(s => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+    addClient({
+      ...newClient,
+      initials: initials + ".",
+      priority: "medium",
+      duration: 30,
+      window: "09:00 – 09:45",
+      flags: [],
+      lastVisit: "New client",
+      dob: "",
+    });
+    setNewClient({ fullName: "", condition: "", address: "", phone: "" });
+    setCreateOpen(false);
+    setSearch(newClient.fullName.split(" ")[0]);
+  }, [newClient, addClient]);
 
   if (!open) return null;
 
@@ -180,7 +207,7 @@ export default function RouteBuilderModal({ open, onClose, clients, scheduleIds,
               </div>
 
               {filtered.length === 0 ? (
-                <div className="text-center py-10">
+                <div className="text-center py-6">
                   <Users className="h-10 w-10 text-stone-300 mx-auto" />
                   <p className="mt-3 text-sm text-stone-500 font-semibold">
                     {search ? "No clients match your search" : "All clients are on the route"}
@@ -188,6 +215,61 @@ export default function RouteBuilderModal({ open, onClose, clients, scheduleIds,
                   <p className="text-xs text-stone-400 mt-1">
                     {search ? "Try a different search term" : "The route is full — remove some to add more"}
                   </p>
+                  {/* Quick-create button when search yields nothing */}
+                  {search && !createOpen && (
+                    <button
+                      onClick={() => setCreateOpen(true)}
+                      className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-5 py-2.5 text-sm font-semibold transition-colors"
+                    >
+                      <UserPlus className="h-4 w-4" /> Create &ldquo;{search}&rdquo;
+                    </button>
+                  )}
+                  {/* Mini create-client form */}
+                  {createOpen && (
+                    <form onSubmit={handleCreateClient} className="mt-4 text-left max-w-sm mx-auto space-y-2.5">
+                      <p className="text-xs uppercase tracking-widest text-stone-500 font-semibold mb-1">Quick-add client</p>
+                      <input
+                        value={newClient.fullName}
+                        onChange={(e) => setNewClient(n => ({ ...n, fullName: e.target.value }))}
+                        placeholder="Full name *"
+                        required
+                        className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100"
+                      />
+                      <input
+                        value={newClient.condition}
+                        onChange={(e) => setNewClient(n => ({ ...n, condition: e.target.value }))}
+                        placeholder="Condition (e.g. Diabetes)"
+                        className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100"
+                      />
+                      <input
+                        value={newClient.address}
+                        onChange={(e) => setNewClient(n => ({ ...n, address: e.target.value }))}
+                        placeholder="Address"
+                        className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100"
+                      />
+                      <input
+                        value={newClient.phone}
+                        onChange={(e) => setNewClient(n => ({ ...n, phone: e.target.value }))}
+                        placeholder="Phone"
+                        className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100"
+                      />
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="submit"
+                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 text-white h-10 text-sm font-semibold transition-colors"
+                        >
+                          <Plus className="h-4 w-4" /> Add &amp; select
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCreateOpen(false)}
+                          className="rounded-full border border-stone-300 h-10 px-4 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )}
                 </div>
               ) : (
                 <>
@@ -249,6 +331,27 @@ export default function RouteBuilderModal({ open, onClose, clients, scheduleIds,
                       </button>
                     ))}
                   </div>
+                  {/* New client quick-create at bottom of list */}
+                  {!createOpen ? (
+                    <button
+                      onClick={() => { setCreateOpen(true); setSearch(""); }}
+                      className="w-full mt-2 flex items-center justify-center gap-2 rounded-2xl border border-dashed border-stone-300 p-3 text-sm font-semibold text-stone-500 hover:border-stone-500 hover:text-stone-700 hover:bg-stone-50 transition-all"
+                    >
+                      <UserPlus className="h-4 w-4" /> New client
+                    </button>
+                  ) : (
+                    <form onSubmit={handleCreateClient} className="mt-3 space-y-2.5 border-t border-stone-200 pt-3">
+                      <p className="text-xs uppercase tracking-widest text-stone-500 font-semibold">Quick-add client</p>
+                      <input value={newClient.fullName} onChange={(e) => setNewClient(n => ({ ...n, fullName: e.target.value }))} placeholder="Full name *" required className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100" />
+                      <input value={newClient.condition} onChange={(e) => setNewClient(n => ({ ...n, condition: e.target.value }))} placeholder="Condition" className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100" />
+                      <input value={newClient.address} onChange={(e) => setNewClient(n => ({ ...n, address: e.target.value }))} placeholder="Address" className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100" />
+                      <input value={newClient.phone} onChange={(e) => setNewClient(n => ({ ...n, phone: e.target.value }))} placeholder="Phone" className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100" />
+                      <div className="flex items-center gap-2 pt-1">
+                        <button type="submit" className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 text-white h-10 text-sm font-semibold transition-colors"><Plus className="h-4 w-4" /> Add &amp; select</button>
+                        <button type="button" onClick={() => setCreateOpen(false)} className="rounded-full border border-stone-300 h-10 px-4 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors">Cancel</button>
+                      </div>
+                    </form>
+                  )}
                 </>
               )}
               </>
