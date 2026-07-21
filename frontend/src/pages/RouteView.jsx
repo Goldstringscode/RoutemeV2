@@ -25,6 +25,7 @@ export default function RouteView() {
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
   const [justSaved, setJustSaved] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
   const dragItem = useRef(null);
 
   const active = schedule.find((s) => s.id === selected) || schedule[0];
@@ -37,8 +38,13 @@ export default function RouteView() {
   };
 
   const applyOptimization = (modeId) => {
-    optimize(modeId);
-    setModalOpen(false);
+    setOptimizing(true);
+    // Small delay so the UX shows the loading state
+    setTimeout(() => {
+      optimize(modeId);
+      setOptimizing(false);
+      setModalOpen(false);
+    }, 400);
   };
 
   const handleSaveRoute = async () => {
@@ -446,10 +452,19 @@ export default function RouteView() {
                 <button
                   onClick={() => applyOptimization(activeMode)}
                   data-testid="apply-optimization-btn"
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 text-white h-11 text-sm font-semibold transition-colors"
+                  disabled={optimizing}
+                  className={`flex-1 inline-flex items-center justify-center gap-2 rounded-full h-11 text-sm font-semibold transition-colors ${
+                    optimizing
+                      ? "bg-stone-400 text-white cursor-wait"
+                      : "bg-stone-900 hover:bg-stone-800 text-white"
+                  }`}
                 >
-                  <Sparkles className="h-4 w-4" />
-                  Apply {OPTIMIZATION_MODES.find(m => m.id === activeMode)?.label || "optimization"}
+                  {optimizing ? (
+                    <><Loader className="h-4 w-4 animate-spin" /> Optimizing…</>
+                  ) : (
+                    <><Sparkles className="h-4 w-4" />
+                    Apply {OPTIMIZATION_MODES.find(m => m.id === activeMode)?.label || "optimization"}</>
+                  )}
                 </button>
                 <button
                   onClick={handleSaveRoute}

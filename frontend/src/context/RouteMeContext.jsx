@@ -428,21 +428,30 @@ export function RouteMeProvider({ children }) {
     setScheduleIds(ids => [id, ...ids]);
     pushAudit(`Client added — ${c.fullName}`, "write");
     if (userIdRef.current) {
-      supabase.from('clients').insert({ ...mapClientToDB(c), id, nurse_id: userIdRef.current }).then().catch(() => {});
+      supabase.from('clients').insert({ ...mapClientToDB(c), id, nurse_id: userIdRef.current }).then().catch(err => {
+        console.error("supabase error [addClient]:", err.message);
+        pushAudit(`DB sync failed — add ${c.fullName}`, "error");
+      });
     }
   }, [pushAudit]);
 
   const updateClient = useCallback((id, patch) => {
     setClients(cs => cs.map(c => c.id === id ? { ...c, ...patch } : c));
     pushAudit(`Client updated — ${patch.fullName ?? id}`, "write");
-    supabase.from('clients').update(mapClientToDB(patch)).eq('id', id).then().catch(() => {});
+    supabase.from('clients').update(mapClientToDB(patch)).eq('id', id).then().catch(err => {
+      console.error("supabase error [updateClient]:", err.message);
+      pushAudit(`DB sync failed — update ${patch.fullName ?? id}`, "error");
+    });
   }, [pushAudit]);
 
   const removeClient = useCallback((id) => {
     setClients(cs => cs.filter(c => c.id !== id));
     setScheduleIds(s => s.filter(sid => sid !== id));
     pushAudit(`Client removed`, "write");
-    supabase.from('clients').delete().eq('id', id).then().catch(() => {});
+    supabase.from('clients').delete().eq('id', id).then().catch(err => {
+      console.error("supabase error [removeClient]:", err.message);
+      pushAudit(`DB sync failed — remove client`, "error");
+    });
   }, [pushAudit]);
 
   const reorder = useCallback((ids) => {
@@ -468,7 +477,10 @@ export function RouteMeProvider({ children }) {
     }));
     pushAudit("Voice note transcribed", "note");
     if (userIdRef.current) {
-      supabase.from('visit_notes').insert({ nurse_id: userIdRef.current, client_id: clientId, text, visit_type: 'Routine visit', status: 'Completed' }).then().catch(() => {});
+      supabase.from('visit_notes').insert({ nurse_id: userIdRef.current, client_id: clientId, text, visit_type: 'Routine visit', status: 'Completed' }).then().catch(err => {
+        console.error("supabase error [addNote]:", err.message);
+        pushAudit(`DB sync failed — save note`, "error");
+      });
     }
   }, [pushAudit]);
 
@@ -551,7 +563,9 @@ export function RouteMeProvider({ children }) {
     setNurses(ns => [nurse, ...ns]);
     setLiveActivity(a => [{ t: "just now", nurseId: id, label: `Invite sent — ${name}`, type: "auth" }, ...a].slice(0, 40));
     if (userAgencyId) {
-      supabase.from('profiles').insert({ id, name, email, role: 'nurse', agency_id: userAgencyId }).then().catch(() => {});
+      supabase.from('profiles').insert({ id, name, email, role: 'nurse', agency_id: userAgencyId }).then().catch(err => {
+        console.error("supabase error [inviteNurse]:", err.message);
+      });
     }
     return nurse;
   }, [userAgencyId]);
@@ -576,7 +590,9 @@ export function RouteMeProvider({ children }) {
     const client = agencyClients.find(c => c.id === clientId);
     setLiveActivity(a => [{ t: "just now", nurseId: newNurseId, label: `Reassigned ${client?.name ?? "client"} → ${newNurse?.name?.split(",")[0] ?? "nurse"}`, type: "route" }, ...a].slice(0, 40));
     if (clientId && newNurseId) {
-      supabase.from('clients').update({ nurse_id: newNurseId }).eq('id', clientId).then().catch(() => {});
+      supabase.from('clients').update({ nurse_id: newNurseId }).eq('id', clientId).then().catch(err => {
+        console.error("supabase error [reassignClient]:", err.message);
+      });
     }
   }, [nurses, agencyClients]);
 
@@ -594,7 +610,9 @@ export function RouteMeProvider({ children }) {
     setAgencies(as => as.map(a => a.id === id ? { ...a, status } : a));
     const ag = agencies.find(a => a.id === id);
     pushGlobalAudit(status === "suspended" ? "Agency suspended" : "Agency reactivated", `Agency · ${ag?.name}`, id, status === "suspended" ? "warn" : "info");
-    supabase.from('agencies').update({ subscription_status: status === 'suspended' ? 'past_due' : 'active' }).eq('id', id).then().catch(() => {});
+    supabase.from('agencies').update({ subscription_status: status === 'suspended' ? 'past_due' : 'active' }).eq('id', id).then().catch(err => {
+      console.error("supabase error [setAgencyStatus]:", err.message);
+    });
   }, [agencies, pushGlobalAudit]);
 
   const setGlobalNurseStatus = useCallback((id, status) => {

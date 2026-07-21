@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { X, Calendar, Trash2, ArrowRight, ArrowLeft } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, Calendar, Trash2, ArrowRight, ArrowLeft, Loader } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const DAYS = [
   { index: 0, label: "Monday", short: "Mon" },
@@ -14,6 +15,18 @@ const DAYS = [
 export default function RemoveFromRouteModal({ open, onClose, client, onRemoveFromRoute, onReschedule }) {
   const [step, setStep] = useState("choose"); // "choose" | "dayPicker"
   const [selectedDay, setSelectedDay] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  // Simulate loading when modal opens
+  useEffect(() => {
+    if (open) {
+      setLoading(true);
+      setStep("choose");
+      setSelectedDay(null);
+      const t = setTimeout(() => setLoading(false), 300);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
 
   if (!open || !client) return null;
 
@@ -90,7 +103,26 @@ export default function RemoveFromRouteModal({ open, onClose, client, onRemoveFr
 
         {/* Body */}
         <div className="px-6 py-5">
-          {/* Client info card */}
+          {loading ? (
+            <div className="space-y-5">
+              {/* Skeleton: client info card */}
+              <div className="rounded-2xl bg-[#F9F8F6] border border-stone-200 p-4">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-12 w-12 rounded-full shrink-0" />
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                </div>
+              </div>
+              {/* Skeleton: action buttons */}
+              <Skeleton className="h-16 w-full rounded-2xl" />
+              <Skeleton className="h-16 w-full rounded-2xl" />
+            </div>
+          ) : (
+            <>
+              {/* Client info card */}
           <div className="rounded-2xl bg-[#F9F8F6] border border-stone-200 p-4 mb-5">
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-full bg-stone-200 flex items-center justify-center text-sm font-semibold text-stone-600">
@@ -195,6 +227,7 @@ export default function RemoveFromRouteModal({ open, onClose, client, onRemoveFr
               </div>
             </div>
           )}
+          </>)}
         </div>
       </div>
     </div>

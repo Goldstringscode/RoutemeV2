@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from "react";
-import { X, Check, Plus, Search, Users, ArrowRight, Clock, MapPin } from "lucide-react";
+import React, { useState, useMemo, useEffect } from "react";
+import { X, Check, Plus, Search, Users, ArrowRight, Clock, MapPin, Loader } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const DAYS = [
   { index: 0, label: "Monday", short: "Mon" },
@@ -15,6 +16,19 @@ export default function RouteBuilderModal({ open, onClose, clients, scheduleIds,
   const [selected, setSelected] = useState(new Set());
   const [tab, setTab] = useState("add"); // "add" | "rescheduled"
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // Simulate data loading when modal opens
+  useEffect(() => {
+    if (open) {
+      setLoading(true);
+      setSelected(new Set());
+      setSearch("");
+      setTab("add");
+      const t = setTimeout(() => setLoading(false), 350);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
 
   // Clients not currently on the route
   const available = useMemo(() => {
@@ -102,7 +116,7 @@ export default function RouteBuilderModal({ open, onClose, clients, scheduleIds,
           >
             <Plus className="h-3 w-3 inline mr-1.5" />
             Add clients
-            {available.length > 0 && (
+            {!loading && available.length > 0 && (
               <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500">
                 {available.length}
               </span>
@@ -118,7 +132,7 @@ export default function RouteBuilderModal({ open, onClose, clients, scheduleIds,
           >
             <Clock className="h-3 w-3 inline mr-1.5" />
             Rescheduled
-            {rescheduledList.length > 0 && (
+            {!loading && rescheduledList.length > 0 && (
               <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
                 {rescheduledList.length}
               </span>
@@ -128,8 +142,31 @@ export default function RouteBuilderModal({ open, onClose, clients, scheduleIds,
 
         {/* Tab content */}
         <div className="px-6 py-4 max-h-[50vh] overflow-y-auto">
-          {tab === "add" ? (
-            <>
+          {loading ? (
+            <div className="space-y-3 py-2">
+              {/* Skeleton: search bar */}
+              <Skeleton className="h-10 w-full rounded-xl" />
+              {/* Skeleton: select-all toggle */}
+              <Skeleton className="h-9 w-full rounded-xl" />
+              {/* Skeleton: client items */}
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center gap-3 p-3">
+                  <Skeleton className="h-5 w-5 rounded shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-12 rounded-full" />
+                    </div>
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-3 w-40" />
+                  </div>
+                  <Skeleton className="h-3 w-8" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>{(tab === "add") ? (
+              <>
               {/* Search */}
               <div className="relative mb-4">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
@@ -214,21 +251,21 @@ export default function RouteBuilderModal({ open, onClose, clients, scheduleIds,
                   </div>
                 </>
               )}
-            </>
-          ) : (
-            /* Rescheduled tab */
-            <>
-              {rescheduledList.length === 0 ? (
-                <div className="text-center py-10">
-                  <Clock className="h-10 w-10 text-stone-300 mx-auto" />
-                  <p className="mt-3 text-sm text-stone-500 font-semibold">No rescheduled clients</p>
-                  <p className="text-xs text-stone-400 mt-1">
-                    When you move a client to another day, they&apos;ll appear here
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {rescheduledList.map((c) => (
+              </>
+            ) : (
+              /* Rescheduled tab */
+              <>
+                {rescheduledList.length === 0 ? (
+                  <div className="text-center py-10">
+                    <Clock className="h-10 w-10 text-stone-300 mx-auto" />
+                    <p className="mt-3 text-sm text-stone-500 font-semibold">No rescheduled clients</p>
+                    <p className="text-xs text-stone-400 mt-1">
+                      When you move a client to another day, they&apos;ll appear here
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {rescheduledList.map((c) => (
                     <div
                       key={c.id}
                       className="rounded-2xl border border-amber-200 bg-amber-50/50 p-3"
@@ -266,28 +303,39 @@ export default function RouteBuilderModal({ open, onClose, clients, scheduleIds,
               )}
             </>
           )}
+            </>
+          )}
         </div>
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-stone-100 bg-[#F9F8F6] flex items-center justify-between">
-          <span className="text-xs text-stone-500">
-            {tab === "add"
-              ? `${onScheduleIds.length} on route · ${selected.size} selected`
-              : `${rescheduledList.length} rescheduled`}
-          </span>
-          {tab === "add" && (
-            <button
-              onClick={addToRoute}
-              disabled={selected.size === 0}
-              className={`inline-flex items-center gap-2 rounded-full h-10 px-5 text-sm font-semibold transition-colors ${
-                selected.size > 0
-                  ? "bg-stone-900 hover:bg-stone-800 text-white"
-                  : "bg-stone-200 text-stone-400 cursor-not-allowed"
-              }`}
-            >
-              Add {selected.size > 0 ? `${selected.size} client${selected.size > 1 ? "s" : ""}` : ""}
-              <ArrowRight className="h-4 w-4" />
-            </button>
+          {loading ? (
+            <div className="flex items-center justify-between w-full">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-10 w-28 rounded-full" />
+            </div>
+          ) : (
+            <>
+              <span className="text-xs text-stone-500">
+                {tab === "add"
+                  ? `${scheduleIds.length || 0} on route · ${selected.size} selected`
+                  : `${rescheduledList.length} rescheduled`}
+              </span>
+              {tab === "add" && (
+                <button
+                  onClick={addToRoute}
+                  disabled={selected.size === 0}
+                  className={`inline-flex items-center gap-2 rounded-full h-10 px-5 text-sm font-semibold transition-colors ${
+                    selected.size > 0
+                      ? "bg-stone-900 hover:bg-stone-800 text-white"
+                      : "bg-stone-200 text-stone-400 cursor-not-allowed"
+                  }`}
+                >
+                  Add {selected.size > 0 ? `${selected.size} client${selected.size > 1 ? "s" : ""}` : ""}
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
