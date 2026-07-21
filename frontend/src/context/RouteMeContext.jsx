@@ -251,13 +251,27 @@ export function RouteMeProvider({ children }) {
           .from('clients').select('*').eq('agency_id', agencyId).order('created_at', { ascending: false });
         if (clientData?.length) {
           setAgencyClients(clientData.map((c, i) => ({
-            id: c.id,
-            name: c.full_name || 'Unknown',
-            nurseId: c.nurse_id || '',
-            city: (c.address || '').split(',').slice(-2).join(', ').trim() || 'Unknown',
-            condition: c.condition || '—',
-            visitsWeek: Math.ceil((c.duration || 30) / 30) || 1,
-          })));
+                      id: c.id,
+                      name: c.full_name || 'Unknown',
+                      fullName: c.full_name || 'Unknown',
+                      nurseId: c.nurse_id || '',
+                      city: (c.address || '').split(',').slice(-2).join(', ').trim() || 'Unknown',
+                      address: c.address || '',
+                      phone: c.phone || '',
+                      dob: c.dob || '',
+                      condition: c.condition || '—',
+                      window: c.time_window || '',
+                      duration: c.duration || 30,
+                      priority: c.priority || 'medium',
+                      flags: c.flags || [],
+                      lastVisit: c.last_visit || 'New client',
+                      visitsWeek: Math.ceil((c.duration || 30) / 30) || 1,
+                      caregiverName: c.caregiver_name || '',
+                      caregiverPhone: c.caregiver_phone || '',
+                      initials: c.initials || '',
+                      lat: c.lat,
+                      lng: c.lng,
+                    })));
         }
 
         const { data: auditData } = await supabase

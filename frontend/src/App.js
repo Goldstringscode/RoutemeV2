@@ -18,6 +18,7 @@ import AgencyOverview from "@/pages/agency/Overview";
 import AgencyNurses from "@/pages/agency/Nurses";
 import AgencyActivity from "@/pages/agency/Activity";
 import AgencyClientsDir from "@/pages/agency/ClientsDir";
+import AgencyClientDetail from "@/pages/agency/AgencyClientDetail";
 import AgencyCompliance from "@/pages/agency/Compliance";
 import AgencyBilling from "@/pages/agency/Billing";
 import NurseDetail from "@/pages/agency/NurseDetail";
@@ -128,6 +129,7 @@ function App() {
               <Route path="nurses/:id" element={<NurseDetail />} />
               <Route path="activity" element={<AgencyActivity />} />
               <Route path="clients" element={<AgencyClientsDir />} />
+              <Route path="clients/:id" element={<AgencyClientDetail />} />
               <Route path="compliance" element={<AgencyCompliance />} />
               <Route path="billing" element={<AgencyBilling />} />
             </Route>

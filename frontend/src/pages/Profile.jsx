@@ -1,38 +1,11 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Shield, Trash2, Bell, Volume2, MapPin, HeartPulse } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
-import { MAP_STOPS } from "@/lib/mockData";
 import { Switch } from "@/components/ui/switch";
 
-/** Haversine distance between two lat/lng pairs in miles */
-function haversine(lat1, lng1, lat2, lng2) {
-  const R = 3958.8;
-  const toRad = (d) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function computeRouteStats(schedule, stopMap) {
-  if (schedule.length < 2) return null;
-  const ordered = schedule.map((c) => stopMap[c.id]).filter(Boolean);
-  if (ordered.length < 2) return null;
-  let total = 0;
-  for (let i = 0; i < ordered.length - 1; i++) {
-    total += haversine(ordered[i].lat, ordered[i].lng, ordered[i + 1].lat, ordered[i + 1].lng);
-  }
-  return Math.round(total * 10) / 10;
-}
-
 export default function Profile() {
-  const { nurse, audit, clients, notes, schedule } = useRouteMe();
+  const { nurse, audit, clients, notes } = useRouteMe();
   const totalNotes = Object.values(notes).reduce((s, arr) => s + arr.length, 0);
-
-  const stopMap = useMemo(() => Object.fromEntries(MAP_STOPS.map((s) => [s.id, s])), []);
-  const routeMiles = useMemo(() => computeRouteStats(schedule, stopMap), [schedule, stopMap]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -70,7 +43,7 @@ export default function Profile() {
         <MiniStat label="Active clients" value={clients.length} />
         <MiniStat label="Notes recorded" value={totalNotes} />
         <MiniStat label="Audit events" value={audit.length} />
-        <MiniStat label="Route miles / day" value={routeMiles ?? "—"} />
+        <MiniStat label="Miles saved / wk" value={nurse.weeklySavedMiles} />
       </div>
 
       {/* Preferences */}
