@@ -94,7 +94,7 @@ export function RouteMeProvider({ children }) {
 
   /* ─── Auth / loading state ─────────────────────────── */
   const [supabaseReady, setSupabaseReady] = useState(false);
-  const [dataReady, setDataReady] = useState(false);
+    const [dataReady, setDataReady] = useState(true);
   const [loadingError, setLoadingError] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [userAgencyId, setUserAgencyId] = useState(null);
