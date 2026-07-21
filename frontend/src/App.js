@@ -17,6 +17,7 @@ import Signup from "@/pages/Signup";
 import Payment from "@/pages/Payment";
 import Welcome from "@/pages/Welcome";
 import NotFound from "@/pages/NotFound";
+import EmailPreview from "@/pages/EmailPreview";
 import AgencyLogin from "@/pages/AgencyLogin";
 import AgencyOverview from "@/pages/agency/Overview";
 import AgencyNurses from "@/pages/agency/Nurses";
@@ -102,6 +103,7 @@ function App() {
             <Route path="/payment" element={<Payment />} />
             <Route path="/welcome" element={<Welcome />} />
             <Route path="/thank-you" element={<Welcome />} />
+            <Route path="/emails" element={<EmailPreview />} />
             <Route path="/login" element={<Login />} />
             <Route path="/agency/login" element={<AgencyLogin />} />
             <Route path="/superadmin/login" element={<SuperAdminLogin />} />
@@ -120,53 +122,53 @@ function App() {
               <Route path="schedule" element={<Schedule />} />
               <Route path="clients" element={<Clients />} />
               <Route path="clients/:id" element={<ClientDetail />} />
-                            <Route path="profile" element={<Profile />} />
-                            <Route path="*" element={<NotFound />} />
-                          </Route>
+              <Route path="profile" element={<Profile />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
 
-                          <Route
-                            path="/agency"
-                            element={
-                              <AgencyProtected>
-                                <AgencyShell />
-                              </AgencyProtected>
-                            }
-                          >
-                            <Route index element={<Navigate to="/agency/overview" replace />} />
-                            <Route path="overview" element={<AgencyOverview />} />
-                            <Route path="nurses" element={<AgencyNurses />} />
-                            <Route path="nurses/:id" element={<NurseDetail />} />
-                            <Route path="activity" element={<AgencyActivity />} />
-                            <Route path="clients" element={<AgencyClientsDir />} />
-                            <Route path="clients/:id" element={<AgencyClientDetail />} />
-                            <Route path="compliance" element={<AgencyCompliance />} />
-                            <Route path="billing" element={<AgencyBilling />} />
-                            <Route path="*" element={<NotFound />} />
-                          </Route>
+            <Route
+              path="/agency"
+              element={
+                <AgencyProtected>
+                  <AgencyShell />
+                </AgencyProtected>
+              }
+            >
+              <Route index element={<Navigate to="/agency/overview" replace />} />
+              <Route path="overview" element={<AgencyOverview />} />
+              <Route path="nurses" element={<AgencyNurses />} />
+              <Route path="nurses/:id" element={<NurseDetail />} />
+              <Route path="activity" element={<AgencyActivity />} />
+              <Route path="clients" element={<AgencyClientsDir />} />
+              <Route path="clients/:id" element={<AgencyClientDetail />} />
+              <Route path="compliance" element={<AgencyCompliance />} />
+              <Route path="billing" element={<AgencyBilling />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
 
-                          <Route
-                            path="/superadmin"
-                            element={
-                              <SuperAdminProtected>
-                                <SuperAdminShell />
-                              </SuperAdminProtected>
-                            }
-                          >
-                            <Route index element={<Navigate to="/superadmin/overview" replace />} />
-                            <Route path="overview" element={<SuperAdminOverview />} />
-                            <Route path="agencies" element={<SuperAdminAgencies />} />
-                            <Route path="agencies/:id" element={<SuperAdminAgencyDetail />} />
-                            <Route path="nurses" element={<SuperAdminNurses />} />
-                            <Route path="nurses/:id" element={<SuperAdminNurseDetail />} />
-                            <Route path="clients" element={<SuperAdminClients />} />
-                            <Route path="clients/:id" element={<SuperAdminClientPHI />} />
-                            <Route path="staff" element={<SuperAdminStaff />} />
-                            <Route path="audit" element={<SuperAdminAudit />} />
-                            <Route path="security" element={<SuperAdminSecurity />} />
-                            <Route path="billing" element={<SuperAdminBilling />} />
-                            <Route path="system" element={<SuperAdminSystem />} />
-                            <Route path="*" element={<NotFound />} />
-                          </Route>
+            <Route
+              path="/superadmin"
+              element={
+                <SuperAdminProtected>
+                  <SuperAdminShell />
+                </SuperAdminProtected>
+              }
+            >
+              <Route index element={<Navigate to="/superadmin/overview" replace />} />
+              <Route path="overview" element={<SuperAdminOverview />} />
+              <Route path="agencies" element={<SuperAdminAgencies />} />
+              <Route path="agencies/:id" element={<SuperAdminAgencyDetail />} />
+              <Route path="nurses" element={<SuperAdminNurses />} />
+              <Route path="nurses/:id" element={<SuperAdminNurseDetail />} />
+              <Route path="clients" element={<SuperAdminClients />} />
+              <Route path="clients/:id" element={<SuperAdminClientPHI />} />
+              <Route path="staff" element={<SuperAdminStaff />} />
+              <Route path="audit" element={<SuperAdminAudit />} />
+              <Route path="security" element={<SuperAdminSecurity />} />
+              <Route path="billing" element={<SuperAdminBilling />} />
+              <Route path="system" element={<SuperAdminSystem />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
 
             <Route path="*" element={<NotFound />} />
           </Routes>

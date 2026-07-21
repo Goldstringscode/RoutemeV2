@@ -216,13 +216,19 @@ export default function Landing() {
       <footer className="border-t border-stone-200 py-8">
         <div className="mx-auto max-w-7xl px-6 lg:px-10 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-stone-500">
           <p>© 2026 RouteMe · Built with care for traveling nurses.</p>
-          <p className="flex items-center gap-2">
-            <MapPin className="h-3 w-3" /> Prototype · demo data only
+          <p className="flex items-center gap-2"><MapPin className="h-3 w-3" /> Prototype · demo data only
             <Link
               to="/superadmin/login"
               data-testid="landing-superadmin-link"
               aria-label="Platform operator access"
               className="ml-2 inline-block h-1.5 w-1.5 rounded-full bg-stone-300 hover:bg-[#D95D39] transition-colors"
+              title="·"
+            />
+            <Link
+              to="/emails"
+              data-testid="landing-emails-link"
+              aria-label="Email template library"
+              className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-stone-300 hover:bg-[#7FA08B] transition-colors"
               title="·"
             />
           </p>
