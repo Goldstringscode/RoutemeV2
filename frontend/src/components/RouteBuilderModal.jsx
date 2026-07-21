@@ -59,7 +59,7 @@ export default function RouteBuilderModal({ open, onClose, clients, scheduleIds,
 
   const addToRoute = () => {
     if (selected.size === 0) return;
-    const newIds = [...onScheduleIds, ...selected];
+    const newIds = [...(scheduleIds || []), ...selected];
     onScheduleIds(newIds);
     setSelected(new Set());
     onClose();
@@ -247,7 +247,7 @@ export default function RouteBuilderModal({ open, onClose, clients, scheduleIds,
                           onClick={() => {
                             onReschedule(c.id, null); // clear reschedule
                             // Add back to route
-                            const newIds = [...onScheduleIds, c.id];
+                            const newIds = [...(scheduleIds || []), c.id];
                             onScheduleIds(newIds);
                           }}
                           className="text-xs font-semibold text-[#D95D39] hover:underline underline-offset-2"
