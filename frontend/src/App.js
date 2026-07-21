@@ -13,6 +13,8 @@ import Clients from "@/pages/Clients";
 import Profile from "@/pages/Profile";
 import ClientDetail from "@/pages/ClientDetail";
 import Pricing from "@/pages/Pricing";
+import Signup from "@/pages/Signup";
+import Payment from "@/pages/Payment";
 import AgencyLogin from "@/pages/AgencyLogin";
 import AgencyOverview from "@/pages/agency/Overview";
 import AgencyNurses from "@/pages/agency/Nurses";
@@ -61,6 +63,8 @@ function App() {
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/payment" element={<Payment />} />
             <Route path="/login" element={<Login />} />
             <Route path="/agency/login" element={<AgencyLogin />} />
             <Route path="/superadmin/login" element={<SuperAdminLogin />} />
