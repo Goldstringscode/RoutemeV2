@@ -1,228 +1,171 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
-import { Save, StickyNote, History, Plus, X, Calendar, Activity } from "lucide-react";
+import { Mic, Square, Save, Sparkles } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
+import { MOCK_TRANSCRIPT } from "@/lib/mockData";
 
-const VISIT_TYPES = [
-  "Routine visit",
-  "Wound care",
-  "Medication review",
-  "Vitals check",
-  "Post-op check",
-  "Chemo aftercare",
-  "Memory care",
-  "Other",
-];
-const NOTE_STATUSES = [
-  "Completed",
-  "Follow-up needed",
-  "Escalated",
-  "Information only",
-];
+const BARS = 28;
 
-export default function NoteModal() {
-  const { voiceOpen, setVoiceOpen, voiceTarget, notes, addNote, clients, noteViewMode, setNoteViewMode } = useRouteMe();
+export default function VoiceNoteModal() {
+  const { voiceOpen, setVoiceOpen, voiceTarget, addNote, clients } = useRouteMe();
   const client = useMemo(() => clients.find((c) => c.id === voiceTarget), [clients, voiceTarget]);
-  const clientNotes = useMemo(() => (voiceTarget ? notes[voiceTarget] ?? [] : []), [notes, voiceTarget]);
 
+  const [recording, setRecording] = useState(false);
   const [text, setText] = useState("");
-  const [visitType, setVisitType] = useState("Routine visit");
-  const [noteStatus, setNoteStatus] = useState("Completed");
+  const [seconds, setSeconds] = useState(0);
+  const tickRef = useRef(null);
+  const typerRef = useRef(null);
 
   useEffect(() => {
     if (!voiceOpen) {
+      setRecording(false);
       setText("");
-      setVisitType("Routine visit");
-      setNoteStatus("Completed");
+      setSeconds(0);
+      clearInterval(tickRef.current);
+      clearInterval(typerRef.current);
     }
   }, [voiceOpen]);
 
-  const save = () => {
-    const trimmed = text.trim();
-    if (client && trimmed) {
-      addNote(client.id, trimmed, visitType, noteStatus);
+  const start = () => {
+    setRecording(true);
+    setText("");
+    setSeconds(0);
+    tickRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
+    // Mock streaming transcription
+    const full = MOCK_TRANSCRIPT.join("");
+    let i = 0;
+    typerRef.current = setInterval(() => {
+      i += 2 + Math.floor(Math.random() * 3);
+      setText(full.slice(0, i));
+      if (i >= full.length) clearInterval(typerRef.current);
+    }, 60);
+  };
+
+  const stop = () => {
+    setRecording(false);
+    clearInterval(tickRef.current);
+    clearInterval(typerRef.current);
+    // Ensure final text
+    if (text.length < MOCK_TRANSCRIPT.join("").length) {
+      setText(MOCK_TRANSCRIPT.join(""));
     }
+  };
+
+  const save = () => {
+    if (client && text.trim()) addNote(client.id, text.trim());
     setVoiceOpen(false);
   };
 
-  const formatDate = (iso) => {
-    const d = new Date(iso);
-    const now = new Date();
-    const diffMs = now - d;
-    const diffDays = Math.floor(diffMs / 86400000);
-    if (diffDays === 0) return `Today, ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-    if (diffDays === 1) return `Yesterday, ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-    return d.toLocaleDateString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-  };
-
-  const statusBadge = (s) => {
-    const styles = {
-      Completed: "bg-[#E3ECE5] text-emerald-900 border-emerald-100",
-      "Follow-up needed": "bg-amber-50 text-amber-800 border-amber-200",
-      Escalated: "bg-[#F7E5DD] text-[#D95D39] border-[#F0D2C4]",
-      "Information only": "bg-stone-100 text-stone-600 border-stone-200",
-    };
-    return styles[s] || styles["Completed"];
-  };
+  const mmss = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 
   return (
     <Dialog open={voiceOpen} onOpenChange={setVoiceOpen}>
       <DialogContent
-        data-testid="note-modal"
-        className="max-w-xl border-0 p-0 overflow-hidden bg-transparent shadow-none"
+        data-testid="voice-modal"
+        className="max-w-2xl border-0 p-0 overflow-hidden bg-transparent shadow-none"
       >
+        <VisuallyHidden>
+          <DialogTitle>Voice note</DialogTitle>
+          <DialogDescription>Record a HIPAA-safe visit note using voice-to-text.</DialogDescription>
+        </VisuallyHidden>
         <div className="relative rounded-3xl border border-stone-200 bg-white/95 backdrop-blur-xl overflow-hidden">
           {/* Terracotta accent band */}
           <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-[#D95D39]/10 blur-3xl" />
           <div className="absolute -bottom-16 -left-16 h-52 w-52 rounded-full bg-[#7FA08B]/15 blur-3xl" />
 
           <div className="relative p-8">
-            {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-xs uppercase tracking-[0.18em] text-stone-500 font-semibold">
-                  {noteViewMode === "history" ? "Note history" : "Visit note"}
+                  Voice-to-text · Visit note
                 </p>
                 <h3 className="font-display text-2xl mt-1">
-                  {client ? client.fullName : "Notes"}
+                  {client ? client.fullName : "New visit note"}
                 </h3>
-                {client && (
-                  <p className="text-sm text-stone-500 mt-1">{client.condition}</p>
-                )}
+                <p className="text-sm text-stone-500 mt-1">
+                  {client ? client.condition : "PHI-safe · encrypted transcription"}
+                </p>
               </div>
-              <div className="flex items-center gap-2">
-                {clientNotes.length > 0 && (
-                  <button
-                    onClick={() => setNoteViewMode(noteViewMode === "compose" ? "history" : "compose")}
-                    className="h-8 w-8 rounded-full border border-stone-200 flex items-center justify-center hover:bg-stone-50"
-                    title={noteViewMode === "compose" ? "View all notes" : "New note"}
-                  >
-                    {noteViewMode === "compose" ? (
-                      <History className="h-4 w-4 text-stone-500" />
-                    ) : (
-                      <Plus className="h-4 w-4 text-stone-500" />
-                    )}
-                  </button>
-                )}
+              <div className="text-right">
+                <div className="font-display text-3xl tabular-nums">{mmss}</div>
+                <div className="text-[10px] uppercase tracking-widest text-stone-400">
+                  {recording ? "listening" : "ready"}
+                </div>
               </div>
             </div>
 
-            {noteViewMode === "history" ? (
-              /* === History View === */
-              <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-                {clientNotes.length === 0 ? (
-                  <p className="text-sm text-stone-500 italic py-8 text-center">No notes yet for this client.</p>
-                ) : (
-                  clientNotes.map((n) => (
-                    <div key={n.id} className="rounded-2xl border border-stone-200 bg-[#F9F8F6] p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold flex items-center gap-1.5">
-                          <Calendar className="h-3 w-3" /> {formatDate(n.date)}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          {n.visitType && (
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-stone-200 bg-white text-stone-600">
-                              {n.visitType}
-                            </span>
-                          )}
-                          {n.status && (
-                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${statusBadge(n.status)}`}>
-                              {n.status}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <p className="text-sm text-stone-800 leading-relaxed whitespace-pre-wrap">{n.text}</p>
-                    </div>
-                  ))
+            {/* Waveform */}
+            <div className="flex items-end justify-center gap-1 h-24 mb-6">
+              {Array.from({ length: BARS }).map((_, i) => (
+                <span
+                  key={i}
+                  className={`rm-bar block w-1.5 rounded-full ${
+                    recording ? "bg-[#D95D39]" : "bg-stone-200"
+                  }`}
+                  style={{
+                    height: `${20 + ((i * 7) % 60)}%`,
+                    animationDelay: `${(i % 8) * 0.09}s`,
+                    animationPlayState: recording ? "running" : "paused",
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Transcript */}
+            <div className="rounded-2xl border border-stone-200 bg-[#F9F8F6] p-5 min-h-[120px] mb-6">
+              <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-stone-400 mb-2">
+                <Sparkles className="h-3 w-3" /> live transcript
+              </div>
+              <p
+                data-testid="voice-transcript"
+                className="text-[15px] leading-relaxed text-stone-800 min-h-[48px]"
+              >
+                {text || (
+                  <span className="text-stone-400 italic">
+                    Press record to begin. Your dictation is transcribed on-device and never leaves your session.
+                  </span>
                 )}
-              </div>
-            ) : (
-              /* === Compose View === */
-              <div className="space-y-4">
-                {/* Notes textarea */}
-                <div className="rounded-2xl border border-stone-200 bg-[#F9F8F6] p-4">
-                  <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-stone-400 mb-2">
-                    <StickyNote className="h-3 w-3" /> Visit notes
-                  </div>
-                  <textarea
-                    data-testid="note-textarea"
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder="Type your visit notes here, or use your phone's keyboard dictation..."
-                    rows={5}
-                    className="w-full bg-transparent border-0 p-0 text-sm text-stone-800 placeholder:text-stone-400 resize-none focus:outline-none"
-                    autoFocus
-                  />
-                </div>
+                {recording && <span className="inline-block w-1.5 h-4 align-middle bg-[#D95D39] ml-0.5 animate-pulse" />}
+              </p>
+            </div>
 
-                {/* Visit type + Status row */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold mb-1.5 block">
-                      <Activity className="h-3 w-3 inline mr-1" /> Visit type
-                    </label>
-                    <select
-                      value={visitType}
-                      onChange={(e) => setVisitType(e.target.value)}
-                      className="w-full h-10 rounded-xl border border-stone-200 bg-[#F9F8F6] px-3 text-sm focus:outline-none focus:border-stone-400"
-                    >
-                      {VISIT_TYPES.map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold mb-1.5 block">
-                      Status
-                    </label>
-                    <select
-                      value={noteStatus}
-                      onChange={(e) => setNoteStatus(e.target.value)}
-                      className="w-full h-10 rounded-xl border border-stone-200 bg-[#F9F8F6] px-3 text-sm focus:outline-none focus:border-stone-400"
-                    >
-                      {NOTE_STATUSES.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-stone-500 flex items-center gap-2">
+                <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                Auto-encrypted · HIPAA session
+              </p>
 
-                {/* Actions */}
-                <div className="flex items-center justify-between pt-2">
-                  <p className="text-xs text-stone-500 flex items-center gap-2">
-                    <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                    PHI-safe · encrypted
-                    {clientNotes.length > 0 && (
-                      <button
-                        onClick={() => setNoteViewMode("history")}
-                        className="text-[#D95D39] hover:underline font-semibold"
-                      >
-                        {clientNotes.length} prior note{clientNotes.length === 1 ? "" : "s"}
-                      </button>
-                    )}
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      onClick={() => setVoiceOpen(false)}
-                      variant="outline"
-                      className="rounded-full h-11 px-5 border-stone-300"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      data-testid="note-save-btn"
-                      onClick={save}
-                      disabled={!text.trim()}
-                      className="rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white h-11 px-5 gap-2"
-                    >
-                      <Save className="h-4 w-4" /> Save note
-                    </Button>
-                  </div>
-                </div>
+              <div className="flex items-center gap-3">
+                {!recording ? (
+                  <Button
+                    data-testid="voice-record-btn"
+                    onClick={start}
+                    className="rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white h-11 px-5 gap-2"
+                  >
+                    <Mic className="h-4 w-4" /> Record
+                  </Button>
+                ) : (
+                  <Button
+                    data-testid="voice-stop-btn"
+                    onClick={stop}
+                    className="rounded-full bg-stone-900 hover:bg-stone-800 text-white h-11 px-5 gap-2"
+                  >
+                    <Square className="h-3.5 w-3.5" /> Stop
+                  </Button>
+                )}
+                <Button
+                  data-testid="voice-save-btn"
+                  onClick={save}
+                  disabled={!text}
+                  variant="outline"
+                  className="rounded-full h-11 px-5 gap-2 border-stone-300"
+                >
+                  <Save className="h-4 w-4" /> Save note
+                </Button>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </DialogContent>

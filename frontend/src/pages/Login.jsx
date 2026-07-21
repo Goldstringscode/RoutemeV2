@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
-import { supabase } from "@/lib/supabase";
 import HipaaBadge from "@/components/HipaaBadge";
 
 export default function Login() {
@@ -10,51 +9,12 @@ export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("amara.okafor@nurse.demo");
   const [password, setPassword] = useState("demo1234");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  const isNetworkError = (msg) =>
-    !msg ||
-    msg === "Failed to fetch" ||
-    msg === "NetworkError when attempting to fetch resource" ||
-    msg === "Load failed" ||
-    msg?.toLowerCase().includes("network") ||
-    msg?.toLowerCase().includes("fetch");
-
-  const submit = async (e) => {
+  const submit = (e) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (authError) {
-        setError(
-          isNetworkError(authError.message)
-            ? "Cannot reach the database. This can happen if the Supabase project was paused due to inactivity. Please try again in a moment."
-            : authError.message
-        );
-        setLoading(false);
-        return;
-      }
-
-      if (data?.session) {
-        setAuthed(true);
-        pushAudit("Signed in — Supabase auth", "read");
-        navigate("/app/dashboard");
-      }
-    } catch (err) {
-      setError(
-        isNetworkError(err?.message)
-          ? "Cannot reach the database. This can happen if the Supabase project was paused due to inactivity. Please try again in a moment."
-          : err?.message || "An unexpected error occurred. Please try again."
-      );
-    }
-    setLoading(false);
+    setAuthed(true);
+    pushAudit("Signed in — mocked auth", "read");
+    navigate("/app/dashboard");
   };
 
   return (
@@ -88,84 +48,75 @@ export default function Login() {
 
           <div className="mt-10 flex items-center gap-3">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/80">
-              <ShieldCheck className="h-3 w-3" />
-              HIPAA · SOC2 aligned
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" /> HIPAA · SOC2 aligned
             </div>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/80">
-              End-to-end encrypted
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> End-to-end encrypted
             </div>
           </div>
         </div>
 
-        <p className="relative text-xs text-white/40">
-          Prototype · powered by Supabase
-        </p>
+        <div className="relative text-xs text-white/50">Prototype · mocked authentication</div>
       </div>
 
-      {/* Right — Login form */}
-      <div className="flex items-center justify-center p-8">
-        <div className="w-full max-w-sm">
-          <HipaaBadge compact />
+      {/* Right form panel */}
+      <div className="relative flex items-center justify-center p-8 lg:p-12">
+        <div className="absolute top-6 right-6"><HipaaBadge /></div>
 
-          <p className="mt-8 text-xs uppercase tracking-[0.22em] text-stone-500 font-semibold">
+        <div className="w-full max-w-md">
+          <p className="text-xs uppercase tracking-[0.22em] text-stone-500 font-semibold mb-3">
             Welcome back
           </p>
-          <h2 className="font-display text-4xl mt-2 leading-tight">
+          <h2 className="font-display text-4xl leading-tight">
             Sign in to <span className="font-serif-i text-[#D95D39]">RouteMe</span>.
           </h2>
-          <p className="mt-2 text-sm text-stone-600">
+          <p className="mt-3 text-sm text-stone-600">
             Use the pre-filled demo credentials to explore the prototype.
           </p>
 
-          <form onSubmit={submit} className="mt-8 space-y-5">
+          <form onSubmit={submit} className="mt-8 space-y-4">
             <div>
-              <label className="text-xs font-semibold text-stone-700 tracking-wide block mb-1.5">
-                Email
-              </label>
+              <label className="text-xs font-semibold text-stone-700 tracking-wide">Email</label>
               <input
-                type="email"
-                required
+                data-testid="login-email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full h-12 rounded-xl border border-stone-200 bg-white px-4 text-sm focus:border-stone-400 focus:outline-none focus:ring-4 focus:ring-stone-100 transition-all"
-                placeholder="nurse@example.com"
+                type="email"
+                required
+                className="mt-1.5 w-full h-12 rounded-xl border border-stone-200 bg-white px-4 text-sm focus:border-stone-400 focus:outline-none focus:ring-4 focus:ring-stone-100 transition-colors"
               />
             </div>
-
             <div>
-              <label className="text-xs font-semibold text-stone-700 tracking-wide block mb-1.5">
-                Password
-              </label>
+              <label className="text-xs font-semibold text-stone-700 tracking-wide">Password</label>
               <input
-                type="password"
-                required
+                data-testid="login-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full h-12 rounded-xl border border-stone-200 bg-white px-4 text-sm focus:border-stone-400 focus:outline-none focus:ring-4 focus:ring-stone-100 transition-all"
-                placeholder="••••••••"
+                type="password"
+                required
+                className="mt-1.5 w-full h-12 rounded-xl border border-stone-200 bg-white px-4 text-sm focus:border-stone-400 focus:outline-none focus:ring-4 focus:ring-stone-100 transition-colors"
               />
             </div>
 
-            {error && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                {error}
-              </p>
-            )}
-
             <button
+              data-testid="login-submit"
               type="submit"
-              disabled={loading}
-              data-testid="login-submit-btn"
-              className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 disabled:bg-stone-400 text-white h-12 text-sm font-semibold transition-colors"
+              className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white h-12 text-sm font-semibold transition-colors"
             >
-              {loading ? "Signing in..." : "Enter today's workspace"}
-              {!loading && <ArrowRight className="h-4 w-4" />}
+              Enter today&apos;s workspace
+              <ArrowRight className="h-4 w-4" />
             </button>
-          </form>
 
-          <p className="mt-6 text-xs text-center text-stone-500">
-            Demo: <span className="font-mono text-stone-700">amara.okafor@nurse.demo</span> / <span className="font-mono text-stone-700">demo1234</span>
-          </p>
+            <p className="text-xs text-stone-500 text-center pt-2">
+              By continuing you accept RouteMe&apos;s HIPAA business associate terms.
+            </p>
+            <p className="text-xs text-stone-500 text-center">
+              Agency director?{" "}
+              <a href="/agency/login" data-testid="login-agency-link" className="font-semibold text-stone-800 hover:underline">
+                Sign in to the agency console →
+              </a>
+            </p>
+          </form>
         </div>
       </div>
     </div>

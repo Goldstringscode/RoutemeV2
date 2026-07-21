@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Plus, Search, Phone, MapPin, Mic, X, StickyNote, Eye, Pencil, Trash2, Users, CalendarPlus, Navigation, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Plus, Search, Phone, MapPin, Mic, StickyNote, ChevronDown, ArrowUpRight, Clock, Calendar } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { googleMapsUrl, appleMapsUrl } from "@/lib/directions";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 const emptyClient = {
   initials: "",
@@ -19,16 +20,12 @@ const emptyClient = {
 };
 
 export default function Clients() {
-  const { clients, addClient, updateClient, removeClient, notes, openVoice, setNoteViewMode, setVoiceOpen, setVoiceTarget, scheduleIds, addToSchedule } = useRouteMe();
+  const { clients, addClient, notes, openVoice } = useRouteMe();
   const [q, setQ] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(emptyClient);
   const [flagInput, setFlagInput] = useState("");
-  const [editOpen, setEditOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState(null);
-  const [editForm, setEditForm] = useState(emptyClient);
-  const [editFlagInput, setEditFlagInput] = useState("");
-  const [deleteConfirm, setDeleteConfirm] = useState(null); // client id to confirm
+  const [expandedId, setExpandedId] = useState(null);
 
   const filtered = clients.filter(
     (c) =>
@@ -52,50 +49,10 @@ export default function Clients() {
   };
 
   const addFlag = () => {
-      if (!flagInput.trim()) return;
-      setForm((f) => ({ ...f, flags: [...f.flags, flagInput.trim()] }));
-      setFlagInput("");
-    };
-
-    const openEdit = (client) => {
-      setEditTarget(client);
-      setEditForm({
-        fullName: client.fullName,
-        initials: client.initials,
-        dob: client.dob || "",
-        phone: client.phone,
-        address: client.address,
-        window: client.window,
-        duration: client.duration,
-        priority: client.priority,
-        flags: [...(client.flags || [])],
-        condition: client.condition || "",
-        lastVisit: client.lastVisit || "",
-      });
-      setEditFlagInput("");
-      setEditOpen(true);
-    };
-
-    const submitEdit = (e) => {
-      e.preventDefault();
-      if (!editForm.fullName || !editTarget) return;
-      const initials = editForm.fullName
-        .split(" ")
-        .map((s) => s[0])
-        .filter(Boolean)
-        .slice(0, 2)
-        .join(".")
-        .toUpperCase() + ".";
-      updateClient(editTarget.id, { ...editForm, initials });
-      setEditOpen(false);
-      setEditTarget(null);
-    };
-
-    const addEditFlag = () => {
-      if (!editFlagInput.trim()) return;
-      setEditForm((f) => ({ ...f, flags: [...f.flags, editFlagInput.trim()] }));
-      setEditFlagInput("");
-    };
+    if (!flagInput.trim()) return;
+    setForm((f) => ({ ...f, flags: [...f.flags, flagInput.trim()] }));
+    setFlagInput("");
+  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -132,13 +89,22 @@ export default function Clients() {
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((c) => {
           const noteCount = notes[c.id]?.length ?? 0;
+          const isExpanded = expandedId === c.id;
           return (
             <article
               key={c.id}
               data-testid={`client-card-${c.id}`}
-              className="rounded-3xl border border-stone-200 bg-white p-5 rm-lift"
+              className={`rounded-3xl border bg-white p-5 transition-all ${
+                isExpanded
+                  ? "border-stone-400 shadow-md md:col-span-2 lg:col-span-3"
+                  : "border-stone-200 rm-lift"
+              }`}
             >
-              <div className="flex items-start justify-between">
+              <button
+                onClick={() => setExpandedId(isExpanded ? null : c.id)}
+                data-testid={`client-expand-${c.id}`}
+                className="w-full text-left flex items-start justify-between gap-3"
+              >
                 <div className="flex items-center gap-3">
                   <div className="h-11 w-11 rounded-2xl bg-[#EFE9DF] border border-stone-200 text-stone-800 font-display font-semibold flex items-center justify-center">
                     {c.initials.slice(0, 3)}
@@ -148,36 +114,23 @@ export default function Clients() {
                     <p className="text-xs text-stone-500">{c.condition}</p>
                   </div>
                 </div>
-                                <div className="flex items-center gap-1.5">
-                                  <button
-                                    onClick={() => openEdit(c)}
-                                    data-testid={`edit-client-${c.id}`}
-                                    className="h-7 w-7 rounded-full border border-stone-200 flex items-center justify-center hover:bg-stone-50 transition-colors"
-                                    title="Edit client"
-                                  >
-                                    <Pencil className="h-3.5 w-3.5 text-stone-500" />
-                                  </button>
-                                  <button
-                                    onClick={() => setDeleteConfirm(c.id)}
-                                    data-testid={`delete-client-${c.id}`}
-                                    className="h-7 w-7 rounded-full border border-stone-200 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors"
-                                    title="Delete client"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5 text-stone-400 hover:text-red-500" />
-                                  </button>
-                                                                  </div>
-                                                                  <span
-                  className={`text-[10px] uppercase tracking-widest font-semibold px-2 py-1 rounded-full border ${
-                    c.priority === "high"
-                      ? "bg-[#F7E5DD] text-[#D95D39] border-[#F0D2C4]"
-                      : c.priority === "medium"
-                        ? "bg-[#E3ECE5] text-emerald-900 border-emerald-100"
-                        : "bg-stone-100 text-stone-600 border-stone-200"
-                  }`}
-                >
-                  {c.priority}
-                </span>
-              </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-[10px] uppercase tracking-widest font-semibold px-2 py-1 rounded-full border ${
+                      c.priority === "high"
+                        ? "bg-[#F7E5DD] text-[#D95D39] border-[#F0D2C4]"
+                        : c.priority === "medium"
+                          ? "bg-[#E3ECE5] text-emerald-900 border-emerald-100"
+                          : "bg-stone-100 text-stone-600 border-stone-200"
+                    }`}
+                  >
+                    {c.priority}
+                  </span>
+                  <ChevronDown
+                    className={`h-4 w-4 text-stone-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                  />
+                </div>
+              </button>
 
               <div className="mt-4 space-y-1.5 text-sm">
                 <p className="flex items-center gap-2 text-stone-700">
@@ -190,7 +143,7 @@ export default function Clients() {
               </div>
 
               <div className="mt-4 flex flex-wrap gap-1.5">
-                {c.flags.slice(0, 3).map((f) => (
+                {(isExpanded ? c.flags : c.flags.slice(0, 3)).map((f) => (
                   <span
                     key={f}
                     className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F9F8F6] border border-stone-200 text-stone-600"
@@ -198,127 +151,74 @@ export default function Clients() {
                     {f}
                   </span>
                 ))}
+                {!isExpanded && c.flags.length > 3 && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white border border-stone-200 text-stone-500">
+                    +{c.flags.length - 3}
+                  </span>
+                )}
               </div>
 
-              <div className="mt-5 pt-4 border-t border-stone-200 flex flex-wrap items-center gap-2">
-                {/* Add to route button */}
-                {!scheduleIds.includes(c.id) && (
-                  <button
-                    onClick={() => addToSchedule(c.id)}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-[#E3ECE5] hover:bg-emerald-200 text-emerald-800 px-3 py-1.5 text-xs font-semibold transition-colors"
-                    title="Add to today's route"
-                  >
-                    <CalendarPlus className="h-3 w-3" /> Add to route
-                  </button>
-                )}
+              {isExpanded && (
+                <div className="mt-5 pt-5 border-t border-stone-200 grid md:grid-cols-3 gap-4 rm-fade-up">
+                  <ExpInfo icon={Calendar} label="Date of birth" value={c.dob} />
+                  <ExpInfo icon={Clock} label="Preferred window" value={c.window} />
+                  <ExpInfo icon={Clock} label="Duration" value={`${c.duration} min`} />
+                  <ExpInfo icon={StickyNote} label="Last visit" value={c.lastVisit} />
+                  <ExpInfo
+                    icon={StickyNote}
+                    label="Visit notes"
+                    value={`${noteCount} recorded`}
+                  />
+                </div>
+              )}
 
-                {/* Navigate buttons */}
-                {c.lat && c.lng && (
-                  <div className="flex items-center gap-1">
-                    <a
-                      href={googleMapsUrl(c.lat, c.lng, c.address)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded-full border border-stone-200 hover:bg-stone-50 text-stone-600 px-2.5 py-1.5 text-[10px] font-semibold transition-colors"
-                      title="Open in Google Maps"
-                    >
-                      <ExternalLink className="h-3 w-3" /> Google
-                    </a>
-                    <a
-                      href={appleMapsUrl(c.lat, c.lng)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded-full border border-stone-200 hover:bg-stone-50 text-stone-600 px-2.5 py-1.5 text-[10px] font-semibold transition-colors"
-                      title="Open in Apple Maps"
-                    >
-                      <Navigation className="h-3 w-3" /> Apple
-                    </a>
-                  </div>
-                )}
-
-                {/* Notes */}
-                <button
-                  onClick={() => {
-                    setVoiceTarget(c.id);
-                    setNoteViewMode("history");
-                    setVoiceOpen(true);
-                  }}
-                  className="text-xs text-stone-500 hover:text-[#D95D39] flex items-center gap-1 transition-colors"
-                >
+              <div className="mt-5 pt-4 border-t border-stone-200 flex items-center justify-between gap-2">
+                <span className="text-xs text-stone-500 flex items-center gap-1">
                   <StickyNote className="h-3 w-3" /> {noteCount} note{noteCount === 1 ? "" : "s"}
-                </button>
-                <button
-                  onClick={() => openVoice(c.id)}
-                  data-testid={`client-voice-${c.id}`}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-3 py-1.5 text-xs font-semibold transition-colors"
-                >
-                  <Mic className="h-3 w-3" /> New note
-                </button>
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openVoice(c.id);
+                    }}
+                    data-testid={`client-voice-${c.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-3 py-1.5 text-xs font-semibold transition-colors"
+                  >
+                    <Mic className="h-3 w-3" /> Note
+                  </button>
+                  <Link
+                    to={`/app/clients/${c.id}`}
+                    data-testid={`client-view-full-${c.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-stone-300 hover:bg-stone-50 text-stone-800 px-3 py-1.5 text-xs font-semibold transition-colors"
+                  >
+                    Full profile <ArrowUpRight className="h-3 w-3" />
+                  </Link>
+                </div>
               </div>
 
-                            {noteCount > 0 && (
-                              <div className="mt-3 rounded-xl bg-[#F9F8F6] border border-stone-200 p-3">
-                                <div className="flex items-center justify-between mb-1">
-                                  <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">
-                                    Latest note
-                                  </p>
-                                  <button
-                                    onClick={() => {
-                                      setVoiceTarget(c.id);
-                                      setNoteViewMode("history");
-                                      setVoiceOpen(true);
-                                    }}
-                                    className="text-[10px] font-semibold text-[#D95D39] hover:underline flex items-center gap-1"
-                                  >
-                                    <Eye className="h-3 w-3" /> View all
-                                  </button>
-                                </div>
-                                <p className="text-xs text-stone-700 line-clamp-2">
-                                  {notes[c.id][0].text}
-                                </p>
-                              </div>
-                            )}
+              {noteCount > 0 && (
+                <div className="mt-3 rounded-xl bg-[#F9F8F6] border border-stone-200 p-3">
+                  <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold mb-1">
+                    Latest note
+                  </p>
+                  <p className={`text-xs text-stone-700 ${isExpanded ? "" : "line-clamp-2"}`}>
+                    {notes[c.id][0].text}
+                  </p>
+                </div>
+              )}
             </article>
           );
         })}
       </div>
 
-            {/* Empty states */}
-            {clients.length === 0 ? (
-              <div className="rounded-3xl border border-stone-200 bg-white p-8 flex flex-col items-center justify-center text-center min-h-[250px]">
-                <div className="h-14 w-14 rounded-2xl bg-[#F9F8F6] border border-stone-200 flex items-center justify-center mb-4">
-                  <Users className="h-7 w-7 text-stone-400" />
-                </div>
-                <h3 className="font-display text-xl">No clients yet</h3>
-                <p className="text-sm text-stone-500 mt-1 max-w-sm">
-                  Add your first client to start building your care roster.
-                </p>
-                <button
-                  onClick={() => setAddOpen(true)}
-                  className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-5 py-2.5 text-sm font-semibold transition-colors"
-                >
-                  <Plus className="h-4 w-4" /> Add your first client
-                </button>
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="rounded-3xl border border-stone-200 bg-white p-8 flex flex-col items-center justify-center text-center min-h-[200px]">
-                <Search className="h-8 w-8 text-stone-300 mb-2" />
-                <h3 className="font-display text-lg">No clients match your search</h3>
-                <p className="text-sm text-stone-500 mt-1">
-                  Try a different name or address.
-                </p>
-                <button
-                  onClick={() => setQ("")}
-                  className="mt-4 text-sm font-semibold text-[#D95D39] hover:underline"
-                >
-                  Clear search
-                </button>
-              </div>
-            ) : null}
-
-            {/* Add Dialog */}
+      {/* Add Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="max-w-lg border-0 p-0 overflow-hidden">
+          <VisuallyHidden>
+            <DialogTitle>Add client</DialogTitle>
+            <DialogDescription>Create a new patient record.</DialogDescription>
+          </VisuallyHidden>
           <div className="bg-white rounded-2xl p-6 border border-stone-200">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -327,9 +227,6 @@ export default function Clients() {
                 </p>
                 <h3 className="font-display text-2xl">Add someone to your care.</h3>
               </div>
-              <button onClick={() => setAddOpen(false)} className="h-8 w-8 rounded-full border border-stone-200 flex items-center justify-center hover:bg-stone-50">
-                <X className="h-4 w-4" />
-              </button>
             </div>
 
             <form onSubmit={submit} className="space-y-3">
@@ -424,114 +321,8 @@ export default function Clients() {
         </DialogContent>
       </Dialog>
 
-            {/* Edit Dialog */}
-            <Dialog open={editOpen} onOpenChange={(open) => { setEditOpen(open); if (!open) setEditTarget(null); }}>
-              <DialogContent className="max-w-lg border-0 p-0 overflow-hidden">
-                <div className="bg-white rounded-2xl p-6 border border-stone-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.22em] text-stone-500 font-semibold">
-                        Edit client
-                      </p>
-                      <h3 className="font-display text-2xl">{editForm.fullName || "Edit details"}.</h3>
-                    </div>
-                    <button onClick={() => { setEditOpen(false); setEditTarget(null); }} className="h-8 w-8 rounded-full border border-stone-200 flex items-center justify-center hover:bg-stone-50">
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  <form onSubmit={submitEdit} className="space-y-3">
-                    <Field label="Full name">
-                      <input required value={editForm.fullName} onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })} className="inp" />
-                    </Field>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field label="Phone">
-                        <input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} className="inp" />
-                      </Field>
-                      <Field label="Time window">
-                        <input value={editForm.window} onChange={(e) => setEditForm({ ...editForm, window: e.target.value })} className="inp" />
-                      </Field>
-                    </div>
-                    <Field label="Address">
-                      <input value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} className="inp" />
-                    </Field>
-                    <Field label="Condition / care focus">
-                      <input value={editForm.condition} onChange={(e) => setEditForm({ ...editForm, condition: e.target.value })} className="inp" />
-                    </Field>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field label="Duration (min)">
-                        <input type="number" value={editForm.duration} onChange={(e) => setEditForm({ ...editForm, duration: +e.target.value })} className="inp" />
-                      </Field>
-                      <Field label="Priority">
-                        <select value={editForm.priority} onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })} className="inp">
-                          <option value="low">Low</option>
-                          <option value="medium">Medium</option>
-                          <option value="high">High</option>
-                        </select>
-                      </Field>
-                    </div>
-                    <Field label="Care flags">
-                      <div className="flex gap-2">
-                        <input value={editFlagInput} onChange={(e) => setEditFlagInput(e.target.value)} placeholder="e.g. Gate code #4821" className="inp flex-1"
-                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addEditFlag(); } }} />
-                        <button type="button" onClick={addEditFlag} className="rounded-xl border border-stone-200 px-3 text-sm font-semibold">Add</button>
-                      </div>
-                      {editForm.flags.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          {editForm.flags.map((f, i) => (
-                            <span key={i} className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-[#E3ECE5] text-emerald-900 border border-emerald-100">
-                              {f}
-                              <button type="button" onClick={() => setEditForm((ef) => ({ ...ef, flags: ef.flags.filter((_, j) => j !== i) }))} className="hover:text-red-600">
-                                <X className="h-3 w-3" />
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </Field>
-                    <button type="submit" className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white h-12 text-sm font-semibold transition-colors">
-                      Save changes
-                    </button>
-                  </form>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            {/* Delete Confirmation */}
-            <Dialog open={!!deleteConfirm} onOpenChange={(open) => { if (!open) setDeleteConfirm(null); }}>
-              <DialogContent className="max-w-sm border-0 p-0 overflow-hidden">
-                <div className="bg-white rounded-2xl p-6 border border-stone-200 text-center">
-                  <div className="mx-auto h-12 w-12 rounded-full bg-[#F7E5DD] flex items-center justify-center mb-4">
-                    <Trash2 className="h-6 w-6 text-[#D95D39]" />
-                  </div>
-                  <h3 className="font-display text-xl mb-1">Remove client?</h3>
-                  <p className="text-sm text-stone-500 mb-6">
-                    This will remove {clients.find((c) => c.id === deleteConfirm)?.fullName || "this client"} from your roster and schedule. Notes will be preserved.
-                  </p>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setDeleteConfirm(null)}
-                      className="flex-1 rounded-full border border-stone-300 h-11 text-sm font-semibold hover:bg-stone-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (deleteConfirm) removeClient(deleteConfirm);
-                        setDeleteConfirm(null);
-                      }}
-                      data-testid="confirm-delete-client"
-                      className="flex-1 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white h-11 text-sm font-semibold transition-colors"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            <style>{`.inp { width: 100%; height: 42px; border-radius: 12px; border: 1px solid #E7E5E4; background: #F9F8F6; padding: 0 14px; font-size: 14px; }
-            .inp:focus { outline: none; border-color: #78716C; background: white; }`}</style>
+      <style>{`.inp { width: 100%; height: 42px; border-radius: 12px; border: 1px solid #E7E5E4; background: #F9F8F6; padding: 0 14px; font-size: 14px; }
+      .inp:focus { outline: none; border-color: #78716C; background: white; }`}</style>
     </div>
   );
 }
@@ -541,6 +332,17 @@ function Field({ label, children }) {
     <div>
       <label className="text-xs font-semibold text-stone-700 tracking-wide block mb-1">{label}</label>
       {children}
+    </div>
+  );
+}
+
+function ExpInfo({ icon: Icon, label, value }) {
+  return (
+    <div className="rounded-xl bg-[#F9F8F6] border border-stone-200 p-3">
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-stone-500 font-semibold">
+        <Icon className="h-3 w-3" /> {label}
+      </div>
+      <div className="mt-1 text-sm font-semibold text-stone-800">{value}</div>
     </div>
   );
 }

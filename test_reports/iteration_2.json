@@ -1,0 +1,72 @@
+{
+  "summary": "Frontend-only end-to-end test of the NEW /agency/* admin console + nurse-app agency branding pill. 45 of 45 functional checks passed after re-verification. All routes, data-testids, seeded data, invite flow (form -> success with routeme.app/invite/... link + Copy), pending copy-invite buttons, row action menu Activate/Deactivate, filters, search, live activity, clients directory (with initials + full name), compliance (98/100, Encryption/MFA/Audit/BAA cards, export-audit-btn), billing (Starter/Growth/Scale with Growth = Current plan), HIPAA badge persistence, logout, protected-route redirect, and nurse top-bar 'Sunrise Home Health' pill all verified. Two independent auth flows confirmed (localStorage keys 'authed' and 'agencyAuthed' are separate).",
+  "tested_scope": ["frontend", "integration"],
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Invite Nurse Dialog", "issue": "Dialog shows TWO close (X) icons in the top-right corner of the success screen (one from Radix DialogContent default + one custom). Visual duplication.", "selector": "[role='dialog'] button[aria-label='Close'] + custom X", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Agency Clients directory (/agency/clients)", "issues": [
+        "PHI framing is inconsistent: the initials badge (e.g., 'E.M') is shown but the FULL first name + last-initial (e.g., 'Eleanor M.') is rendered next to it in the same cell. If the intent is HIPAA-safe PHI masking, showing the full given name defeats the purpose. Suggest hiding full name in the list, or make it reveal-on-click gated by role."
+      ]}
+    ]
+  },
+  "console_errors": [
+    {
+      "route": "/agency/clients",
+      "error": "In HTML, <span> cannot be a child of <option>. This will cause a hydration error.",
+      "location": "ClientsDir.jsx line 53 — the <option> inside <select data-testid='ac-nurse-filter'> is rendering a visual-editor-injected <span style={{display:'contents'}}> around the dynamic nurse name text. React logs this as an error on every render.",
+      "priority": "LOW",
+      "note": "Likely a visual-editor artifact but React still flags it. Consider wrapping option text so it does not receive x-source markers, or accept as a preview-only noise."
+    },
+    {
+      "route": "/agency/nurses (Invite dialog)",
+      "error": "DialogContent requires a DialogTitle for accessibility; also missing Description/aria-describedby.",
+      "priority": "LOW",
+      "note": "Radix a11y warning. Add a VisuallyHidden DialogTitle + DialogDescription (or the Radix Description component) inside the invite dialog."
+    }
+  ],
+  "passed": [
+    "Landing has landing-agency-link -> /agency/login",
+    "Agency login form prefilled (code SUNRISE-2026, priya@sunrisehh.demo, demo1234); submit -> /agency/overview",
+    "Overview shows KPIs (Active nurses, Visits today, Weekly time saved, HIPAA), on-shift list, agency-wide savings dark card, live activity, Zones, Sunrise branding",
+    "Sidebar nav all 6 links route correctly (overview/nurses/activity/clients/compliance/billing)",
+    "Nurses page shows all 6 seeded nurses (Amara, Marcus, Devi, Jonah pending, Priya, Derek inactive)",
+    "Filter pills All/Active/Pending/Inactive all filter correctly (verified pending -> only Jonah)",
+    "nurse-search filters rows in real time",
+    "Invite dialog: form -> success state shows 'Invite sent to <email>' + 'https://routeme.app/invite/n_...' + Copy + Done buttons",
+    "New nurse appears at top of roster after invite with Pending pill",
+    "Pending rows expose copy-invite-{id} button (verified 2 present after invite)",
+    "Row action menu three-dots -> Activate/Deactivate updates status pill",
+    "Activity page shows event stream and activity-nurse-filter select",
+    "Clients dir shows table, ac-search + ac-nurse-filter present, initials badges (E.M, R.T, M.K, etc.) shown",
+    "Compliance page shows 98/100, Encryption/MFA/Audit/BAA metric cards, export-audit-btn present",
+    "Billing shows Growth as Current plan card, seat utilization bar 6/20 30%, Starter/Growth/Scale plan cards, Invoices table",
+    "HIPAA badge persistent top-right on every /agency route",
+    "agency-logout-btn signs out -> /agency/login; /agency/overview redirects to /agency/login when unauthed",
+    "Nurse app top bar shows 'Sunrise Home Health' agency branding pill after /login",
+    "Two auth flows independent (nurse login does not grant agency access and vice versa)",
+    "login-agency-link present on nurse /login page"
+  ],
+  "test_report_links": [],
+  "action_items": [
+    "Optional: remove the duplicate close X icon in the invite success dialog.",
+    "Optional: mask the client full given name in the agency clients directory (leave only initials + last-name-initial) to make the PHI-safe framing consistent.",
+    "Optional: fix ClientsDir.jsx line 53 <option> content so React does not emit the '<span> cannot be a child of <option>' hydration error (either use a plain text expression not wrapped by the visual editor, or accept as preview-only noise).",
+    "Optional: add VisuallyHidden DialogTitle + DialogDescription inside the invite dialog to silence Radix a11y warnings."
+  ],
+  "critical_code_review_comments": [
+    "AgencyProtected + Protected wrappers correctly gate /agency and /app independently via separate localStorage keys — clean and consistent.",
+    "PHI display in Clients directory: renders both initials badge AND the client's actual first name — inconsistent with the 'PHI-safe' brand story; recommend masking behind a reveal action.",
+    "ClientsDir <select><option> content injection breaks HTML nesting rules (React hydration error) — small refactor needed."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (no backend)", "frontend": "100% functional (45/45), 2 low-priority console warnings"},
+  "test_credentials": "Agency: SUNRISE-2026 / priya@sunrisehh.demo / demo1234 (prefilled, any values work — mocked). Nurse: amara.okafor@nurse.demo / demo1234 (prefilled).",
+  "seed_data_creation": "Invite created 2 test nurses (TEST Nurse, TEST Two) via UI. Both persist in localStorage; can be cleared via Profile > clear-data-btn.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The agency console is feature-complete and stable. localStorage persists nurses across sessions, so invite/activate/deactivate side effects accumulate — clear localStorage before re-running the full suite for a clean seed. All new data-testids listed in the review request are wired correctly."
+}

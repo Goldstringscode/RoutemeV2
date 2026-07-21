@@ -1,7 +1,8 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import { ArrowRight, ShieldCheck, MapPin, Mic, Clock, Fuel } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, ShieldCheck, MapPin, Mic, Clock, Fuel, Building2 } from "lucide-react";
 import HipaaBadge from "@/components/HipaaBadge";
+import { useRouteMe } from "@/context/RouteMeContext";
 
 const HIGHLIGHTS = [
   {
@@ -25,6 +26,14 @@ const HIGHLIGHTS = [
 ];
 
 export default function Landing() {
+  const { setAgencyAuthed } = useRouteMe();
+  const navigate = useNavigate();
+
+  const enterAgency = () => {
+    setAgencyAuthed(true);
+    navigate("/agency/overview");
+  };
+
   return (
     <div className="min-h-screen bg-[#F9F8F6] text-stone-900">
       {/* Nav */}
@@ -41,11 +50,20 @@ export default function Landing() {
           </div>
           <nav className="hidden md:flex items-center gap-8 text-sm text-stone-600">
             <a href="#features" className="hover:text-stone-900">Features</a>
+            <Link to="/pricing" className="hover:text-stone-900" data-testid="landing-pricing-link">Pricing</Link>
             <a href="#nurses" className="hover:text-stone-900">For nurses</a>
             <a href="#privacy" className="hover:text-stone-900">Privacy</a>
+            <Link to="/agency/login" className="hover:text-stone-900" data-testid="landing-agency-link">For agencies</Link>
           </nav>
           <div className="flex items-center gap-3">
             <HipaaBadge compact />
+            <button
+              onClick={enterAgency}
+              data-testid="landing-agency-signin-btn"
+              className="hidden sm:inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white hover:bg-stone-50 text-stone-800 px-4 py-2 text-sm font-semibold transition-colors"
+            >
+              <Building2 className="h-4 w-4" /> Agency console
+            </button>
             <Link
               to="/login"
               data-testid="landing-signin-btn"
@@ -84,6 +102,17 @@ export default function Landing() {
                   <ArrowRight className="h-4 w-4" />
                 </span>
               </Link>
+              <button
+                onClick={enterAgency}
+                data-testid="landing-agency-cta"
+                className="group inline-flex items-center gap-2 rounded-full border border-stone-900 hover:bg-stone-900 hover:text-white text-stone-900 pl-5 pr-4 py-3.5 text-sm font-semibold transition-colors"
+              >
+                <Building2 className="h-4 w-4" />
+                Enter agency console
+                <span className="text-[10px] font-semibold rounded-full bg-[#F7E5DD] text-[#D95D39] px-2 py-0.5 group-hover:bg-white/15 group-hover:text-white transition-colors">
+                  DEMO
+                </span>
+              </button>
               <a
                 href="#features"
                 className="text-sm font-semibold text-stone-800 underline underline-offset-4 decoration-stone-300 hover:decoration-stone-800"
@@ -187,7 +216,16 @@ export default function Landing() {
       <footer className="border-t border-stone-200 py-8">
         <div className="mx-auto max-w-7xl px-6 lg:px-10 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-stone-500">
           <p>© 2026 RouteMe · Built with care for traveling nurses.</p>
-          <p className="flex items-center gap-2"><MapPin className="h-3 w-3" /> Prototype · demo data only</p>
+          <p className="flex items-center gap-2">
+            <MapPin className="h-3 w-3" /> Prototype · demo data only
+            <Link
+              to="/superadmin/login"
+              data-testid="landing-superadmin-link"
+              aria-label="Platform operator access"
+              className="ml-2 inline-block h-1.5 w-1.5 rounded-full bg-stone-300 hover:bg-[#D95D39] transition-colors"
+              title="·"
+            />
+          </p>
         </div>
       </footer>
     </div>

@@ -1,37 +1,119 @@
 # RouteMe — Product Requirements Document
 
-## Original problem statement
-Build **RouteMe**, a HIPAA-compliant web app for traveling home health nurses. Nurses input daily client details (names, preferred times, phone, addresses); the app calculates fastest, fuel-efficient multi-stop driving routes (5-10% travel time savings). This first iteration is **frontend-only** with mock data — backend deferred.
+## Original Problem Statement
+Build **RouteMe**, a HIPAA-compliant web app for traveling home health nurses. It should let them input daily client details and automatically calculate the fastest, most fuel-efficient driving routes.
 
-## Architecture
-- **Frontend only**: React 19 + React Router 7 + Tailwind + shadcn/ui
-- **State**: React Context + `localStorage` persistence (no backend)
-- **Fonts**: Outfit (display), Manrope (body), Instrument Serif italic (accents)
-- **Palette**: Warm organic — terracotta (#D95D39), sage (#7FA08B), cream (#F9F8F6), stone-ink
+## Product Requirements
+- Modern, HIPAA-compliant frontend design with a distinct, magnificent UI (terracotta/sage/stone editorial aesthetic).
+- **Nurse-facing app** with HIPAA audit trails, voice-to-text visit notes, schedules, and route views.
+- **Agency Admin Dashboard** for managing nurses, compliance, clients, billing.
+- Interactive **"Command Center"** live map view for agency directors.
+- **Super Admin / Platform Console** for platform operators sitting above all agencies + independent nurses, with full PHI-audited access, impersonation, security, billing, and system control.
+- Everything strictly FRONTEND MOCKED for now (backend explicitly deferred by user).
 
-## User personas
-- **Traveling Home Health Nurse** — plans daily route, records visit notes hands-free, references PHI safely.
+## User Personas
+1. **Home health nurse** — uses the Nurse Portal at `/app` for daily route + notes.
+2. **Agency Director** — uses Agency Console at `/agency` to manage nurses/clients/billing.
+3. **Platform Owner / Compliance / Support / Read-only staff** — uses Super Admin Console at `/superadmin` to oversee every agency, independent nurse, and PHI record with full HIPAA audit accountability.
 
-## Core requirements (static)
-- HIPAA-compliant *feel*: persistent HIPAA badge, audit trail visible, encrypted-session UX cues
-- Multi-stop route visualization with time savings
-- Client CRUD with care flags, priority, time windows
-- Voice-to-text visit notes (mocked streaming transcription)
-- Drag-drop schedule reordering + one-tap optimize
+## Applications
+| App                    | Route             | Purpose                                                              |
+|------------------------|-------------------|----------------------------------------------------------------------|
+| Marketing/Landing      | `/`               | Marketing site, pricing, sign-in entrypoints                        |
+| Nurse Portal           | `/app/*`          | Nurse day-of tools (dashboard, route, schedule, clients, profile)   |
+| Agency Console         | `/agency/*`       | Agency admin dashboard                                              |
+| **Super Admin Console**| `/superadmin/*`   | **Platform operator control plane (NEW)**                           |
 
-## What's implemented (2026-02)
-- Landing page (editorial hero with Instrument Serif italic accents, marquee, feature cards, dark CTA panel)
-- Login (split panel, mock auth → redirects to app)
-- App shell (sidebar + mobile pill nav, persistent HIPAA badge, floating voice FAB)
-- Dashboard (bento grid: next visit, weekly time saved, stylized map, break reminder, audit trail, fuel sparkline)
-- Route view (stylized illustrated map with numbered stops + curved dashed animated route, turn-by-turn timeline, selected stop detail)
-- Schedule builder (drag-drop reorder, priority chips, optimize button)
-- Clients (search, cards with care flags, latest voice-note preview, add-client dialog)
-- Profile (nurse info, stats, preference toggles, HIPAA compliance badges, reset data)
-- Voice note modal (animated waveform, streaming transcript mock, save)
+## What's Been Implemented
+### Session 1 (base):
+- Nurse Portal (Landing, Login, Dashboard, RouteView, Clients, VoiceNoteModal, Schedule, Profile).
+- Agency Console (AgencyLogin, Overview, Nurses, Activity, ClientsDir, Compliance, Billing).
+- HIPAA PHI masking toggle, animated Command Center map, ReassignDialog.
+- Client full profile (`ClientDetail`), Nurse full profile (`agency/NurseDetail`), external Pricing page.
 
-## Backlog
-- **P0 backend**: FastAPI + Mongo (user auth, clients CRUD, notes, audit log)
-- **P0 mapping**: Integrate real routing API (Mapbox Optimization / HERE / Google Directions)
-- **P1**: Voice API integration (OpenAI Whisper), real MFA, org admin/dispatcher roles
-- **P2**: Offline PWA, family ETA opt-in flow, encrypted vitals form, insurance billing export
+### Session 2 (Feb 2026 — Super Admin Console) ✅ NEW
+- **Auth**: `/superadmin/login` with 2-step MFA-look flow. Demo creds prefilled (`root@routeme.platform` / `super1234` / OTP `000000`).
+- **Shell** (`SuperAdminShell.jsx`): Dark editorial (stone-950 + terracotta accents), impersonation banner, maintenance banner, live status pill, global search.
+- **Overview** (`superadmin/Overview.jsx`): Platform KPIs (agencies/nurses/clients/MRR/avg HIPAA), live US map with 6 agency pins, attention feed, live audit stream, system pulse, per-agency revenue.
+- **Agencies** (`superadmin/Agencies.jsx` + `AgencyDetail.jsx`): Full CRUD list, filter by status, suspend/reactivate, impersonate director, per-agency roster + audit + clients.
+- **Nurses (Global)** (`superadmin/NursesGlobal.jsx` + `NurseGlobalDetail.jsx`): Union of every agency's nurses + 6 seeded **independent** unaffiliated nurses. Filter by affiliation/status. Force logout, reset MFA, suspend.
+- **Clients + PHI Form** (`superadmin/ClientsGlobal.jsx` + `ClientPHI.jsx`): 10 clients with full PHI (DOB, SSN last4, insurance, meds, allergies, emergency contact). **Masked by default**; reveal requires a written reason logged immutably to the global audit trail. Watermarked view when revealed.
+- **Admin Staff** (`superadmin/AdminStaff.jsx`): 5 seeded platform staff (Owner / Compliance / Support / Read-only). Invite, remove (Owner protected), permissions matrix.
+- **HIPAA Audit** (`superadmin/AuditGlobal.jsx`): 14 seeded events, severity + agency filters, CSV export.
+- **Security Center** (`superadmin/Security.jsx`): Active sessions with terminate action, security event feed, MFA coverage %, RBAC matrix.
+- **Billing** (`superadmin/BillingPlatform.jsx`): MRR/ARR, plan mix, invoice ledger.
+- **System Health** (`superadmin/SystemHealth.jsx`): Uptime/API/DB/workers, 90-day uptime chart, feature-flag toggles, **maintenance-mode kill switch** (banner shows across the console when ON).
+- **Impersonation**: One-click "Impersonate director" from Agencies list or detail — opens Agency Console with a persistent red banner ("End session" to exit); action logged to audit.
+- **Discreet super admin entry**: A 1.5px stone-colored dot in the landing footer next to "demo data only" (turns terracotta on hover, no visible label). testid `landing-superadmin-link`.
+
+## Data (all mocked in `/app/frontend/src/lib/superAdminMockData.js`)
+- 6 agencies (Sunrise, Bayside, Northstar, Evergreen, Atlas, Pinewood) with varied plans/HIPAA scores/statuses.
+- 16 global nurses (10 agency-affiliated + 6 independent).
+- 10 clients with full PHI (agency + independent).
+- 5 super admins across 4 roles.
+- 14 global audit events, 5 security events, 5 active sessions.
+- 6 feature flags, system health metrics, 6 invoices.
+
+## Code Architecture
+```
+/app/frontend/src/
+├── components/
+│   ├── AppShell.jsx
+│   ├── AgencyShell.jsx
+│   ├── SuperAdminShell.jsx        ← NEW
+│   ├── CommandCenterMap.jsx
+│   ├── ReassignDialog.jsx
+│   ├── VoiceNoteModal.jsx
+│   └── ui/ (shadcn)
+├── context/
+│   └── RouteMeContext.jsx         ← extended: superAdmin state + actions
+├── lib/
+│   ├── mockData.js
+│   ├── agencyMockData.js
+│   └── superAdminMockData.js      ← NEW
+├── pages/
+│   ├── (nurse pages)
+│   ├── agency/*
+│   ├── SuperAdminLogin.jsx        ← NEW
+│   └── superadmin/                ← NEW
+│       ├── Overview.jsx
+│       ├── Agencies.jsx
+│       ├── AgencyDetail.jsx
+│       ├── NursesGlobal.jsx
+│       ├── NurseGlobalDetail.jsx
+│       ├── ClientsGlobal.jsx
+│       ├── ClientPHI.jsx
+│       ├── AdminStaff.jsx
+│       ├── AuditGlobal.jsx
+│       ├── Security.jsx
+│       ├── BillingPlatform.jsx
+│       └── SystemHealth.jsx
+└── App.js                          ← extended routes
+```
+
+## Test Credentials
+- Nurse: any email/password (mocked)
+- Agency: code `SUNRISE-2026`, email `priya@sunrisehh.demo`, pw `demo1234`
+- **Super Admin**: email `root@routeme.platform`, pw `super1234`, OTP `000000`
+- Discreet entry: 1.5px dot in Landing footer
+
+## Prioritized Backlog
+### P0 (Complete — pending user manual verification)
+- Super Admin Console full build ✅
+
+### P1 — Future
+- Backend implementation (FastAPI + MongoDB) with real HIPAA audit persistence, RBAC enforcement, PHI encryption.
+- Impersonation on nurse-side (currently only agency).
+- Real IP geolocation on sessions.
+
+### P2 — Future
+- 3rd-party integrations: Google Maps/Mapbox multi-stop optimizer, OpenAI Whisper voice, Twilio SMS.
+- CSV/PDF export of PHI forms with print-ready watermark.
+- Real-time WebSocket audit stream.
+
+## Health Check
+- Broken: None
+- Mocked: All auth, storage, routing, voice-to-text, SMS. Super Admin data + audit log entirely `localStorage`.
+
+## Recent Changelog
+- **2026-02-14** — Session 2. Built full Super Admin / Platform Console (12 pages + shell + login + mock data + context extensions). All flows selector-verified via scripted smoke test. User elected to manually verify vs testing agent.

@@ -15,7 +15,7 @@ const NAV = [
 ];
 
 export default function AppShell() {
-  const { nurse, setAuthed, openVoice, schedule } = useRouteMe();
+  const { nurse, setAuthed, openVoice, schedule, agency } = useRouteMe();
   const navigate = useNavigate();
 
   const logout = async () => {
@@ -89,7 +89,14 @@ export default function AppShell() {
             <span className="font-display text-lg font-semibold">RouteMe</span>
           </div>
           <div className="hidden lg:block">
-            <p className="text-xs uppercase tracking-[0.18em] text-stone-500 font-semibold">
+            <p className="text-xs uppercase tracking-[0.18em] text-stone-500 font-semibold flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-stone-200 px-2.5 py-1">
+                <span className="h-5 w-5 rounded-md bg-stone-900 text-white font-display font-semibold flex items-center justify-center text-[10px]">
+                  {agency.logo}
+                </span>
+                <span className="normal-case tracking-normal text-stone-700 font-semibold">{agency.name}</span>
+              </span>
+              <span className="text-stone-300">·</span>
               {new Date().toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
             </p>
           </div>

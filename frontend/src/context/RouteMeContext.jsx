@@ -1,708 +1,660 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { NURSE as NURSE_FALLBACK, CLIENTS_SEED, AUDIT_LOG } from "@/lib/mockData";
+import { CLIENTS_SEED, NURSE, AUDIT_LOG } from "@/lib/mockData";
+import {
+  AGENCY,
+  NURSES_SEED,
+  LIVE_ACTIVITY_SEED,
+  AGENCY_CLIENTS,
+  COMPLIANCE_LOG_SEED,
+} from "@/lib/agencyMockData";
+import {
+  PLATFORM,
+  SUPER_ADMIN_ME,
+  AGENCIES_SEED,
+  GLOBAL_NURSES_SEED,
+  GLOBAL_CLIENTS_SEED,
+  SUPER_ADMINS_SEED,
+  GLOBAL_AUDIT_SEED,
+  ACTIVE_SESSIONS_SEED,
+  SECURITY_EVENTS_SEED,
+  SYSTEM_METRICS,
+  BILLING_LEDGER_SEED,
+} from "@/lib/superAdminMockData";
 import { supabase, signOut } from "@/lib/supabase";
 
+const KEY = "routeme.state.v1";
 const RouteMeContext = createContext(null);
 
+/* ─── helpers ─────────────────────────────────────────── */
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 3958.8;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function mapClientFromDB(c) {
+  return {
+    id: c.id,
+    initials: c.initials || '',
+    fullName: c.full_name,
+    dob: c.dob,
+    phone: c.phone || '',
+    address: c.address || '',
+    window: c.time_window || '',
+    duration: c.duration || 30,
+    priority: c.priority || 'medium',
+    flags: c.flags || [],
+    condition: c.condition || '',
+    lastVisit: c.last_visit || 'New client',
+    photo: c.photo_url || null,
+    lat: c.lat,
+    lng: c.lng,
+  };
+}
+
+function mapClientToDB(c) {
+  return {
+    full_name: c.fullName,
+    initials: c.initials || '',
+    dob: c.dob || null,
+    phone: c.phone || '',
+    address: c.address || '',
+    time_window: c.window || '',
+    duration: c.duration || 30,
+    priority: c.priority || 'medium',
+    flags: c.flags || [],
+    condition: c.condition || '',
+    last_visit: c.lastVisit || 'New client',
+    photo_url: c.photo || null,
+  };
+}
+
+/* ─── localStorage helpers ────────────────────────────── */
+
+const loadState = () => {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+};
+
+/* ─── Provider ────────────────────────────────────────── */
+
 export function RouteMeProvider({ children }) {
-  const [authed, setAuthed] = useState(false);
+  const initial = loadState();
+  const lastUserId = useRef(null);
+  const userIdRef = useRef(null);
+
+  /* ─── Auth / loading state ─────────────────────────── */
   const [supabaseReady, setSupabaseReady] = useState(false);
   const [dataReady, setDataReady] = useState(false);
   const [loadingError, setLoadingError] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [userAgencyId, setUserAgencyId] = useState(null);
 
-  // Data state
-  const [clients, setClients] = useState([]);
-  const [scheduleEntries, setScheduleEntries] = useState([]); // from schedules table
-  const [notes, setNotes] = useState({}); // { clientId: [note, ...] }
-  const [audit, setAudit] = useState([]);
-  const [nurse, setNurse] = useState(NURSE_FALLBACK);
-  const [optimized, setOptimized] = useState(true);
-  const [savedRoutes, setSavedRoutes] = useState([]);
+  /* ─── Nurse-app state ──────────────────────────────── */
+  const [authed, setAuthed] = useState(initial?.authed ?? false);
+  const [clients, setClients] = useState(initial?.clients ?? CLIENTS_SEED);
+  const [scheduleIds, setScheduleIds] = useState(initial?.scheduleIds ?? CLIENTS_SEED.map((c) => c.id));
+  const [notes, setNotes] = useState(initial?.notes ?? {});
+  const [audit, setAudit] = useState(initial?.audit ?? AUDIT_LOG);
+  const [optimized, setOptimized] = useState(initial?.optimized ?? true);
+  const [nurse, setNurse] = useState(NURSE);
+  const [savedRoutes, setSavedRoutes] = useState(initial?.savedRoutes ?? []);
+  const [optimizationMode, setOptimizationMode] = useState("priority");
 
-  // UI state (no persistence needed)
-    const [voiceOpen, setVoiceOpen] = useState(false);
-    const [voiceTarget, setVoiceTarget] = useState(null);
-    const [noteViewMode, setNoteViewMode] = useState("compose"); // "compose" | "history"
-    const [optimizationMode, setOptimizationMode] = useState("priority"); // "priority" | "fastest" | "shortest" | "balanced"
+  /* ─── Voice note UI state ──────────────────────────── */
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  const [voiceTarget, setVoiceTarget] = useState(null);
+  const [noteViewMode, setNoteViewMode] = useState("compose");
 
-  // Track last loaded user to avoid duplicate loads
-  const lastUserId = useRef(null);
-  const userIdRef = useRef(null); // current user ID for mutations
+  /* ─── Agency-admin state ───────────────────────────── */
+  const [agencyAuthed, setAgencyAuthed] = useState(initial?.agencyAuthed ?? false);
+  const [agency, setAgency] = useState(initial?.agency ?? AGENCY);
+  const [nurses, setNurses] = useState(initial?.nurses ?? NURSES_SEED);
+  const [liveActivity, setLiveActivity] = useState(initial?.liveActivity ?? LIVE_ACTIVITY_SEED);
+  const [agencyClients, setAgencyClients] = useState(initial?.agencyClients ?? AGENCY_CLIENTS);
+  const [complianceLog, setComplianceLog] = useState(initial?.complianceLog ?? COMPLIANCE_LOG_SEED);
 
-  // Map a Supabase client row to frontend camelCase props
-  function mapClientFromDB(c) {
-    return {
-      id: c.id,
-      initials: c.initials || '',
-      fullName: c.full_name,
-      dob: c.dob,
-      phone: c.phone || '',
-      address: c.address || '',
-      window: c.time_window || '',
-      duration: c.duration || 30,
-      priority: c.priority || 'medium',
-      flags: c.flags || [],
-      condition: c.condition || '',
-      lastVisit: c.last_visit || 'New client',
-      photo: c.photo_url || null,
-      lat: c.lat,
-      lng: c.lng,
-    };
-  }
+  /* ─── Super-admin (platform) state ─────────────────── */
+  const [superAdminAuthed, setSuperAdminAuthed] = useState(initial?.superAdminAuthed ?? false);
+  const [platform] = useState(PLATFORM);
+  const [superAdminMe] = useState(SUPER_ADMIN_ME);
+  const [agencies, setAgencies] = useState(initial?.agencies ?? AGENCIES_SEED);
+  const [globalNurses, setGlobalNurses] = useState(initial?.globalNurses ?? GLOBAL_NURSES_SEED);
+  const [globalClients, setGlobalClients] = useState(initial?.globalClients ?? GLOBAL_CLIENTS_SEED);
+  const [superAdmins, setSuperAdmins] = useState(initial?.superAdmins ?? SUPER_ADMINS_SEED);
+  const [globalAudit, setGlobalAudit] = useState(initial?.globalAudit ?? GLOBAL_AUDIT_SEED);
+  const [activeSessions, setActiveSessions] = useState(initial?.activeSessions ?? ACTIVE_SESSIONS_SEED);
+  const [securityEvents] = useState(SECURITY_EVENTS_SEED);
+  const [systemMetrics] = useState(SYSTEM_METRICS);
+  const [billingLedger, setBillingLedger] = useState(initial?.billingLedger ?? BILLING_LEDGER_SEED);
+  const [featureFlags, setFeatureFlags] = useState(initial?.featureFlags ?? SYSTEM_METRICS.featureFlags);
+  const [phiRevealed, setPhiRevealed] = useState(initial?.phiRevealed ?? {});
+  const [maintenanceMode, setMaintenanceMode] = useState(initial?.maintenanceMode ?? false);
+  const [impersonation, setImpersonation] = useState(initial?.impersonation ?? null);
 
-  function mapClientToDB(c) {
-    return {
-      full_name: c.fullName,
-      initials: c.initials || '',
-      dob: c.dob || null,
-      phone: c.phone || '',
-      address: c.address || '',
-      time_window: c.window || '',
-      duration: c.duration || 30,
-      priority: c.priority || 'medium',
-      flags: c.flags || [],
-      condition: c.condition || '',
-      last_visit: c.lastVisit || 'New client',
-      photo_url: c.photo || null,
-    };
-  }
-
+  /* ─── Role-aware data loading ──────────────────────── */
   const loadData = useCallback(async (userId) => {
     if (!userId) return;
+    if (lastUserId.current === userId && dataReady) return;
+    lastUserId.current = userId;
+    userIdRef.current = userId;
     setLoadingError(null);
 
     try {
-      // Load profile
+      // 1. Load profile → get role + agency_id
       const { data: profile, error: profileErr } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (profileErr && profileErr.code !== 'PGRST116') {
-        console.warn('Profile load error:', profileErr.message);
-      }
+      const role = profile?.role ?? 'nurse';
+      const agencyId = profile?.agency_id ?? null;
+      setUserRole(role);
+      setUserAgencyId(agencyId);
 
+      // 2. Set nurse profile (always)
       setNurse(profile ? {
-        name: profile.name || NURSE_FALLBACK.name,
-        title: profile.title || NURSE_FALLBACK.title,
-        license: profile.license || NURSE_FALLBACK.license,
-        region: profile.region || NURSE_FALLBACK.region,
-        avatar: profile.avatar_url || NURSE_FALLBACK.avatar,
-      } : NURSE_FALLBACK);
+        name: profile.name || NURSE.name,
+        title: profile.title || NURSE.title,
+        license: profile.license || NURSE.license,
+        region: profile.region || NURSE.region,
+        avatar: profile.avatar_url || NURSE.avatar,
+      } : NURSE);
 
-      // Load clients
-      const { data: clientData, error: clientErr } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('nurse_id', userId)
-        .order('created_at', { ascending: false });
+      // 3. Role-appropriate data loading
+      if (role === 'nurse') {
+        // ── Nurse: load own data ──
+        const { data: clientData } = await supabase
+          .from('clients').select('*').eq('nurse_id', userId).order('created_at', { ascending: false });
+        setClients(clientData?.length ? clientData.map(mapClientFromDB) : CLIENTS_SEED);
 
-      if (clientErr) {
-        console.error('Client load error:', clientErr.message);
-        setClients(CLIENTS_SEED);
-      } else {
-        setClients((clientData || []).map(mapClientFromDB));
+        const today = new Date().toISOString().split('T')[0];
+        const { data: schedData } = await supabase
+          .from('schedules').select('*').eq('nurse_id', userId).eq('visit_date', today).order('sort_order', { ascending: true });
+        if (schedData?.length) {
+          setScheduleIds(schedData.map(s => s.client_id));
+          setOptimized(true);
+        }
+
+        const { data: noteData } = await supabase
+          .from('visit_notes').select('*').eq('nurse_id', userId).order('created_at', { ascending: false });
+        if (noteData?.length) {
+          const grouped = {};
+          for (const n of noteData) {
+            if (!grouped[n.client_id]) grouped[n.client_id] = [];
+            grouped[n.client_id].push({ id: n.id, text: n.text, visitType: n.visit_type || 'Routine visit', status: n.status || 'Completed', date: n.created_at });
+          }
+          setNotes(grouped);
+        }
+
+        const { data: auditData } = await supabase
+          .from('audit_logs').select('*').eq('nurse_id', userId).order('created_at', { ascending: false }).limit(24);
+        if (auditData?.length) {
+          setAudit(auditData.map(a => ({ t: new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), label: a.label, type: a.type || 'read' })));
+        }
+
+        const { data: routeData } = await supabase
+          .from('saved_routes').select('*').eq('nurse_id', userId).order('updated_at', { ascending: false });
+        if (routeData?.length) {
+          setSavedRoutes(routeData.map(r => ({ id: r.id, name: r.name, stops: r.stop_order, createdAt: r.created_at, updatedAt: r.updated_at })));
+        }
       }
 
-      // Load today's schedule with client details
-      const today = new Date().toISOString().split('T')[0];
-      const { data: schedData, error: schedErr } = await supabase
-        .from('schedules')
-        .select('*')
-        .eq('nurse_id', userId)
-        .eq('visit_date', today)
-        .order('sort_order', { ascending: true });
-
-      if (schedErr) {
-        console.warn('Schedule load error:', schedErr.message);
-        setScheduleEntries([]);
-      } else {
-        setScheduleEntries(schedData || []);
-        setOptimized(true);
-      }
-
-      // Load notes
-      const { data: noteData, error: noteErr } = await supabase
-        .from('visit_notes')
-        .select('*')
-        .eq('nurse_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (noteErr) {
-        console.warn('Notes load error:', noteErr.message);
-        setNotes({});
-      } else if (noteData) {
-        // Group by client_id
-        const grouped = {};
-        for (const n of noteData) {
-          if (!grouped[n.client_id]) grouped[n.client_id] = [];
-          grouped[n.client_id].push({
-            id: n.id,
-            text: n.text,
-            visitType: n.visit_type || 'Routine visit',
-            status: n.status || 'Completed',
-            date: n.created_at,
+      if (role === 'agency_admin' && agencyId) {
+        // ── Agency Admin: load agency, nurses, clients, audit ──
+        const { data: agencyData } = await supabase
+          .from('agencies').select('*').eq('id', agencyId).single();
+        if (agencyData) {
+          setAgency({
+            id: agencyData.id,
+            name: agencyData.name,
+            logo: (agencyData.name || '').split(' ').map(s => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase(),
+            plan: agencyData.subscription_tier === 'starter' ? 'Growth' : agencyData.subscription_tier === 'pro' ? 'Scale' : 'Enterprise',
+            seatsUsed: 0, // computed below
+            seatsTotal: agencyData.subscription_tier === 'starter' ? 20 : agencyData.subscription_tier === 'pro' ? 100 : 999,
+            monthlyCost: 0, // computed from seats
+            hipaaScore: 98,
+            admin: { name: profile?.name || 'Admin', title: 'Agency Director', email: profile?.name || '', avatar: profile?.avatar_url || '' },
           });
         }
-        setNotes(grouped);
+
+        const { data: nurseData } = await supabase
+          .from('profiles').select('*').eq('agency_id', agencyId).order('created_at', { ascending: false });
+        if (nurseData?.length) {
+          setNurses(nurseData.map(n => ({
+            id: n.id,
+            name: n.name || 'Unknown',
+            email: n.email || '',
+            zone: n.region || 'Unassigned',
+            status: 'active',
+            lastActive: '—',
+            visitsToday: 0,
+            weeklySaved: 0,
+            role: n.title || 'Registered Nurse',
+            avatar: n.avatar_url || null,
+            currentStop: null,
+            complianceOk: true,
+          })));
+        }
+
+        const { data: clientData } = await supabase
+          .from('clients').select('*').eq('agency_id', agencyId).order('created_at', { ascending: false });
+        if (clientData?.length) {
+          setAgencyClients(clientData.map((c, i) => ({
+            id: c.id,
+            name: c.full_name || 'Unknown',
+            nurseId: c.nurse_id || '',
+            city: (c.address || '').split(',').slice(-2).join(', ').trim() || 'Unknown',
+            condition: c.condition || '—',
+            visitsWeek: Math.ceil((c.duration || 30) / 30) || 1,
+          })));
+        }
+
+        const { data: auditData } = await supabase
+          .from('audit_logs').select('*').eq('agency_id', agencyId).order('created_at', { ascending: false }).limit(24);
+        if (auditData?.length) {
+          setComplianceLog(auditData.map(a => ({
+            t: new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            nurseId: a.nurse_id || '',
+            event: a.label || 'Event',
+            severity: a.type === 'critical' || a.type === 'warn' ? a.type : 'info',
+          })));
+          setLiveActivity(auditData.slice(0, 12).map(a => ({
+            t: new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            nurseId: a.nurse_id || '',
+            label: a.label || 'Activity',
+            type: a.type || 'auth',
+          })));
+        }
+
+        // Update seats used
+        setAgency(prev => ({ ...prev, seatsUsed: nurseData?.length ?? 0, monthlyCost: (nurseData?.length ?? 0) * 65 }));
       }
 
-      // Load audit log
-      const { data: auditData, error: auditErr } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .eq('nurse_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(24);
+      if (role === 'super_admin') {
+        // ── Super Admin: load everything ──
+        const { data: agencyData } = await supabase.from('agencies').select('*').order('created_at', { ascending: false });
+        if (agencyData?.length) {
+          setAgencies(agencyData.map(a => ({
+            id: a.id,
+            name: a.name,
+            logo: (a.name || '').split(' ').map(s => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase(),
+            city: '—',
+            plan: a.subscription_tier === 'starter' ? 'Growth' : a.subscription_tier === 'pro' ? 'Scale' : 'Enterprise',
+            seatsUsed: 0,
+            seatsTotal: a.subscription_tier === 'starter' ? 20 : a.subscription_tier === 'pro' ? 100 : 999,
+            mrr: 0,
+            hipaaScore: 98,
+            status: a.subscription_status === 'active' ? 'active' : a.subscription_status === 'trialing' ? 'trial' : 'suspended',
+            director: { name: '—', email: '—' },
+            nurses: 0,
+            clients: 0,
+            createdAt: a.created_at ? new Date(a.created_at).toISOString().split('T')[0] : '—',
+          })));
+        }
 
-      if (auditErr) {
-        console.warn('Audit load error:', auditErr.message);
-        setAudit(AUDIT_LOG);
-      } else if (auditData) {
-        setAudit(auditData.map((a) => ({
-          t: new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          label: a.label,
-          type: a.type || 'read',
-        })));
-      }
+        const { data: nurseData } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+        if (nurseData?.length) {
+          setGlobalNurses(nurseData.map(n => ({
+            id: n.id,
+            name: n.name || 'Unknown',
+            email: n.email || '',
+            zone: n.region || '—',
+            status: 'active',
+            role: n.title || 'Nurse',
+            agencyId: n.agency_id,
+            avatar: n.avatar_url || null,
+            visitsToday: 0,
+            weeklySaved: 0,
+          })));
+        }
 
-      // Load saved routes
-      const { data: routeData, error: routeErr } = await supabase
-        .from('saved_routes')
-        .select('*')
-        .eq('nurse_id', userId)
-        .order('updated_at', { ascending: false });
+        const { data: clientData } = await supabase.from('clients').select('*').order('created_at', { ascending: false }).limit(100);
+        if (clientData?.length) {
+          setGlobalClients(clientData.map(c => ({
+            id: c.id,
+            fullName: c.full_name || 'Unknown',
+            mrn: `MRN-${(c.id || '').slice(0, 8).toUpperCase()}`,
+            dob: c.dob || '—',
+            conditions: [c.condition || '—'],
+            phone: c.phone || '—',
+            address: c.address || '—',
+            nurseId: c.nurse_id,
+            agencyId: c.agency_id,
+          })));
+        }
 
-      if (routeErr) {
-        console.warn('Saved routes load error:', routeErr.message);
-      } else if (routeData) {
-        setSavedRoutes(routeData);
+        const { data: auditData } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(50);
+        if (auditData?.length) {
+          setGlobalAudit(auditData.map(a => ({
+            t: new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            actorId: a.nurse_id || '',
+            actorName: '—',
+            actorRole: 'Nurse',
+            action: a.label || 'Action',
+            resource: a.type || '—',
+            agencyId: a.agency_id,
+            severity: a.type === 'critical' ? 'critical' : a.type === 'warn' ? 'warn' : 'info',
+            ip: '—',
+          })));
+        }
       }
 
       setDataReady(true);
     } catch (err) {
-      console.error('Data load failed:', err);
-      setLoadingError(err.message);
-      // Fall back to seed data on failure
-      setClients(CLIENTS_SEED);
-      setAudit(AUDIT_LOG);
-      setNurse(NURSE_FALLBACK);
+      console.warn('RouteMe: Data load error:', err);
+      setLoadingError(err.message || 'Unknown error');
       setDataReady(true);
     }
-  }, []);
+  }, [dataReady]);
 
-  // --- Auth handling ---
+  /* ─── Supabase session check ──────────────────────────── */
   useEffect(() => {
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data?.session) {
-        setAuthed(true);
-        const uid = data.session.user.id;
-        userIdRef.current = uid;
-        lastUserId.current = uid;
-        await loadData(uid);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          await loadData(session.user.id);
+          setAuthed(true);
+        }
+        setSupabaseReady(true);
+      } catch {
+        setSupabaseReady(true);
       }
-      setSupabaseReady(true);
     };
     init();
-
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        setAuthed(true);
-        const uid = session.user.id;
-        userIdRef.current = uid;
-        if (uid !== lastUserId.current) {
-          lastUserId.current = uid;
-          await loadData(uid);
-        }
-      } else if (event === 'SIGNED_OUT') {
-        setAuthed(false);
-        setDataReady(false);
-        setClients([]);
-        setScheduleEntries([]);
-        setNotes({});
-        setAudit([]);
-        setSavedRoutes([]);
-        userIdRef.current = null;
-        lastUserId.current = null;
-      }
-    });
-
-    return () => listener?.subscription?.unsubscribe();
   }, [loadData]);
 
-  // --- Derived: schedule (full client objects in order) ---
-  const schedule = useMemo(() => {
-    const clientMap = {};
-    for (const c of clients) clientMap[c.id] = c;
-    return scheduleEntries
-      .map((s) => clientMap[s.client_id])
-      .filter(Boolean);
-  }, [clients, scheduleEntries]);
+  /* ─── localStorage persistence ─────────────────────────── */
+  useEffect(() => {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({
+        authed, clients, scheduleIds, notes, audit, optimized, savedRoutes,
+        agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
+        superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
+        globalAudit, activeSessions, billingLedger, featureFlags,
+        phiRevealed, maintenanceMode, impersonation,
+      }));
+    } catch { /* quota exceeded — ignore */ }
+  }, [
+    authed, clients, scheduleIds, notes, audit, optimized, savedRoutes,
+    agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
+    superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
+    globalAudit, activeSessions, billingLedger, featureFlags,
+    phiRevealed, maintenanceMode, impersonation,
+  ]);
 
-  const scheduleIds = useMemo(() => schedule.map((c) => c.id), [schedule]);
+  const schedule = useMemo(
+    () => scheduleIds.map((id) => clients.find((c) => c.id === id)).filter(Boolean),
+    [scheduleIds, clients]
+  );
 
-  // --- Audit helper ---
-  const pushAudit = useCallback(async (label, type = 'read') => {
-    const userId = userIdRef.current;
-    if (!userId) return;
+  /* ─── Nurse actions ───────────────────────────────── */
 
-    const { error } = await supabase.from('audit_logs').insert({
-      nurse_id: userId,
-      label,
-      type,
-    });
+  const pushAudit = useCallback((label, type = "read") =>
+    setAudit(a => [{ t: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), label, type }, ...a].slice(0, 24)), []);
 
-    if (error) {
-      console.warn('Audit insert error:', error.message);
-      return;
+  const addClient = useCallback((c) => {
+    const id = "c" + Math.random().toString(36).slice(2, 8);
+    const client = { id, ...c };
+    setClients(cs => [client, ...cs]);
+    setScheduleIds(ids => [id, ...ids]);
+    pushAudit(`Client added — ${c.fullName}`, "write");
+    if (userIdRef.current) {
+      supabase.from('clients').insert({ ...mapClientToDB(c), id, nurse_id: userIdRef.current }).then().catch(() => {});
     }
-
-    // Optimistically add to local state
-    setAudit((a) => [
-      { t: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), label, type },
-      ...a,
-    ].slice(0, 24));
-  }, []);
-
-  // --- Client CRUD ---
-  const addClient = useCallback(async (c) => {
-    const userId = userIdRef.current;
-    if (!userId) return;
-
-    // 1. Insert client
-    const { data: newClient, error: clientErr } = await supabase
-      .from('clients')
-      .insert({
-        nurse_id: userId,
-        full_name: c.fullName,
-        initials: c.initials || '',
-        dob: c.dob || null,
-        phone: c.phone || '',
-        address: c.address || '',
-        time_window: c.window || '',
-        duration: c.duration || 30,
-        priority: c.priority || 'medium',
-        flags: c.flags || [],
-        condition: c.condition || '',
-        last_visit: 'New client',
-        photo_url: c.photo || null,
-      })
-      .select()
-      .single();
-
-    if (clientErr) {
-      console.error('Client insert error:', clientErr.message);
-      return;
-    }
-
-    // 2. Add to today's schedule
-    const today = new Date().toISOString().split('T')[0];
-    const nextOrder = scheduleEntries.length;
-
-    const { error: schedErr } = await supabase
-      .from('schedules')
-      .insert({
-        nurse_id: userId,
-        client_id: newClient.id,
-        visit_date: today,
-        sort_order: nextOrder,
-      });
-
-    if (schedErr) {
-      console.warn('Schedule insert error:', schedErr.message);
-    }
-
-    // 3. Update local state
-    setClients((cs) => [mapClientFromDB(newClient), ...cs]);
-    setScheduleEntries((se) => [...se, {
-      id: 'tmp',
-      nurse_id: userId,
-      client_id: newClient.id,
-      visit_date: today,
-      sort_order: nextOrder,
-    }]);
-
-    pushAudit(`Client added — ${c.fullName}`, 'write');
-  }, [scheduleEntries, pushAudit]);
-
-  const updateClient = useCallback(async (id, patch) => {
-    // Build Supabase column names
-    const sbPatch = {};
-    if (patch.fullName !== undefined) sbPatch.full_name = patch.fullName;
-    if (patch.initials !== undefined) sbPatch.initials = patch.initials;
-    if (patch.phone !== undefined) sbPatch.phone = patch.phone;
-    if (patch.address !== undefined) sbPatch.address = patch.address;
-    if (patch.window !== undefined) sbPatch.time_window = patch.window;
-    if (patch.duration !== undefined) sbPatch.duration = patch.duration;
-    if (patch.priority !== undefined) sbPatch.priority = patch.priority;
-    if (patch.flags !== undefined) sbPatch.flags = patch.flags;
-    if (patch.condition !== undefined) sbPatch.condition = patch.condition;
-    if (patch.dob !== undefined) sbPatch.dob = patch.dob;
-    if (patch.photo !== undefined) sbPatch.photo_url = patch.photo;
-    sbPatch.updated_at = new Date().toISOString();
-
-    const { error } = await supabase
-      .from('clients')
-      .update(sbPatch)
-      .eq('id', id);
-
-    if (error) {
-      console.error('Client update error:', error.message);
-      return;
-    }
-
-    // Map back to component prop names for local state
-    const localPatch = { ...patch };
-    setClients((cs) => cs.map((c) => (c.id === id ? { ...c, ...localPatch } : c)));
-    pushAudit(`Client updated — ${patch.fullName ?? id}`, 'write');
   }, [pushAudit]);
 
-  const removeClient = useCallback(async (id) => {
-    const { error } = await supabase.from('clients').delete().eq('id', id);
-    if (error) {
-      console.error('Client delete error:', error.message);
-      return;
-    }
-
-    // Also clean up schedule
-    await supabase.from('schedules').delete().eq('client_id', id);
-
-    setClients((cs) => cs.filter((c) => c.id !== id));
-    setScheduleEntries((se) => se.filter((s) => s.client_id !== id));
-    pushAudit('Client removed', 'write');
+  const updateClient = useCallback((id, patch) => {
+    setClients(cs => cs.map(c => c.id === id ? { ...c, ...patch } : c));
+    pushAudit(`Client updated — ${patch.fullName ?? id}`, "write");
+    supabase.from('clients').update(mapClientToDB(patch)).eq('id', id).then().catch(() => {});
   }, [pushAudit]);
 
-  // --- Schedule operations ---
-  /** Haversine distance between two lat/lng pairs in miles */
-  function haversine(lat1, lng1, lat2, lng2) {
-    const R = 3958.8; // Earth radius in miles
-    const toRad = (d) => (d * Math.PI) / 180;
-    const dLat = toRad(lat2 - lat1);
-    const dLng = toRad(lng2 - lng1);
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  }
+  const removeClient = useCallback((id) => {
+    setClients(cs => cs.filter(c => c.id !== id));
+    setScheduleIds(s => s.filter(sid => sid !== id));
+    pushAudit(`Client removed`, "write");
+    supabase.from('clients').delete().eq('id', id).then().catch(() => {});
+  }, [pushAudit]);
 
-  const reorder = useCallback(async (ids, keepOptimized = false) => {
-    const userId = userIdRef.current;
-    if (!userId) return;
-
-    // Update sort_order for each entry in the new order
-    const today = new Date().toISOString().split('T')[0];
-    for (let i = 0; i < ids.length; i++) {
-      await supabase
-        .from('schedules')
-        .update({ sort_order: i })
-        .eq('nurse_id', userId)
-        .eq('client_id', ids[i])
-        .eq('visit_date', today);
-    }
-
-    // Rebuild schedule entries in new order
-    setScheduleEntries(ids.map((clientId, i) => ({
-      client_id: clientId,
-      sort_order: i,
-      visit_date: today,
-      nurse_id: userId,
-    })));
-    if (!keepOptimized) setOptimized(false);
+  const reorder = useCallback((ids) => {
+    setScheduleIds(ids);
+    setOptimized(false);
   }, []);
 
   const optimize = useCallback(() => {
-      const priorityRank = { high: 0, medium: 1, low: 2 };
-      let next;
-
-      switch (optimizationMode) {
-        case "fastest":
-          // Sort by time window (earliest first) — minimize drive time by hitting appointments in order
-          next = [...schedule]
-            .sort((a, b) => (a.window || '').localeCompare(b.window || ''))
-            .map((c) => c.id);
-          break;
-
-        case "shortest": {
-          // Greedy nearest-neighbor — minimize total mileage
-          const remaining = [...schedule];
-          const ordered = [];
-          // Start with the first stop as-is
-          if (remaining.length > 0) {
-            ordered.push(remaining.shift());
-            while (remaining.length > 0) {
-              const last = ordered[ordered.length - 1];
-              let nearestIdx = 0;
-              let nearestDist = Infinity;
-              for (let i = 0; i < remaining.length; i++) {
-                const d = haversine(last.lat, last.lng, remaining[i].lat, remaining[i].lng);
-                if (d < nearestDist) {
-                  nearestDist = d;
-                  nearestIdx = i;
-                }
-              }
-              ordered.push(remaining.splice(nearestIdx, 1)[0]);
-            }
+    const priorityRank = { high: 0, medium: 1, low: 2 };
+    let next;
+    if (optimizationMode === 'priority') {
+      next = [...schedule].sort((a, b) => {
+        const p = priorityRank[a.priority] - priorityRank[b.priority];
+        if (p !== 0) return p;
+        return (a.window || '').localeCompare(b.window || '');
+      }).map(c => c.id);
+    } else if (optimizationMode === 'fastest') {
+      next = [...schedule].sort((a, b) => (a.window || '').localeCompare(b.window || '')).map(c => c.id);
+    } else if (optimizationMode === 'shortest') {
+      if (schedule.length < 2) { next = schedule.map(c => c.id); }
+      else {
+        const ordered = [schedule[0]];
+        const remaining = schedule.slice(1);
+        while (remaining.length > 0) {
+          const last = ordered[ordered.length - 1];
+          let closest = 0, minDist = Infinity;
+          for (let i = 0; i < remaining.length; i++) {
+            const d = haversine(last.lat || 0, last.lng || 0, remaining[i].lat || 0, remaining[i].lng || 0);
+            if (d < minDist) { minDist = d; closest = i; }
           }
-          next = ordered.map((c) => c.id);
-          break;
+          ordered.push(remaining.splice(closest, 1)[0]);
         }
-
-        case "balanced": {
-          // Group by priority, then nearest-neighbor within each group
-          const groups = { high: [], medium: [], low: [] };
-          for (const c of schedule) {
-            groups[c.priority || 'medium'].push(c);
-          }
-          const ordered = [];
-          for (const level of ['high', 'medium', 'low']) {
-            const group = groups[level];
-            if (group.length === 0) continue;
-            // Nearest-neighbor within the group
-            const remaining = [...group];
-            ordered.push(remaining.shift());
-            while (remaining.length > 0) {
-              const last = ordered[ordered.length - 1];
-              let nearestIdx = 0;
-              let nearestDist = Infinity;
-              for (let i = 0; i < remaining.length; i++) {
-                const d = haversine(last.lat, last.lng, remaining[i].lat, remaining[i].lng);
-                if (d < nearestDist) {
-                  nearestDist = d;
-                  nearestIdx = i;
-                }
-              }
-              ordered.push(remaining.splice(nearestIdx, 1)[0]);
-            }
-          }
-          next = ordered.map((c) => c.id);
-          break;
-        }
-
-        default: // "priority" — current behavior
-          next = [...schedule]
-            .sort((a, b) => {
-              const p = priorityRank[a.priority] - priorityRank[b.priority];
-              if (p !== 0) return p;
-              return (a.window || '').localeCompare(b.window || '');
-            })
-            .map((c) => c.id);
-          break;
+        next = ordered.map(c => c.id);
       }
-
-      reorder(next, true);
-      setOptimized(true);
-      pushAudit('Route re-optimized', 'route');
-    }, [schedule, reorder, pushAudit, optimizationMode]);
-
-  // --- Saved Routes ---
-  const saveRoute = useCallback(async (name) => {
-    const userId = userIdRef.current;
-    if (!userId) return;
-
-    const stops = schedule.map((c) => c.id);
-    if (stops.length === 0) return;
-
-    const { data: newRoute, error } = await supabase
-      .from('saved_routes')
-      .insert({
-        nurse_id: userId,
-        name,
-        stops,
-        stop_count: stops.length,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Save route error:', error.message);
-      return;
+    } else {
+      next = [...schedule].sort((a, b) => {
+        const p = priorityRank[a.priority] - priorityRank[b.priority];
+        if (p !== 0) return p;
+        return ((a.lat || 0) - (b.lat || 0));
+      }).map(c => c.id);
     }
+    setScheduleIds(next);
+    setOptimized(true);
+    pushAudit("Route re-optimized", "route");
+  }, [schedule, optimizationMode, pushAudit]);
 
-    setSavedRoutes((rs) => [newRoute, ...rs]);
-    pushAudit(`Route saved — "${name}"`, 'route');
-  }, [schedule, pushAudit]);
-
-  const deleteSavedRoute = useCallback(async (routeId) => {
-    const { error } = await supabase
-      .from('saved_routes')
-      .delete()
-      .eq('id', routeId);
-
-    if (error) {
-      console.error('Delete saved route error:', error.message);
-      return;
-    }
-
-    setSavedRoutes((rs) => rs.filter((r) => r.id !== routeId));
-    pushAudit('Saved route deleted', 'route');
-  }, [pushAudit]);
-
-  const loadRoute = useCallback(async (routeId) => {
-    const userId = userIdRef.current;
-    if (!userId) return;
-
-    const route = savedRoutes.find((r) => r.id === routeId);
-    if (!route) return;
-
-    const today = new Date().toISOString().split('T')[0];
-
-    // 1. Delete existing schedule for today
-    await supabase
-      .from('schedules')
-      .delete()
-      .eq('nurse_id', userId)
-      .eq('visit_date', today);
-
-    // 2. Insert new schedule entries from saved route
-    const inserts = route.stops.map((clientId, i) => ({
-      nurse_id: userId,
-      client_id: clientId,
-      visit_date: today,
-      sort_order: i,
-    }));
-
-    if (inserts.length > 0) {
-      const { error } = await supabase
-        .from('schedules')
-        .insert(inserts);
-
-      if (error) {
-        console.error('Load route insert error:', error.message);
-        return;
-      }
-    }
-
-    // 3. Update local state
-    setScheduleEntries(route.stops.map((clientId, i) => ({
-      client_id: clientId,
-      sort_order: i,
-      visit_date: today,
-      nurse_id: userId,
-    })));
-    setOptimized(false);
-
-    pushAudit(`Route loaded — "${route.name}"`, 'route');
-      }, [savedRoutes, pushAudit]);
-
-      // --- Add existing client to today's schedule ---
-      const addToSchedule = useCallback(async (clientId) => {
-        const userId = userIdRef.current;
-        if (!userId) return;
-
-        // Check if already scheduled today
-        const today = new Date().toISOString().split('T')[0];
-        const alreadyScheduled = scheduleEntries.some((s) => s.client_id === clientId);
-        if (alreadyScheduled) return;
-
-        const nextOrder = scheduleEntries.length;
-
-        const { error } = await supabase
-          .from('schedules')
-          .insert({
-            nurse_id: userId,
-            client_id: clientId,
-            visit_date: today,
-            sort_order: nextOrder,
-          });
-
-        if (error) {
-          console.error('Add to schedule error:', error.message);
-          return;
-        }
-
-        setScheduleEntries((se) => [...se, {
-          client_id: clientId,
-          sort_order: nextOrder,
-          visit_date: today,
-          nurse_id: userId,
-        }]);
-        setOptimized(false);
-        pushAudit('Client added to today\'s route', 'route');
-      }, [scheduleEntries, pushAudit]);
-
-      // --- Notes ---
-  const addNote = useCallback(async (clientId, text, visitType = 'Routine visit', status = 'Completed') => {
-    const userId = userIdRef.current;
-    if (!userId) return;
-
-    const { data: newNote, error } = await supabase
-      .from('visit_notes')
-      .insert({
-        nurse_id: userId,
-        client_id: clientId,
-        text,
-        visit_type: visitType,
-        status,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Note insert error:', error.message);
-      return;
-    }
-
-    const noteObj = {
-      id: newNote.id,
-      text: newNote.text,
-      visitType: newNote.visit_type || visitType,
-      status: newNote.status || status,
-      date: newNote.created_at,
-    };
-
-    setNotes((n) => ({
+  const addNote = useCallback((clientId, text) => {
+    setNotes(n => ({
       ...n,
-      [clientId]: [noteObj, ...(n[clientId] ?? [])],
+      [clientId]: [{ id: Math.random().toString(36).slice(2, 8), text, date: new Date().toISOString() }, ...(n[clientId] ?? [])],
     }));
-
-    pushAudit('Visit note recorded', 'note');
+    pushAudit("Voice note transcribed", "note");
+    if (userIdRef.current) {
+      supabase.from('visit_notes').insert({ nurse_id: userIdRef.current, client_id: clientId, text, visit_type: 'Routine visit', status: 'Completed' }).then().catch(() => {});
+    }
   }, [pushAudit]);
 
-  // --- Voice/note modal helpers ---
-  const openVoice = useCallback((clientId, mode = 'compose') => {
+  const openVoice = useCallback((clientId) => {
     setVoiceTarget(clientId);
-    setNoteViewMode(mode);
     setVoiceOpen(true);
   }, []);
 
-  // --- Context value ---
+  /* ─── Saved routes ────────────────────────────────── */
+  const saveRoute = useCallback(async (name, stopOrder) => {
+    if (!userIdRef.current) return;
+    const { data, error } = await supabase.from('saved_routes').insert({
+      nurse_id: userIdRef.current,
+      name,
+      stop_order: stopOrder,
+    }).select().single();
+    if (!error && data) {
+      setSavedRoutes(rs => [{ id: data.id, name: data.name, stops: data.stop_order, createdAt: data.created_at, updatedAt: data.updated_at }, ...rs]);
+    }
+  }, []);
+
+  const loadRoute = useCallback((routeId) => {
+    const route = savedRoutes.find(r => r.id === routeId);
+    if (route?.stops?.length) setScheduleIds(route.stops);
+  }, [savedRoutes]);
+
+  const deleteSavedRoute = useCallback(async (routeId) => {
+    setSavedRoutes(rs => rs.filter(r => r.id !== routeId));
+    await supabase.from('saved_routes').delete().eq('id', routeId);
+  }, []);
+
+  /* ─── Agency actions ──────────────────────────────── */
+
+  const inviteNurse = useCallback(({ name, email, zone, role }) => {
+    const id = "n_" + Math.random().toString(36).slice(2, 8);
+    const nurse = {
+      id, name, email, zone: zone || 'Unassigned',
+      role: role || "Registered Nurse", status: "pending",
+      onboarded: null, lastActive: "—", visitsToday: 0, weeklySaved: 0,
+      avatar: null, currentStop: null, complianceOk: false,
+      inviteToken: id + "-" + Math.random().toString(36).slice(2, 10),
+    };
+    setNurses(ns => [nurse, ...ns]);
+    setLiveActivity(a => [{ t: "just now", nurseId: id, label: `Invite sent — ${name}`, type: "auth" }, ...a].slice(0, 40));
+    if (userAgencyId) {
+      supabase.from('profiles').insert({ id, name, email, role: 'nurse', agency_id: userAgencyId }).then().catch(() => {});
+    }
+    return nurse;
+  }, [userAgencyId]);
+
+  const setNurseStatus = useCallback((id, status) => {
+    setNurses(ns => ns.map(n => n.id === id ? { ...n, status } : n));
+  }, []);
+
+  const removeNurse = useCallback((id) => {
+    setNurses(ns => ns.filter(n => n.id !== id));
+  }, []);
+
+  const resetAgencyDemo = useCallback(() => {
+    setNurses(NURSES_SEED);
+    setLiveActivity(LIVE_ACTIVITY_SEED);
+    setAgencyClients(AGENCY_CLIENTS);
+  }, []);
+
+  const reassignClient = useCallback((clientId, newNurseId) => {
+    setAgencyClients(cs => cs.map(c => c.id === clientId ? { ...c, nurseId: newNurseId } : c));
+    const newNurse = nurses.find(n => n.id === newNurseId);
+    const client = agencyClients.find(c => c.id === clientId);
+    setLiveActivity(a => [{ t: "just now", nurseId: newNurseId, label: `Reassigned ${client?.name ?? "client"} → ${newNurse?.name?.split(",")[0] ?? "nurse"}`, type: "route" }, ...a].slice(0, 40));
+    if (clientId && newNurseId) {
+      supabase.from('clients').update({ nurse_id: newNurseId }).eq('id', clientId).then().catch(() => {});
+    }
+  }, [nurses, agencyClients]);
+
+  /* ─── Super Admin actions ─────────────────────────── */
+
+  const pushGlobalAudit = useCallback((action, resource, agencyId = null, severity = "info") => {
+    setGlobalAudit(a => [{
+      t: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      actorId: superAdminMe.id, actorName: superAdminMe.name, actorRole: superAdminMe.role,
+      action, resource, agencyId, severity, ip: "10.0.14.22",
+    }, ...a].slice(0, 200));
+  }, [superAdminMe]);
+
+  const setAgencyStatus = useCallback((id, status) => {
+    setAgencies(as => as.map(a => a.id === id ? { ...a, status } : a));
+    const ag = agencies.find(a => a.id === id);
+    pushGlobalAudit(status === "suspended" ? "Agency suspended" : "Agency reactivated", `Agency · ${ag?.name}`, id, status === "suspended" ? "warn" : "info");
+    supabase.from('agencies').update({ subscription_status: status === 'suspended' ? 'past_due' : 'active' }).eq('id', id).then().catch(() => {});
+  }, [agencies, pushGlobalAudit]);
+
+  const setGlobalNurseStatus = useCallback((id, status) => {
+    setGlobalNurses(ns => ns.map(n => n.id === id ? { ...n, status } : n));
+    const nurse = globalNurses.find(n => n.id === id);
+    pushGlobalAudit(status === "suspended" ? "Nurse suspended" : "Nurse reactivated", `Nurse · ${nurse?.name}`, nurse?.agencyId, status === "suspended" ? "warn" : "info");
+  }, [globalNurses, pushGlobalAudit]);
+
+  const revealClientPHI = useCallback((clientId, reason) => {
+    setPhiRevealed(r => ({ ...r, [clientId]: { at: new Date().toISOString(), reason } }));
+    const client = globalClients.find(c => c.id === clientId);
+    pushGlobalAudit(`PHI reveal · reason: \"${reason}\"`, `Client · ${client?.fullName}`, client?.agencyId, "warn");
+  }, [globalClients, pushGlobalAudit]);
+
+  const hideClientPHI = useCallback((clientId) => {
+    setPhiRevealed(r => { const n = { ...r }; delete n[clientId]; return n; });
+    const client = globalClients.find(c => c.id === clientId);
+    pushGlobalAudit("PHI concealed", `Client · ${client?.fullName}`, client?.agencyId, "info");
+  }, [globalClients, pushGlobalAudit]);
+
+  const addSuperAdmin = useCallback(({ name, email, role }) => {
+    const id = "sa_" + Math.random().toString(36).slice(2, 8);
+    const initials = name.split(" ").map(s => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+    setSuperAdmins(s => [{ id, name, email, role, initials, lastActive: "invited", mfaEnabled: false, status: "pending" }, ...s]);
+    pushGlobalAudit("Staff invited", `${role} · ${name}`, null, "info");
+  }, [pushGlobalAudit]);
+
+  const removeSuperAdmin = useCallback((id) => {
+    const admin = superAdmins.find(s => s.id === id);
+    if (admin?.role === "Owner") return;
+    setSuperAdmins(s => s.filter(x => x.id !== id));
+    pushGlobalAudit("Staff removed", `Platform staff · ${admin?.name}`, null, "warn");
+  }, [superAdmins, pushGlobalAudit]);
+
+  const killSession = useCallback((id) => {
+    const sess = activeSessions.find(s => s.id === id);
+    setActiveSessions(s => s.filter(x => x.id !== id));
+    pushGlobalAudit("Session terminated", `${sess?.name} · ${sess?.device}`, null, "warn");
+  }, [activeSessions, pushGlobalAudit]);
+
+  const toggleFeatureFlag = useCallback((key) => {
+    setFeatureFlags(flags => flags.map(f => f.key === key ? { ...f, enabled: !f.enabled } : f));
+    const flag = featureFlags.find(f => f.key === key);
+    pushGlobalAudit("Feature flag toggled", `${key} → ${flag?.enabled ? "OFF" : "ON"}`, null, "info");
+  }, [featureFlags, pushGlobalAudit]);
+
+  const toggleMaintenance = useCallback(() => {
+    setMaintenanceMode(m => !m);
+    pushGlobalAudit(maintenanceMode ? "Maintenance mode disabled" : "Maintenance mode enabled", "Platform · global", null, maintenanceMode ? "info" : "critical");
+  }, [maintenanceMode, pushGlobalAudit]);
+
+  const impersonateAgency = useCallback((ag) => {
+    setImpersonation({ id: ag.id, name: ag.director?.name || ag.name, role: `Director · ${ag.name}`, kind: "agency" });
+    setAgencyAuthed(true);
+    pushGlobalAudit("Impersonation started", `Director · ${ag.director?.name || ag.name} (${ag.name})`, ag.id, "warn");
+  }, [pushGlobalAudit]);
+
+  const stopImpersonation = useCallback(() => {
+    if (impersonation) pushGlobalAudit("Impersonation ended", `${impersonation.role}`, null, "info");
+    setImpersonation(null);
+  }, [impersonation, pushGlobalAudit]);
+
+  /* ─── Context value ───────────────────────────────── */
+
   const value = {
-    authed,
-    setAuthed,
-    supabaseReady,
-    dataReady,
-    loadingError,
-    nurse,
-    clients,
-    setClients,
-    schedule,
-    scheduleIds,
-        reorder,
-                optimize,
-                optimized,
-                optimizationMode,
-                setOptimizationMode,
-                addToSchedule,
-    notes,
-    addNote,
-    audit,
-    pushAudit,
-    addClient,
-    updateClient,
-    removeClient,
-    voiceOpen,
-    setVoiceOpen,
-    voiceTarget,
-    setVoiceTarget,
-    openVoice,
-    noteViewMode,
-    setNoteViewMode,
-    savedRoutes,
-    saveRoute,
-    loadRoute,
-    deleteSavedRoute,
+    // General
+    authed, setAuthed, supabaseReady, dataReady, loadingError, userRole, userAgencyId,
+    // Nurse app
+    nurse, clients, setClients, schedule, scheduleIds, reorder, optimize, optimized,
+    notes, addNote, audit, pushAudit, addClient, updateClient, removeClient,
+    voiceOpen, setVoiceOpen, voiceTarget, setVoiceTarget, openVoice, noteViewMode, setNoteViewMode,
+    optimizationMode, setOptimizationMode,
+    savedRoutes, saveRoute, loadRoute, deleteSavedRoute,
+    // Agency admin
+    agencyAuthed, setAgencyAuthed, agency, nurses, liveActivity, agencyClients, complianceLog,
+    inviteNurse, setNurseStatus, removeNurse, resetAgencyDemo, reassignClient,
+    // Super admin
+    superAdminAuthed, setSuperAdminAuthed, platform, superAdminMe,
+    agencies, globalNurses, globalClients, superAdmins, globalAudit,
+    activeSessions, securityEvents, systemMetrics, billingLedger, featureFlags,
+    phiRevealed, maintenanceMode, impersonation,
+    pushGlobalAudit, setAgencyStatus, setGlobalNurseStatus,
+    revealClientPHI, hideClientPHI, addSuperAdmin, removeSuperAdmin,
+    killSession, toggleFeatureFlag, toggleMaintenance, impersonateAgency, stopImpersonation,
+    // Utility
+    signOut: () => { signOut(); setAuthed(false); setAgencyAuthed(false); setSuperAdminAuthed(false); },
   };
 
   return <RouteMeContext.Provider value={value}>{children}</RouteMeContext.Provider>;
