@@ -1,6 +1,6 @@
-import React from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Home, Map, Users, Calendar, User, LogOut, Mic, Plus } from "lucide-react";
+import React, { useState } from "react";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Home, Map, Users, Calendar, User, LogOut, Mic, Plus, Menu, X } from "lucide-react";
 import HipaaBadge from "@/components/HipaaBadge";
 import NoteModal from "@/components/VoiceNoteModal";
 import { useRouteMe } from "@/context/RouteMeContext";
@@ -16,13 +16,17 @@ const NAV = [
 
 export default function AppShell() {
   const { nurse, setAuthed, openVoice, schedule, agency } = useRouteMe();
-  const navigate = useNavigate();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [mobileOpen, setMobileOpen] = useState(false);
 
   const logout = async () => {
       await supabase.auth.signOut();
       setAuthed(false);
       navigate("/login");
     };
+
+  const closeMobile = () => setMobileOpen(false);
 
   return (
     <div className="min-h-screen bg-[#F9F8F6] text-stone-900 flex">
@@ -85,6 +89,14 @@ export default function AppShell() {
         {/* Top bar */}
         <header className="sticky top-0 z-30 border-b border-stone-200 bg-[#F9F8F6]/85 backdrop-blur-md px-5 md:px-8 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 lg:hidden">
+            <button
+              onClick={() => setMobileOpen(true)}
+              data-testid="hamburger-btn"
+              className="h-9 w-9 rounded-xl flex items-center justify-center hover:bg-stone-100 transition-colors"
+              aria-label="Open navigation menu"
+            >
+              <Menu className="h-5 w-5 text-stone-700" />
+            </button>
             <Logo />
             <span className="font-display text-lg font-semibold">RouteMe</span>
           </div>
@@ -105,25 +117,98 @@ export default function AppShell() {
           </div>
         </header>
 
-        {/* Mobile nav */}
-        <nav className="lg:hidden sticky top-[57px] z-20 border-b border-stone-200 bg-[#F9F8F6]/85 backdrop-blur px-2 py-2 flex overflow-x-auto gap-1">
-          {NAV.map((n) => (
-            <NavLink
-              key={n.to}
-              to={n.to}
-              data-testid={`m-${n.testId}`}
-              className={({ isActive }) =>
-                `whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold border ${
-                  isActive
-                    ? "bg-stone-900 text-white border-stone-900"
-                    : "bg-white text-stone-600 border-stone-200"
-                }`
-              }
-            >
-              {n.label}
-            </NavLink>
-          ))}
-        </nav>
+        {/* Mobile hamburger drawer */}
+        {mobileOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+              onClick={closeMobile}
+            />
+
+            {/* Drawer */}
+            <aside className="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-[#F9F8F6] border-r border-stone-200 shadow-2xl flex flex-col animate-in slide-in-from-left duration-300">
+              {/* Drawer header */}
+              <div className="flex items-center justify-between px-5 pt-6 pb-4 border-b border-stone-200">
+                <div className="flex items-center gap-2">
+                  <Logo />
+                  <span className="font-display text-xl font-semibold">RouteMe</span>
+                </div>
+                <button
+                  onClick={closeMobile}
+                  data-testid="close-hamburger-btn"
+                  className="h-9 w-9 rounded-xl flex items-center justify-center hover:bg-stone-100 transition-colors"
+                  aria-label="Close navigation menu"
+                >
+                  <X className="h-5 w-5 text-stone-500" />
+                </button>
+              </div>
+
+              {/* Navigation */}
+              <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+                {NAV.map((n) => {
+                  const Icon = n.icon;
+                  return (
+                    <NavLink
+                      key={n.to}
+                      to={n.to}
+                      onClick={closeMobile}
+                      data-testid={`m-${n.testId}`}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors ${
+                          isActive
+                            ? "bg-white border border-stone-200 text-stone-900 shadow-sm"
+                            : "text-stone-600 hover:bg-white/70 hover:text-stone-900"
+                        }`
+                      }
+                    >
+                      <span className={`h-9 w-9 rounded-xl flex items-center justify-center ${
+                        location.pathname.startsWith(n.to)
+                          ? "bg-stone-900 text-white"
+                          : "bg-stone-100 text-stone-500"
+                      }`}>
+                        <Icon className="h-4 w-4" strokeWidth={2} />
+                      </span>
+                      <span className="flex-1">{n.label}</span>
+                      {n.to === "/app/route" && (
+                        <span className="text-[10px] font-semibold rounded-full bg-[#F7E5DD] text-[#D95D39] px-2 py-0.5">
+                          {schedule.length}
+                        </span>
+                      )}
+                      {location.pathname.startsWith(n.to) && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#D95D39]" />
+                      )}
+                    </NavLink>
+                  );
+                })}
+              </nav>
+
+              {/* Profile + Sign out */}
+              <div className="px-4 py-5 border-t border-stone-200">
+                <div className="rounded-2xl border border-stone-200 bg-white p-4">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={nurse.avatar}
+                      alt=""
+                      className="h-10 w-10 rounded-full object-cover border border-stone-200"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">{nurse.name}</p>
+                      <p className="text-xs text-stone-500 truncate">{nurse.region}</p>
+                    </div>
+                  </div>
+                  <button
+                    data-testid="m-logout-btn"
+                    onClick={() => { logout(); closeMobile(); }}
+                    className="mt-3 w-full flex items-center justify-center gap-2 text-xs text-stone-600 hover:text-stone-900 border border-stone-200 rounded-lg py-2 transition-colors"
+                  >
+                    <LogOut className="h-3.5 w-3.5" /> Sign out
+                  </button>
+                </div>
+              </div>
+            </aside>
+          </div>
+        )}
 
         <main className="flex-1 px-5 md:px-8 py-6 md:py-10">
           <Outlet />
