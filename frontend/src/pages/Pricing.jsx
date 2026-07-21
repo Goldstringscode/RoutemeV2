@@ -111,22 +111,16 @@ const FAQ = [
 
 export default function Pricing() {
   const [billing, setBilling] = useState("monthly");
-  const { setAuthed, setAgencyAuthed } = useRouteMe();
-  const navigate = useNavigate();
+  const {  } = useRouteMe();
+    const navigate = useNavigate();
 
   const handleCta = (tier) => {
-    if (tier.id === "solo") {
-      setAuthed(true);
-      navigate("/app/dashboard");
-    } else if (tier.id === "growth" || tier.id === "scale") {
-      setAgencyAuthed(true);
-      navigate("/agency/overview");
-    } else if (tier.ctaLink.startsWith("mailto:")) {
-      window.location.href = tier.ctaLink;
-    } else {
-      navigate(tier.ctaLink);
-    }
-  };
+      if (tier.ctaLink.startsWith("mailto:")) {
+        window.location.href = tier.ctaLink;
+      } else {
+        navigate(tier.ctaLink);
+      }
+    };
 
   return (
     <div className="min-h-screen bg-[#F9F8F6] text-stone-900">
