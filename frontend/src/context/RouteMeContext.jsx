@@ -21,6 +21,7 @@ import {
   BILLING_LEDGER_SEED,
 } from "@/lib/superAdminMockData";
 import { supabase, signOut } from "@/lib/supabase";
+import { optimizeRoute, computeRouteSummary, getDrivingConditions } from "@/lib/routeEngine";
 
 const KEY = "routeme.state.v1";
 const RouteMeContext = createContext(null);
@@ -108,7 +109,8 @@ export function RouteMeProvider({ children }) {
   const [optimized, setOptimized] = useState(initial?.optimized ?? true);
   const [nurse, setNurse] = useState(NURSE);
   const [savedRoutes, setSavedRoutes] = useState(initial?.savedRoutes ?? []);
-  const [optimizationMode, setOptimizationMode] = useState("priority");
+  const [optimizationMode, setOptimizationMode] = useState("ai");
+  const [routeResult, setRouteResult] = useState(null);
 
   /* ─── Voice note UI state ──────────────────────────── */
   const [voiceOpen, setVoiceOpen] = useState(false);
@@ -397,15 +399,15 @@ export function RouteMeProvider({ children }) {
         agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
         superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
         globalAudit, activeSessions, billingLedger, featureFlags,
-        phiRevealed, maintenanceMode, impersonation,
+        phiRevealed, maintenanceMode, impersonation, routeResult,
       }));
     } catch { /* quota exceeded — ignore */ }
   }, [
     authed, clients, scheduleIds, notes, audit, optimized, savedRoutes,
-    agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
-    superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
-    globalAudit, activeSessions, billingLedger, featureFlags,
-    phiRevealed, maintenanceMode, impersonation,
+        agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
+        superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
+        globalAudit, activeSessions, billingLedger, featureFlags,
+        phiRevealed, maintenanceMode, impersonation, routeResult,
   ]);
 
   const schedule = useMemo(
@@ -447,44 +449,16 @@ export function RouteMeProvider({ children }) {
     setOptimized(false);
   }, []);
 
-  const optimize = useCallback(() => {
-    const priorityRank = { high: 0, medium: 1, low: 2 };
-    let next;
-    if (optimizationMode === 'priority') {
-      next = [...schedule].sort((a, b) => {
-        const p = priorityRank[a.priority] - priorityRank[b.priority];
-        if (p !== 0) return p;
-        return (a.window || '').localeCompare(b.window || '');
-      }).map(c => c.id);
-    } else if (optimizationMode === 'fastest') {
-      next = [...schedule].sort((a, b) => (a.window || '').localeCompare(b.window || '')).map(c => c.id);
-    } else if (optimizationMode === 'shortest') {
-      if (schedule.length < 2) { next = schedule.map(c => c.id); }
-      else {
-        const ordered = [schedule[0]];
-        const remaining = schedule.slice(1);
-        while (remaining.length > 0) {
-          const last = ordered[ordered.length - 1];
-          let closest = 0, minDist = Infinity;
-          for (let i = 0; i < remaining.length; i++) {
-            const d = haversine(last.lat || 0, last.lng || 0, remaining[i].lat || 0, remaining[i].lng || 0);
-            if (d < minDist) { minDist = d; closest = i; }
-          }
-          ordered.push(remaining.splice(closest, 1)[0]);
-        }
-        next = ordered.map(c => c.id);
+  const optimize = useCallback((mode) => {
+      const optMode = mode || optimizationMode;
+      const result = optimizeRoute(schedule, optMode, savedRoutes);
+      if (result.order?.length) {
+        setScheduleIds(result.order);
+        setOptimized(true);
+        setRouteResult(result);
+        pushAudit(`Route re-optimized (${optMode})`, "route");
       }
-    } else {
-      next = [...schedule].sort((a, b) => {
-        const p = priorityRank[a.priority] - priorityRank[b.priority];
-        if (p !== 0) return p;
-        return ((a.lat || 0) - (b.lat || 0));
-      }).map(c => c.id);
-    }
-    setScheduleIds(next);
-    setOptimized(true);
-    pushAudit("Route re-optimized", "route");
-  }, [schedule, optimizationMode, pushAudit]);
+    }, [schedule, optimizationMode, savedRoutes, pushAudit]);
 
   const addNote = useCallback((clientId, text) => {
     setNotes(n => ({
@@ -655,7 +629,7 @@ export function RouteMeProvider({ children }) {
     notes, addNote, audit, pushAudit, addClient, updateClient, removeClient,
     voiceOpen, setVoiceOpen, voiceTarget, setVoiceTarget, openVoice, noteViewMode, setNoteViewMode,
     optimizationMode, setOptimizationMode,
-    savedRoutes, saveRoute, loadRoute, deleteSavedRoute,
+        savedRoutes, saveRoute, loadRoute, deleteSavedRoute, routeResult,
     // Agency admin
     agencyAuthed, setAgencyAuthed, agency, nurses, liveActivity, agencyClients, complianceLog,
     inviteNurse, setNurseStatus, removeNurse, resetAgencyDemo, reassignClient,
