@@ -14,7 +14,7 @@ const TIERS = [
     priceLabel: "Free",
     priceSub: "forever · 1 seat",
     cta: "Start free",
-    ctaLink: "/login",
+        ctaLink: "/signup?plan=solo",
     features: [
       "Route optimization for up to 8 daily stops",
       "Voice-to-text visit notes",
@@ -33,7 +33,7 @@ const TIERS = [
     priceLabel: "$65",
     priceSub: "per seat / month · up to 20 seats",
     cta: "Start Growth trial",
-    ctaLink: "/agency/login",
+        ctaLink: "/signup?plan=growth",
     highlight: true,
     features: [
       "Everything in Solo",
@@ -54,7 +54,7 @@ const TIERS = [
     priceLabel: "$55",
     priceSub: "per seat / month · up to 100 seats",
     cta: "Talk to sales",
-    ctaLink: "/agency/login",
+        ctaLink: "/signup?plan=scale",
     features: [
       "Everything in Growth",
       "SSO / SAML authentication",

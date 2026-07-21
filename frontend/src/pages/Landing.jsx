@@ -93,11 +93,11 @@ export default function Landing() {
 
             <div className="mt-9 flex flex-wrap items-center gap-4">
               <Link
-                to="/login"
-                data-testid="landing-cta-primary"
-                className="group inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white pl-5 pr-4 py-3.5 text-sm font-semibold transition-colors"
-              >
-                Start today&apos;s route
+                              to="/signup?plan=solo"
+                              data-testid="landing-cta-primary"
+                              className="group inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white pl-5 pr-4 py-3.5 text-sm font-semibold transition-colors"
+                            >
+                              Start today&apos;s route
                 <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/20 group-hover:translate-x-0.5 transition-transform">
                   <ArrowRight className="h-4 w-4" />
                 </span>
