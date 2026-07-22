@@ -577,8 +577,33 @@ export function RouteMeProvider({ children }) {
     setVoiceOpen(true);
   }, []);
 
-  /* ─── Saved routes ────────────────────────────────── */
-  const saveRoute = useCallback(async (name, stopOrder) => {
+  /* ─── Notification helpers ──────────────────────────── */
+    const addNotification = useCallback((title, body, type = 'route') => {
+      const n = {
+        id: 'notif_' + Math.random().toString(36).slice(2, 10),
+        type,
+        title,
+        body,
+        t: 'just now',
+        read: false,
+      };
+      setNotifications(ns => [n, ...ns]);
+    }, []);
+
+    const markNotificationRead = useCallback((id) => {
+      setNotifications(ns => ns.map(n => n.id === id ? { ...n, read: true } : n));
+    }, []);
+
+    const markAllNotificationsRead = useCallback(() => {
+      setNotifications(ns => ns.map(n => ({ ...n, read: true })));
+    }, []);
+
+    const dismissNotification = useCallback((id) => {
+      setNotifications(ns => ns.filter(n => n.id !== id));
+    }, []);
+
+    /* ─── Saved routes ────────────────────────────────── */
+    const saveRoute = useCallback(async (name, stopOrder) => {
       const newRoute = {
         id: "sr_" + Math.random().toString(36).slice(2, 10),
         name,
@@ -631,30 +656,6 @@ export function RouteMeProvider({ children }) {
       if (userIdRef.current) {
         await supabase.from('saved_routes').delete().eq('id', routeId).catch(() => {});
       }
-    }, []);
-
-    const addNotification = useCallback((title, body, type = 'route') => {
-      const n = {
-        id: 'notif_' + Math.random().toString(36).slice(2, 10),
-        type,
-        title,
-        body,
-        t: 'just now',
-        read: false,
-      };
-      setNotifications(ns => [n, ...ns]);
-    }, []);
-
-    const markNotificationRead = useCallback((id) => {
-      setNotifications(ns => ns.map(n => n.id === id ? { ...n, read: true } : n));
-    }, []);
-
-    const markAllNotificationsRead = useCallback(() => {
-      setNotifications(ns => ns.map(n => ({ ...n, read: true })));
-    }, []);
-
-    const dismissNotification = useCallback((id) => {
-      setNotifications(ns => ns.filter(n => n.id !== id));
     }, []);
 
     /* ─── Route management ────────────────────────────── */
