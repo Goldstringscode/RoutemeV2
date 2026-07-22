@@ -4,6 +4,7 @@ import { useRouteMe } from "@/context/RouteMeContext";
 import { Sparkles, Clock, MapPin, Mic, Phone, ChevronRight, Fuel, Route, GripVertical, Lock, Unlock, Brain, Zap, Compass, SlidersHorizontal, Loader, CheckCircle, X, Info, ChevronDown, Map as MapIcon, ArrowUpDown, Plus, Trash2 } from "lucide-react";
 import RouteBuilderModal from "@/components/RouteBuilderModal";
 import RemoveFromRouteModal from "@/components/RemoveFromRouteModal";
+import { formatTimeWindow } from "@/lib/utils";
 
 const OPTIMIZATION_MODES = [
   { id: "ai", label: "AI smart route", icon: Brain, desc: "Balances priority, traffic, time windows, and distance using a weighted heuristic model. Considers day-of-week traffic patterns & weather." },
@@ -251,7 +252,7 @@ export default function RouteView() {
                           </span>
                         </div>
                         <p className="text-xs text-stone-500 flex items-center gap-1 mt-0.5">
-                          <Clock className="h-3 w-3" /> {c.window}
+                          <Clock className="h-3 w-3" /> {formatTimeWindow(c.window)}
                         </p>
                         <p className="text-xs text-stone-500 truncate flex items-center gap-1 mt-0.5">
                           <MapPin className="h-3 w-3" /> {c.address}
@@ -322,7 +323,7 @@ export default function RouteView() {
 
             <div className="space-y-3">
               <InfoRow label="Address" value={active.address} />
-              <InfoRow label="Time window" value={active.window} />
+              <InfoRow label="Time window" value={formatTimeWindow(active.window)} />
               <InfoRow label="Last visit" value={active.lastVisit} />
             </div>
 

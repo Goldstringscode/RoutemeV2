@@ -4,6 +4,7 @@ import { Plus, Search, Phone, MapPin, Mic, StickyNote, ChevronDown, ArrowUpRight
 import { useRouteMe } from "@/context/RouteMeContext";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { formatTimeWindow } from "@/lib/utils";
 
 const emptyClient = {
   initials: "",
@@ -161,7 +162,7 @@ export default function Clients() {
               {isExpanded && (
                 <div className="mt-5 pt-5 border-t border-stone-200 grid md:grid-cols-3 gap-4 rm-fade-up">
                   <ExpInfo icon={Calendar} label="Date of birth" value={c.dob} />
-                  <ExpInfo icon={Clock} label="Preferred window" value={c.window} />
+                  <ExpInfo icon={Clock} label="Preferred window" value={formatTimeWindow(c.window)} />
                   <ExpInfo icon={Clock} label="Duration" value={`${c.duration} min`} />
                   <ExpInfo icon={StickyNote} label="Last visit" value={c.lastVisit} />
                   <ExpInfo

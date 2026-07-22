@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Calendar, Trash2, ArrowRight, ArrowLeft, Loader } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatTimeWindow } from "@/lib/utils";
 
 const DAYS = [
   { index: 0, label: "Monday", short: "Mon" },
@@ -131,7 +132,7 @@ export default function RemoveFromRouteModal({ open, onClose, client, onRemoveFr
               <div>
                 <p className="font-semibold text-stone-900">{client.fullName}</p>
                 <p className="text-xs text-stone-500">{client.condition}</p>
-                <p className="text-xs text-stone-400 mt-0.5">{client.window} · {client.duration} min</p>
+                <p className="text-xs text-stone-400 mt-0.5">{formatTimeWindow(client.window)} · {client.duration} min</p>
               </div>
             </div>
           </div>

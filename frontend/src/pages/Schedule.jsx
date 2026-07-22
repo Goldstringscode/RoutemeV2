@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { GripVertical, Sparkles, Clock, MapPin } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
+import { formatTimeWindow } from "@/lib/utils";
 
 export default function Schedule() {
   const { schedule, reorder, optimize, optimized } = useRouteMe();
@@ -72,7 +73,7 @@ export default function Schedule() {
                 <span className="text-xs text-stone-500">· {c.condition}</span>
               </div>
               <div className="mt-1 flex items-center gap-4 text-xs text-stone-500">
-                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {c.window}</span>
+                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {formatTimeWindow(c.window)}</span>
                 <span className="flex items-center gap-1 truncate"><MapPin className="h-3 w-3" /> {c.address}</span>
               </div>
             </div>

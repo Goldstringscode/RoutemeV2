@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Clock, Fuel, Route, ArrowUpRight, Phone, ShieldCheck, Mic, TrendingUp, Coffee, Plus } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
+import { formatTimeWindow } from "@/lib/utils";
 import StylizedMap from "@/components/StylizedMap";
 import RouteBuilderModal from "@/components/RouteBuilderModal";
 
@@ -64,7 +65,7 @@ export default function Dashboard() {
           </div>
 
           <div className="mt-6 grid grid-cols-3 gap-4">
-            <MiniStat icon={Clock} label="Window" value={next?.window} />
+            <MiniStat icon={Clock} label="Window" value={formatTimeWindow(next?.window)} />
             <MiniStat icon={Route} label="Duration" value={`${next?.duration} min`} />
             <MiniStat icon={Phone} label="Contact" value={next?.phone} />
           </div>

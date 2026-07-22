@@ -17,7 +17,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
-
+import { formatTimeWindow } from "@/lib/utils";
 export default function AgencyClientDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -116,7 +116,7 @@ export default function AgencyClientDetail() {
           <InfoRow icon={Phone} label="Phone" value={client.phone || "—"} />
           <InfoRow icon={MapPin} label="Address" value={client.address || "—"} />
           <InfoRow icon={Calendar} label="Date of birth" value={client.dob || "—"} />
-          <InfoRow icon={Clock} label="Preferred window" value={client.window || "—"} />
+          <InfoRow icon={Clock} label="Preferred window" value={formatTimeWindow(client.window) || "—"} />
           <InfoRow icon={Activity} label="Last visit" value={client.lastVisit || "—"} />
           <InfoRow icon={HeartPulse} label="Condition" value={client.condition || "—"} />
         </div>
@@ -184,7 +184,7 @@ export default function AgencyClientDetail() {
           <ol className="relative">
             <span className="absolute left-[10px] top-2 bottom-2 w-px bg-stone-200" />
             {[
-              { d: "Today", label: "Scheduled visit", detail: client.window || "Window not set", active: true },
+              { d: "Today", label: "Scheduled visit", detail: formatTimeWindow(client.window) || "Window not set", active: true },
               { d: "Yesterday", label: "Completed visit", detail: "vitals: BP 128/78 · pulse 72" },
               { d: "3 days ago", label: "Rx refill reminder logged", detail: "" },
               { d: "1 week ago", label: "Initial assessment", detail: "" },
