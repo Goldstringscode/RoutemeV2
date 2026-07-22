@@ -26,6 +26,14 @@ export default function AppShell() {
     const [newActionOpen, setNewActionOpen] = useState(false);
 
   const latestToast = notifications.filter(n => n.t === "just now" && !n.read)[0] || null;
+  const routeNotifsUnread = notifications.filter(n => n.type === "route" && !n.read).length;
+
+  // Mark route notifications as read when navigating to /app/routes
+  React.useEffect(() => {
+    if (location.pathname === "/app/routes" && routeNotifsUnread > 0) {
+      markAllNotificationsRead();
+    }
+  }, [location.pathname, routeNotifsUnread, markAllNotificationsRead]);
 
   const logout = async () => {
       await supabase.auth.signOut();
@@ -61,11 +69,16 @@ export default function AppShell() {
               <n.icon className="h-4 w-4" strokeWidth={2} />
               {n.label}
               {n.to === "/app/route" && (
-                <span className="ml-auto text-[10px] font-semibold rounded-full bg-[#F7E5DD] text-[#D95D39] px-2 py-0.5">
-                  {schedule.length}
-                </span>
-              )}
-              {n.to === "/app/notifications" && unreadNotifications > 0 && (
+                              <span className="ml-auto text-[10px] font-semibold rounded-full bg-[#F7E5DD] text-[#D95D39] px-2 py-0.5">
+                                {schedule.length}
+                              </span>
+                            )}
+                            {n.to === "/app/routes" && routeNotifsUnread > 0 && (
+                              <span className="ml-auto text-[10px] font-semibold rounded-full bg-[#D95D39] text-white px-1.5 py-0.5 min-w-[18px] text-center">
+                                {routeNotifsUnread > 9 ? "9+" : routeNotifsUnread}
+                              </span>
+                            )}
+                            {n.to === "/app/notifications" && unreadNotifications > 0 && (
                               <span className="ml-auto text-[10px] font-semibold rounded-full bg-[#D95D39] text-white px-1.5 py-0.5 min-w-[18px] text-center">
                                 {unreadNotifications > 9 ? "9+" : unreadNotifications}
                               </span>
@@ -177,11 +190,16 @@ export default function AppShell() {
                       </span>
                       <span className="flex-1">{n.label}</span>
                       {n.to === "/app/route" && (
-                        <span className="text-[10px] font-semibold rounded-full bg-[#F7E5DD] text-[#D95D39] px-2 py-0.5">
-                          {schedule.length}
-                        </span>
-                      )}
-                      {n.to === "/app/notifications" && unreadNotifications > 0 && (
+                                              <span className="text-[10px] font-semibold rounded-full bg-[#F7E5DD] text-[#D95D39] px-2 py-0.5">
+                                                {schedule.length}
+                                              </span>
+                                            )}
+                                            {n.to === "/app/routes" && routeNotifsUnread > 0 && (
+                                              <span className="text-[10px] font-semibold rounded-full bg-[#D95D39] text-white px-1.5 py-0.5">
+                                                {routeNotifsUnread}
+                                              </span>
+                                            )}
+                                            {n.to === "/app/notifications" && unreadNotifications > 0 && (
                         <span className="text-[10px] font-semibold rounded-full bg-[#D95D39] text-white px-1.5 py-0.5">
                           {unreadNotifications}
                         </span>
