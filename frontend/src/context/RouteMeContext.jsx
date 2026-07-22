@@ -540,12 +540,23 @@ export function RouteMeProvider({ children }) {
         }, [schedule, optimizationMode, savedRoutes, pushAudit]);
 
         /* ─── Initial Mapbox route fetch ─────────────────────── */
-                const routeFetchedRef = useRef(false);
-                useEffect(() => {
-                  if (schedule.length >= 2 && !routeGeoJson && !routeFetchedRef.current) {
-                    routeFetchedRef.current = true;
-                    console.log("[RouteMe] Initial fetch for", schedule.length, "stops");
-                    fetchRoute(schedule).then((route) => {
+                        const routeFetchedRef = useRef(false);
+                        useEffect(() => {
+                          if (schedule.length >= 2 && !routeGeoJson && !routeFetchedRef.current) {
+                            routeFetchedRef.current = true;
+                            console.log("[RouteMe] Initial fetch for", schedule.length, "stops");
+                            // Also set routeResult so summary cards show data immediately
+                            const initialMetrics = computeRouteMetrics(schedule);
+                            setRouteResult({
+                              order: schedule.map(s => s.id),
+                              metrics: initialMetrics,
+                              validation: null,
+                              label: "Initial route",
+                              dayOfWeek: ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][new Date().getDay()],
+                              trafficMultiplier: 1.5,
+                              weather: "clear",
+                            });
+                            fetchRoute(schedule).then((route) => {
                       if (route) {
                         console.log("[RouteMe] Initial route:", metersToMiles(route.distance), "mi,", secondsToShort(route.duration));
                         setRouteGeoJson(route.routeGeoJson);

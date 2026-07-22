@@ -55,11 +55,17 @@ function haversine(lat1, lng1, lat2, lng2) {
 /* ─── Utility: parse time window to hour number ────────── */
 function windowToHour(w) {
   if (!w) return 12;
-  const match = w.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
-  if (!match) return 12;
-  let h = parseInt(match[1], 10);
-  const m = parseInt(match[2] || "0", 10);
-  const mer = (match[3] || "").toUpperCase();
+  // Try 24-hour format first: "HH:MM – HH:MM" (e.g. "08:00 – 09:30")
+  const match24 = w.match(/^\s*(\d{1,2}):(\d{2})/);
+  if (match24) {
+    return parseInt(match24[1], 10) + parseInt(match24[2], 10) / 60;
+  }
+  // Fallback to 12-hour format: "H:MM AM/PM" (e.g. "8:00 AM")
+  const match12 = w.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
+  if (!match12) return 12;
+  let h = parseInt(match12[1], 10);
+  const m = parseInt(match12[2] || "0", 10);
+  const mer = (match12[3] || "").toUpperCase();
   if (mer === "PM" && h !== 12) h += 12;
   if (mer === "AM" && h === 12) h = 0;
   return h + m / 60;
