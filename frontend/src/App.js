@@ -9,6 +9,7 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import RouteView from "@/pages/RouteView";
 import RoutesPage from "@/pages/Routes";
+import Notifications from "@/pages/Notifications";
 import Schedule from "@/pages/Schedule";
 import Clients from "@/pages/Clients";
 import ClientDetail from "@/pages/ClientDetail";
@@ -121,6 +122,7 @@ function App() {
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="route" element={<RouteView />} />
               <Route path="routes" element={<RoutesPage />} />
+              <Route path="notifications" element={<Notifications />} />
               <Route path="schedule" element={<Schedule />} />
               <Route path="clients" element={<Clients />} />
               <Route path="clients/:id" element={<ClientDetail />} />

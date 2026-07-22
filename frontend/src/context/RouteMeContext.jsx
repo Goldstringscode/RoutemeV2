@@ -130,6 +130,12 @@ export function RouteMeProvider({ children }) {
   const [optimized, setOptimized] = useState(initial?.optimized ?? true);
   const [nurse, setNurse] = useState(NURSE);
   const [savedRoutes, setSavedRoutes] = useState(initial?.savedRoutes ?? []);
+  const [notifications, setNotifications] = useState(initial?.notifications ?? [
+    { id: "n1", type: "route", title: "Route optimized for tomorrow", body: "6 stops · saves you 22 minutes", t: "5 min ago", read: false },
+    { id: "n2", type: "compliance", title: "License renewal reminder", body: "Your RN #2418906 expires in 47 days", t: "2 hours ago", read: false },
+    { id: "n3", type: "message", title: "Priya Nair (Sunrise HH)", body: "Please add care flag for Eleanor Mabry (gate code changed)", t: "3 hours ago", read: false },
+  ]);
+  const unreadNotifications = notifications.filter(n => !n.read).length;
   const [optimizationMode, setOptimizationMode] = useState("ai");
     const [routeResult, setRouteResult] = useState(null);
         const [routeGeoJson, setRouteGeoJson] = useState(null);
@@ -420,20 +426,20 @@ export function RouteMeProvider({ children }) {
     useEffect(() => {
       try {
         localStorage.setItem(KEY, JSON.stringify({
-          authed, clients, scheduleIds, notes, audit, optimized, savedRoutes,
-          agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
-          superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
-          globalAudit, activeSessions, billingLedger, featureFlags,
-          phiRevealed, maintenanceMode, impersonation, routeResult, routeGeoJson, routeDistance, routeDuration, rescheduledClients,
-        }));
+          authed, clients, scheduleIds, notes, audit, optimized, savedRoutes, notifications,
+                    agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
+                    superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
+                    globalAudit, activeSessions, billingLedger, featureFlags,
+                    phiRevealed, maintenanceMode, impersonation, routeResult, routeGeoJson, routeDistance, routeDuration, rescheduledClients,
+                  }));
       } catch { /* quota exceeded — ignore */ }
     }, [
-      authed, clients, scheduleIds, notes, audit, optimized, savedRoutes,
-      agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
-      superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
-      globalAudit, activeSessions, billingLedger, featureFlags,
-      phiRevealed, maintenanceMode, impersonation, routeResult, routeGeoJson, routeDistance, routeDuration, rescheduledClients,
-    ]);
+      authed, clients, scheduleIds, notes, audit, optimized, savedRoutes, notifications,
+            agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
+            superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
+            globalAudit, activeSessions, billingLedger, featureFlags,
+            phiRevealed, maintenanceMode, impersonation, routeResult, routeGeoJson, routeDistance, routeDuration, rescheduledClients,
+          ]);
 
   const schedule = useMemo(
     () => scheduleIds.map((id) => clients.find((c) => c.id === id)).filter(Boolean),
@@ -573,28 +579,30 @@ export function RouteMeProvider({ children }) {
 
   /* ─── Saved routes ────────────────────────────────── */
   const saveRoute = useCallback(async (name, stopOrder) => {
-    const newRoute = {
-      id: "sr_" + Math.random().toString(36).slice(2, 10),
-      name,
-      stops: stopOrder,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    if (userIdRef.current) {
-      const { data, error } = await supabase.from('saved_routes').insert({
-        nurse_id: userIdRef.current,
+      const newRoute = {
+        id: "sr_" + Math.random().toString(36).slice(2, 10),
         name,
-        stop_order: stopOrder,
-      }).select().single();
-      if (!error && data) {
-        setSavedRoutes(rs => [{ id: data.id, name: data.name, stops: data.stop_order, createdAt: data.created_at, updatedAt: data.updated_at }, ...rs]);
-        return;
-      }
-    }
+        stops: stopOrder,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
 
-    setSavedRoutes(rs => [newRoute, ...rs]);
-  }, []);
+      if (userIdRef.current) {
+        const { data, error } = await supabase.from('saved_routes').insert({
+          nurse_id: userIdRef.current,
+          name,
+          stop_order: stopOrder,
+        }).select().single();
+        if (!error && data) {
+          setSavedRoutes(rs => [{ id: data.id, name: data.name, stops: data.stop_order, createdAt: data.created_at, updatedAt: data.updated_at }, ...rs]);
+          addNotification(`Route saved: ${name}`, `${stopOrder.length} stops`, 'route');
+          return;
+        }
+      }
+
+      setSavedRoutes(rs => [newRoute, ...rs]);
+      addNotification(`Route saved: ${name}`, `${stopOrder.length} stops`, 'route');
+    }, [addNotification]);
 
   const loadRoute = useCallback((routeId) => {
     const route = savedRoutes.find(r => r.id === routeId);
@@ -619,11 +627,35 @@ export function RouteMeProvider({ children }) {
   }, [savedRoutes, clients]);
 
   const deleteSavedRoute = useCallback(async (routeId) => {
-    setSavedRoutes(rs => rs.filter(r => r.id !== routeId));
-    if (userIdRef.current) {
-      await supabase.from('saved_routes').delete().eq('id', routeId).catch(() => {});
-    }
-  }, []);
+      setSavedRoutes(rs => rs.filter(r => r.id !== routeId));
+      if (userIdRef.current) {
+        await supabase.from('saved_routes').delete().eq('id', routeId).catch(() => {});
+      }
+    }, []);
+
+    const addNotification = useCallback((title, body, type = 'route') => {
+      const n = {
+        id: 'notif_' + Math.random().toString(36).slice(2, 10),
+        type,
+        title,
+        body,
+        t: 'just now',
+        read: false,
+      };
+      setNotifications(ns => [n, ...ns]);
+    }, []);
+
+    const markNotificationRead = useCallback((id) => {
+      setNotifications(ns => ns.map(n => n.id === id ? { ...n, read: true } : n));
+    }, []);
+
+    const markAllNotificationsRead = useCallback(() => {
+      setNotifications(ns => ns.map(n => ({ ...n, read: true })));
+    }, []);
+
+    const dismissNotification = useCallback((id) => {
+      setNotifications(ns => ns.filter(n => n.id !== id));
+    }, []);
 
     /* ─── Route management ────────────────────────────── */
 
@@ -824,7 +856,9 @@ export function RouteMeProvider({ children }) {
     voiceOpen, setVoiceOpen, voiceTarget, setVoiceTarget, openVoice, noteViewMode, setNoteViewMode,
     optimizationMode, setOptimizationMode,
         savedRoutes, saveRoute, loadRoute, deleteSavedRoute, routeResult,
-    routeGeoJson, routeDistance, routeDuration,
+            routeGeoJson, routeDistance, routeDuration,
+            // Notifications
+            notifications, unreadNotifications, addNotification, markNotificationRead, markAllNotificationsRead, dismissNotification,
     // Route management
     removeFromRoute, rescheduleClient, createRoute, clearRescheduled,
     rescheduledClients, getWeekStart,

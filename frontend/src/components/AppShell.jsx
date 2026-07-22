@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
-import { Home, Map, Users, Calendar, User, LogOut, Bookmark, Stethoscope, Plus, Menu, X } from "lucide-react";
+import { Home, Map, Users, Calendar, User, LogOut, Bookmark, Stethoscope, Plus, Menu, X, Bell } from "lucide-react";
 import HipaaBadge from "@/components/HipaaBadge";
 import NoteModal from "@/components/VoiceNoteModal";
 import NewActionModal from "@/components/NewActionModal";
+import ToastNotification from "@/components/ToastNotification";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { supabase } from "@/lib/supabase";
 
@@ -11,17 +12,20 @@ const NAV = [
   { to: "/app/dashboard", label: "Today", icon: Home, testId: "nav-dashboard" },
   { to: "/app/route", label: "Route", icon: Map, testId: "nav-route" },
   { to: "/app/routes", label: "Saved Routes", icon: Bookmark, testId: "nav-routes" },
+  { to: "/app/notifications", label: "Notifications", icon: Bell, testId: "nav-notifications" },
   { to: "/app/schedule", label: "Schedule", icon: Calendar, testId: "nav-schedule" },
   { to: "/app/clients", label: "Clients", icon: Users, testId: "nav-clients" },
   { to: "/app/profile", label: "Profile", icon: User, testId: "nav-profile" },
 ];
 
 export default function AppShell() {
-  const { nurse, setAuthed, schedule, agency } = useRouteMe();
+  const { nurse, setAuthed, schedule, agency, unreadNotifications, notifications, dismissNotification, markAllNotificationsRead } = useRouteMe();
     const navigate = useNavigate();
     const location = useLocation();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [newActionOpen, setNewActionOpen] = useState(false);
+
+  const latestToast = notifications.filter(n => n.t === "just now" && !n.read)[0] || null;
 
   const logout = async () => {
       await supabase.auth.signOut();
@@ -61,6 +65,11 @@ export default function AppShell() {
                   {schedule.length}
                 </span>
               )}
+              {n.to === "/app/notifications" && unreadNotifications > 0 && (
+                              <span className="ml-auto text-[10px] font-semibold rounded-full bg-[#D95D39] text-white px-1.5 py-0.5 min-w-[18px] text-center">
+                                {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                              </span>
+                            )}
             </NavLink>
           ))}
         </nav>
@@ -123,15 +132,11 @@ export default function AppShell() {
         {/* Mobile hamburger drawer */}
         {mobileOpen && (
           <div className="fixed inset-0 z-50 lg:hidden">
-            {/* Backdrop */}
             <div
               className="absolute inset-0 bg-black/30 backdrop-blur-sm"
               onClick={closeMobile}
             />
-
-            {/* Drawer */}
             <aside className="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-[#F9F8F6] border-r border-stone-200 shadow-2xl flex flex-col animate-in slide-in-from-left duration-300">
-              {/* Drawer header */}
               <div className="flex items-center justify-between px-5 pt-6 pb-4 border-b border-stone-200">
                 <div className="flex items-center gap-2">
                   <Logo />
@@ -146,8 +151,6 @@ export default function AppShell() {
                   <X className="h-5 w-5 text-stone-500" />
                 </button>
               </div>
-
-              {/* Navigation */}
               <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
                 {NAV.map((n) => {
                   const Icon = n.icon;
@@ -178,6 +181,11 @@ export default function AppShell() {
                           {schedule.length}
                         </span>
                       )}
+                      {n.to === "/app/notifications" && unreadNotifications > 0 && (
+                        <span className="text-[10px] font-semibold rounded-full bg-[#D95D39] text-white px-1.5 py-0.5">
+                          {unreadNotifications}
+                        </span>
+                      )}
                       {location.pathname.startsWith(n.to) && (
                         <span className="h-1.5 w-1.5 rounded-full bg-[#D95D39]" />
                       )}
@@ -185,8 +193,6 @@ export default function AppShell() {
                   );
                 })}
               </nav>
-
-              {/* Profile + Sign out */}
               <div className="px-4 py-5 border-t border-stone-200">
                 <div className="rounded-2xl border border-stone-200 bg-white p-4">
                   <div className="flex items-center gap-3">
@@ -228,6 +234,9 @@ export default function AppShell() {
           </span>
           <span className="text-sm font-semibold hidden sm:inline">New</span>
         </button>
+
+        {/* Toast notification */}
+        <ToastNotification notification={latestToast} onDismiss={dismissNotification} />
 
         {/* Modals */}
         <NoteModal />
