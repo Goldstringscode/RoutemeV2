@@ -6,9 +6,12 @@ const isLocalhost = Boolean(
   window.location.hostname === 'localhost' ||
     window.location.hostname === '[::1]' ||
     window.location.hostname.match(
-      /^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/
+      /^127(?:\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/
     )
 );
+
+// Periodically check for SW updates (every 60 minutes)
+const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 export function register(config) {
   if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
@@ -40,6 +43,14 @@ function registerValidSW(swUrl, config) {
   navigator.serviceWorker
     .register(swUrl)
     .then((registration) => {
+      // --- Auto-reload when a new SW takes over ---
+      // If a new service worker activates while the page is open,
+      // reload immediately so the user gets the latest content.
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        console.log('RouteMe: New service worker activated — reloading...');
+        window.location.reload();
+      });
+
       registration.onupdatefound = () => {
         const installingWorker = registration.installing;
         if (installingWorker == null) {
@@ -48,12 +59,17 @@ function registerValidSW(swUrl, config) {
         installingWorker.onstatechange = () => {
           if (installingWorker.state === 'installed') {
             if (navigator.serviceWorker.controller) {
+              // New SW is installed but waiting. Tell it to skip waiting
+              // so it activates immediately (the service-worker.js handles
+              // SKIP_WAITING messages and calls self.skipWaiting()).
               console.log(
-                'RouteMe: New content available; refresh for the latest version.'
+                'RouteMe: New content available — activating new service worker...'
               );
               if (config && config.onUpdate) {
                 config.onUpdate(registration);
               }
+              // Send SKIP_WAITING so the new SW takes over NOW
+              registration.waiting?.postMessage({ type: 'SKIP_WAITING' });
             } else {
               console.log('RouteMe: Content cached for offline use.');
               if (config && config.onSuccess) {
@@ -63,6 +79,16 @@ function registerValidSW(swUrl, config) {
           }
         };
       };
+
+      // --- Periodic update check ---
+      // The browser checks for SW updates on navigation, but we also check
+      // proactively on a timer so long-running sessions get updates too.
+      registration.update(); // Check immediately after registration
+      setInterval(() => {
+        registration.update().catch(() => {
+          // Silently ignore — the browser will check on next navigation anyway
+        });
+      }, UPDATE_CHECK_INTERVAL_MS);
     })
     .catch((error) => {
       console.error('RouteMe: Service worker registration failed:', error);

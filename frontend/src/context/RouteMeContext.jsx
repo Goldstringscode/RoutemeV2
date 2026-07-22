@@ -22,6 +22,7 @@ import {
 } from "@/lib/superAdminMockData";
 import { supabase, signOut } from "@/lib/supabase";
 import { optimizeRoute, computeRouteSummary, getDrivingConditions } from "@/lib/routeEngine";
+import { fetchRoute } from "@/lib/directions";
 
 const KEY = "routeme.state.v1";
 const RouteMeContext = createContext(null);
@@ -131,7 +132,10 @@ export function RouteMeProvider({ children }) {
   const [savedRoutes, setSavedRoutes] = useState(initial?.savedRoutes ?? []);
   const [optimizationMode, setOptimizationMode] = useState("ai");
     const [routeResult, setRouteResult] = useState(null);
-    const [rescheduledClients, setRescheduledClients] = useState(initial ? filterStaleRescheduled(initial?.rescheduledClients) : {});
+        const [routeGeoJson, setRouteGeoJson] = useState(null);
+        const [routeDistance, setRouteDistance] = useState(null);
+        const [routeDuration, setRouteDuration] = useState(null);
+        const [rescheduledClients, setRescheduledClients] = useState(initial ? filterStaleRescheduled(initial?.rescheduledClients) : {});
 
   /* ─── Voice note UI state ──────────────────────────── */
   const [voiceOpen, setVoiceOpen] = useState(false);
@@ -420,7 +424,7 @@ export function RouteMeProvider({ children }) {
           agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
           superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
           globalAudit, activeSessions, billingLedger, featureFlags,
-          phiRevealed, maintenanceMode, impersonation, routeResult, rescheduledClients,
+          phiRevealed, maintenanceMode, impersonation, routeResult, routeGeoJson, routeDistance, routeDuration, rescheduledClients,
         }));
       } catch { /* quota exceeded — ignore */ }
     }, [
@@ -428,7 +432,7 @@ export function RouteMeProvider({ children }) {
       agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
       superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
       globalAudit, activeSessions, billingLedger, featureFlags,
-      phiRevealed, maintenanceMode, impersonation, routeResult, rescheduledClients,
+      phiRevealed, maintenanceMode, impersonation, routeResult, routeGeoJson, routeDistance, routeDuration, rescheduledClients,
     ]);
 
   const schedule = useMemo(
@@ -475,22 +479,59 @@ export function RouteMeProvider({ children }) {
   }, [pushAudit]);
 
   const reorder = useCallback((ids) => {
-    setScheduleIds(ids);
-    setOptimized(false);
-  }, []);
+      setScheduleIds(ids);
+      setOptimized(false);
+      // Fetch Mapbox route for the new order
+      const orderedStops = ids.map((id) => clients.find((c) => c.id === id)).filter(Boolean);
+      if (orderedStops.length >= 2) {
+        fetchRoute(orderedStops).then((route) => {
+          if (route) {
+            setRouteGeoJson(route.routeGeoJson);
+            setRouteDistance(route.distance);
+            setRouteDuration(route.duration);
+          }
+        }).catch(() => {});
+      }
+    }, [clients]);
 
   const optimize = useCallback((mode) => {
-      const optMode = mode || optimizationMode;
-      const result = optimizeRoute(schedule, optMode, savedRoutes);
-      if (result.order?.length) {
-        setScheduleIds(result.order);
-        setOptimized(true);
-        setRouteResult(result);
-        pushAudit(`Route re-optimized (${optMode})`, "route");
-      }
-    }, [schedule, optimizationMode, savedRoutes, pushAudit]);
+        const optMode = mode || optimizationMode;
+        const result = optimizeRoute(schedule, optMode, savedRoutes);
+        if (result.order?.length) {
+          setScheduleIds(result.order);
+          setOptimized(true);
+          setRouteResult(result);
+          pushAudit(`Route re-optimized (${optMode})`, "route");
+          // Fetch Mapbox route for the optimized order
+          const orderedStops = result.order.map((id) => schedule.find((s) => s.id === id)).filter(Boolean);
+          if (orderedStops.length >= 2) {
+            fetchRoute(orderedStops).then((route) => {
+              if (route) {
+                setRouteGeoJson(route.routeGeoJson);
+                setRouteDistance(route.distance);
+                setRouteDuration(route.duration);
+              }
+            }).catch(() => {});
+          }
+        }
+      }, [schedule, optimizationMode, savedRoutes, pushAudit]);
 
-  const addNote = useCallback((clientId, text) => {
+        /* ─── Initial Mapbox route fetch ─────────────────────── */
+        const routeFetchedRef = useRef(false);
+        useEffect(() => {
+          if (schedule.length >= 2 && !routeGeoJson && !routeFetchedRef.current) {
+            routeFetchedRef.current = true;
+            fetchRoute(schedule).then((route) => {
+              if (route) {
+                setRouteGeoJson(route.routeGeoJson);
+                setRouteDistance(route.distance);
+                setRouteDuration(route.duration);
+              }
+            }).catch(() => {});
+          }
+        }, [schedule, routeGeoJson]);
+
+        const addNote = useCallback((clientId, text) => {
     setNotes(n => ({
       ...n,
       [clientId]: [{ id: Math.random().toString(36).slice(2, 8), text, date: new Date().toISOString() }, ...(n[clientId] ?? [])],
@@ -699,6 +740,7 @@ export function RouteMeProvider({ children }) {
     voiceOpen, setVoiceOpen, voiceTarget, setVoiceTarget, openVoice, noteViewMode, setNoteViewMode,
     optimizationMode, setOptimizationMode,
         savedRoutes, saveRoute, loadRoute, deleteSavedRoute, routeResult,
+    routeGeoJson, routeDistance, routeDuration,
     // Route management
     removeFromRoute, rescheduleClient, createRoute, clearRescheduled,
     rescheduledClients, getWeekStart,

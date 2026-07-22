@@ -1,7 +1,10 @@
 /* eslint-disable no-restricted-globals */
 /* A self-contained service worker for RouteMe PWA (no Workbox build-time injection) */
 
-const CACHE_VERSION = 'v2';
+/* IMPORTANT: Bump CACHE_VERSION on every deploy to force a fresh service worker
+   and clear stale caches (old Mapbox tiles, old JS/CSS, old UI). The browser
+   detects changes byte-for-byte, so even a version bump triggers re-install. */
+const CACHE_VERSION = 'v3';
 const STATIC_CACHE = `routeme-static-${CACHE_VERSION}`;
 const MAPBOX_TILES_CACHE = `routeme-mapbox-tiles-${CACHE_VERSION}`;
 const MAPBOX_API_CACHE = `routeme-mapbox-api-${CACHE_VERSION}`;

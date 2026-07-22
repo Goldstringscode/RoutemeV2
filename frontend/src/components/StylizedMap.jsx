@@ -1,6 +1,5 @@
-import React, { useEffect, useRef, useMemo } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import mapboxgl from "mapbox-gl";
-import { MAP_STOPS } from "@/lib/mockData";
 import { useRouteMe } from "@/context/RouteMeContext";
 
 const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
@@ -9,34 +8,63 @@ const ROUTE_LAYER = "route-layer";
 const ROUTE_GLOW = "route-glow";
 
 /**
- * Stylized illustrated map: real Mapbox map with real route lines and SVG overlays.
+ * Stylized map: real Mapbox map with real route lines and SVG stop overlays.
+ * Stop positions are derived from actual client lat/lng via map.project().
  */
-export default function StylizedMap({ compact = false, onStopClick, routeGeoJson, routeDistance, routeDuration }) {
-  const { schedule } = useRouteMe();
+export default function StylizedMap({ compact = false, onStopClick }) {
+  const { schedule, routeGeoJson, routeDistance, routeDuration } = useRouteMe();
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
+  const [svgPositions, setSvgPositions] = useState([]);
+  const updateTimer = useRef(null);
 
-  // Get positions in schedule order
-    const stopMap = useMemo(() => Object.fromEntries(MAP_STOPS.map((s) => [s.id, s])), []);
-    const orderedStops = useMemo(() => schedule
-      .map((c, idx) => {
-        const pos = stopMap[c.id] || {
-          x: 150 + ((idx * 120) % 700),
-          y: 260 + ((idx * 47) % 200),
-          lat: 34.05 + (idx * 0.02),
-          lng: -118.3 - (idx * 0.03),
-        };
-        return { ...pos, id: c.id, label: String(idx + 1), name: c.fullName };
-      }), [schedule, stopMap]);
+  // Project lat/lng to SVG pixel coordinates
+  const updatePositions = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || !schedule.length) return;
 
-  // SVG path connecting stops — only used as fallback when no real route
-  const pathD = useMemo(() => orderedStops.reduce((acc, s, i, arr) => {
+    // Get the map container's bounding rect for offset
+    const rect = mapContainer.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const positions = schedule.map((c, idx) => {
+      if (c.lat && c.lng) {
+        const point = map.project([c.lng, c.lat]);
+        // point.x and point.y are relative to the map container
+        // Scale to SVG viewBox (1000x600) using the map container dimensions
+        const svgX = (point.x / rect.width) * 1000;
+        const svgY = (point.y / rect.height) * 600;
+        return { x: svgX, y: svgY, id: c.id, label: String(idx + 1), name: c.fullName };
+      }
+      // Fallback: spread across the viewBox
+      return {
+        x: 150 + ((idx * 120) % 700),
+        y: 260 + ((idx * 47) % 200),
+        id: c.id,
+        label: String(idx + 1),
+        name: c.fullName,
+      };
+    });
+    setSvgPositions(positions);
+  }, [schedule]);
+
+  // Debounced position update
+  const scheduleUpdate = useCallback(() => {
+    if (updateTimer.current) clearTimeout(updateTimer.current);
+    updateTimer.current = setTimeout(updatePositions, 50);
+  }, [updatePositions]);
+
+  // SVG path connecting stops (fallback when no real route)
+  const pathD = React.useMemo(() => {
+    if (svgPositions.length < 2) return "";
+    return svgPositions.reduce((acc, s, i, arr) => {
       if (i === 0) return `M ${s.x} ${s.y}`;
       const prev = arr[i - 1];
       const midX = (prev.x + s.x) / 2;
       const midY = (prev.y + s.y) / 2 - 30;
       return `${acc} Q ${midX} ${midY} ${s.x} ${s.y}`;
-    }, ""), [orderedStops]);
+    }, "");
+  }, [svgPositions]);
 
   // Initialize Mapbox map
   useEffect(() => {
@@ -44,19 +72,19 @@ export default function StylizedMap({ compact = false, onStopClick, routeGeoJson
 
     mapboxgl.accessToken = TOKEN;
 
-    const lats = orderedStops.map((s) => s.lat);
-        const lngs = orderedStops.map((s) => s.lng);
-        const centerLat = lats.length > 0
-          ? lats.reduce((a, b) => a + b, 0) / lats.length
-          : 34.0522; // fallback: Los Angeles
-        const centerLng = lngs.length > 0
-          ? lngs.reduce((a, b) => a + b, 0) / lngs.length
-          : -118.2437;
+    const lats = schedule.map((s) => s.lat || 34.05).filter(Boolean);
+    const lngs = schedule.map((s) => s.lng || -118.25).filter(Boolean);
+    const centerLat = lats.length > 0
+      ? lats.reduce((a, b) => a + b, 0) / lats.length
+      : 34.0522;
+    const centerLng = lngs.length > 0
+      ? lngs.reduce((a, b) => a + b, 0) / lngs.length
+      : -118.2437;
 
-        const map = new mapboxgl.Map({
-          container: mapContainer.current,
-          style: "mapbox://styles/mapbox/light-v11",
-          center: [centerLng, centerLat],
+    const map = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: "mapbox://styles/mapbox/light-v11",
+      center: [centerLng, centerLat],
       zoom: compact ? 9.5 : 9,
       interactive: !compact,
       attributionControl: false,
@@ -65,107 +93,116 @@ export default function StylizedMap({ compact = false, onStopClick, routeGeoJson
 
     map.on("load", () => {
       // Add route source and layers
-      map.addSource(ROUTE_SOURCE, {
-        type: "geojson",
-        data: {
-          type: "FeatureCollection",
-          features: [],
-        },
-      });
+      try {
+        map.addSource(ROUTE_SOURCE, {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        });
 
-      // Glow layer (behind)
-      map.addLayer({
-        id: ROUTE_GLOW,
-        type: "line",
-        source: ROUTE_SOURCE,
-        layout: { "line-join": "round", "line-cap": "round" },
-        paint: {
-          "line-color": "#D95D39",
-          "line-opacity": 0.2,
-          "line-width": 12,
-        },
-      });
+        // Glow layer
+        map.addLayer({
+          id: ROUTE_GLOW,
+          type: "line",
+          source: ROUTE_SOURCE,
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: {
+            "line-color": "#D95D39",
+            "line-opacity": 0.2,
+            "line-width": 12,
+          },
+        });
 
-      // Main route layer
-      map.addLayer({
-        id: ROUTE_LAYER,
-        type: "line",
-        source: ROUTE_SOURCE,
-        layout: { "line-join": "round", "line-cap": "round" },
-        paint: {
-          "line-color": "#D95D39",
-          "line-width": 4,
-          "line-opacity": 0.85,
-        },
-      });
+        // Main route layer
+        map.addLayer({
+          id: ROUTE_LAYER,
+          type: "line",
+          source: ROUTE_SOURCE,
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: {
+            "line-color": "#D95D39",
+            "line-width": 4,
+            "line-opacity": 0.85,
+          },
+        });
 
-      // Hide labels
-      try { map.setLayoutProperty("country-label", "visibility", "none"); } catch {}
+        // Hide labels
+        try { map.setLayoutProperty("country-label", "visibility", "none"); } catch {}
+      } catch (e) {
+        console.warn("Map layers setup failed:", e);
+      }
+
+      // Initial position projection
+      updatePositions();
     });
+
+    // Update positions on map move/zoom
+    map.on("move", scheduleUpdate);
+    map.on("resize", scheduleUpdate);
 
     mapRef.current = map;
 
     return () => {
+      if (updateTimer.current) clearTimeout(updateTimer.current);
       map.remove();
       mapRef.current = null;
     };
-  }, [compact, orderedStops]);
+  }, [compact]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Update positions when schedule changes
+  useEffect(() => {
+    if (mapRef.current) {
+      // Small delay to let the map settle
+      setTimeout(updatePositions, 100);
+    }
+  }, [schedule, updatePositions]);
 
   // Update route data when routeGeoJson changes
-    useEffect(() => {
-      const map = mapRef.current;
-      if (!map) return;
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
 
-      const applyRoute = () => {
-        if (!map.isStyleLoaded()) return false;
+    const applyRoute = () => {
+      if (!map.isStyleLoaded()) return false;
+      const source = map.getSource(ROUTE_SOURCE);
+      if (!source) return false;
 
-        const source = map.getSource(ROUTE_SOURCE);
-        if (!source) return false;
+      if (routeGeoJson) {
+        source.setData({
+          type: "FeatureCollection",
+          features: [{ type: "Feature", properties: {}, geometry: routeGeoJson }],
+        });
+        try {
+          map.setLayoutProperty(ROUTE_GLOW, "visibility", "visible");
+          map.setLayoutProperty(ROUTE_LAYER, "visibility", "visible");
+        } catch {}
 
-        if (routeGeoJson) {
-          source.setData({
-            type: "FeatureCollection",
-            features: [
-              {
-                type: "Feature",
-                properties: {},
-                geometry: routeGeoJson,
-              },
-            ],
-          });
+        // Fit map to route bounds
+        if (!compact && routeGeoJson.coordinates?.length) {
           try {
-            map.setLayoutProperty(ROUTE_GLOW, "visibility", "visible");
-            map.setLayoutProperty(ROUTE_LAYER, "visibility", "visible");
-          } catch {}
-
-          // Fit the map to the route bounds
-          if (!compact && routeGeoJson.coordinates?.length) {
-            try {
-              const bounds = routeGeoJson.coordinates.reduce(
-                (b, coord) => b.extend(coord),
-                new mapboxgl.LngLatBounds(routeGeoJson.coordinates[0], routeGeoJson.coordinates[0])
-              );
-              map.fitBounds(bounds, { padding: 80, maxZoom: 11 });
-            } catch {}
-          }
-        } else {
-          try {
-            map.setLayoutProperty(ROUTE_GLOW, "visibility", "none");
-            map.setLayoutProperty(ROUTE_LAYER, "visibility", "none");
+            const bounds = routeGeoJson.coordinates.reduce(
+              (b, coord) => b.extend(coord),
+              new mapboxgl.LngLatBounds(routeGeoJson.coordinates[0], routeGeoJson.coordinates[0])
+            );
+            map.fitBounds(bounds, { padding: 80, maxZoom: 11 });
           } catch {}
         }
-        return true;
-      };
-
-      // Try immediately; if style isn't ready, wait for it
-      if (!applyRoute()) {
-        const onStyle = () => {
-          applyRoute();
-          map.off("style.load", onStyle);
-        };
-        map.on("style.load", onStyle);
+      } else {
+        try {
+          map.setLayoutProperty(ROUTE_GLOW, "visibility", "none");
+          map.setLayoutProperty(ROUTE_LAYER, "visibility", "none");
+        } catch {}
       }
-    }, [routeGeoJson, compact]);
+      return true;
+    };
+
+    if (!applyRoute()) {
+      const onStyle = () => {
+        applyRoute();
+        map.off("style.load", onStyle);
+      };
+      map.on("style.load", onStyle);
+    }
+  }, [routeGeoJson, compact]);
 
   return (
     <div
@@ -198,7 +235,8 @@ export default function StylizedMap({ compact = false, onStopClick, routeGeoJson
           </g>
         )}
 
-        {/* Fallback SVG route path — only when no real route */}{!routeGeoJson && orderedStops.length > 1 && (
+        {/* Fallback SVG route path — only when no real route */}
+        {!routeGeoJson && svgPositions.length > 1 && (
           <>
             <path
               d={pathD}
@@ -220,7 +258,7 @@ export default function StylizedMap({ compact = false, onStopClick, routeGeoJson
         )}
 
         {/* Stops — clickable */}
-        {orderedStops.map((s, i) => (
+        {svgPositions.map((s) => (
           <g
             key={s.id}
             transform={`translate(${s.x} ${s.y})`}
@@ -229,7 +267,7 @@ export default function StylizedMap({ compact = false, onStopClick, routeGeoJson
             className="pointer-events-auto"
           >
             <circle r="22" fill="#FFFFFF" stroke="#1C1C1C" strokeWidth="2" />
-            <circle r="16" fill={i === 0 ? "#7FA08B" : "#D95D39"} />
+            <circle r="16" fill={s.label === "1" ? "#7FA08B" : "#D95D39"} />
             <text
               x="0"
               y="5"
@@ -245,9 +283,11 @@ export default function StylizedMap({ compact = false, onStopClick, routeGeoJson
         ))}
 
         {/* Start marker */}
-        {orderedStops[0] && (
-          <g transform={`translate(${orderedStops[0].x - 30} ${orderedStops[0].y - 34})`}
-             className="pointer-events-auto">
+        {svgPositions[0] && (
+          <g
+            transform={`translate(${svgPositions[0].x - 30} ${svgPositions[0].y - 34})`}
+            className="pointer-events-auto"
+          >
             <rect width="60" height="18" rx="9" fill="#1C1C1C" />
             <text
               x="30" y="12" textAnchor="middle" fill="#FFFFFF"
@@ -267,9 +307,9 @@ export default function StylizedMap({ compact = false, onStopClick, routeGeoJson
         </span>
         <span className="text-stone-400">·</span>
         <span className="text-stone-600 tabular-nums">
-          {routeDistance && routeDuration
+          {routeGeoJson && routeDistance && routeDuration
             ? `${metersToMiles(routeDistance)} mi · ${secondsToShort(routeDuration)}`
-            : `${orderedStops.length} stops`}
+            : `${svgPositions.length} stops`}
         </span>
       </div>
 
