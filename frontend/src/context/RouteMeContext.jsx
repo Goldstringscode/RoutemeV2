@@ -21,7 +21,7 @@ import {
   BILLING_LEDGER_SEED,
 } from "@/lib/superAdminMockData";
 import { supabase, signOut } from "@/lib/supabase";
-import { optimizeRoute, computeRouteSummary, getDrivingConditions } from "@/lib/routeEngine";
+import { optimizeRoute, computeRouteMetrics, getDrivingConditions } from "@/lib/routeEngine";
 import { fetchRoute, metersToMiles, secondsToShort } from "@/lib/directions";
 
 const KEY = "routeme.state.v1";
@@ -484,8 +484,8 @@ export function RouteMeProvider({ children }) {
       const orderedStops = ids.map((id) => clients.find((c) => c.id === id)).filter(Boolean);
       if (orderedStops.length >= 2) {
         // Also update routeResult metrics so summary cards stay in sync
-        const summary = computeRouteSummary(orderedStops);
-        setRouteResult(prev => prev ? { ...prev, metrics: summary } : null);
+                const metrics = computeRouteMetrics(orderedStops);
+                setRouteResult(prev => prev ? { ...prev, metrics } : null);
         fetchRoute(orderedStops).then((route) => {
           if (route) {
             setRouteGeoJson(route.routeGeoJson);
@@ -595,10 +595,10 @@ export function RouteMeProvider({ children }) {
               setScheduleIds(ids => {
                 const newIds = ids.filter(sid => sid !== id);
                 // Recalculate route metrics after removal
-                const remaining = newIds.map(sid => clients.find(c => c.id === sid)).filter(Boolean);
-                if (remaining.length >= 2) {
-                  const summary = computeRouteSummary(remaining);
-                  setRouteResult(prev => prev ? { ...prev, metrics: summary } : null);
+                                const remaining = newIds.map(sid => clients.find(c => c.id === sid)).filter(Boolean);
+                                if (remaining.length >= 2) {
+                                  const metrics = computeRouteMetrics(remaining);
+                                  setRouteResult(prev => prev ? { ...prev, metrics } : null);
                   fetchRoute(remaining).then(route => {
                     if (route) { setRouteGeoJson(route.routeGeoJson); setRouteDistance(route.distance); setRouteDuration(route.duration); }
                   });

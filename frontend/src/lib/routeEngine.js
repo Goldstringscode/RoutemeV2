@@ -66,7 +66,7 @@ function windowToHour(w) {
 }
 
 /* ─── Utility: compute route metrics ───────────────────── */
-function computeRouteMetrics(stops) {
+export function computeRouteMetrics(stops) {
   let totalDriveMiles = 0;
   let totalDriveMinutes = 0;
   let totalCareMinutes = 0;
