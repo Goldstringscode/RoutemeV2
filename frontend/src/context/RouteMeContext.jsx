@@ -567,26 +567,51 @@ export function RouteMeProvider({ children }) {
 
   /* ─── Saved routes ────────────────────────────────── */
   const saveRoute = useCallback(async (name, stopOrder) => {
-    if (!userIdRef.current) return;
-    const { data, error } = await supabase.from('saved_routes').insert({
-      nurse_id: userIdRef.current,
+    const newRoute = {
+      id: "sr_" + Math.random().toString(36).slice(2, 10),
       name,
-      stop_order: stopOrder,
-    }).select().single();
-    if (!error && data) {
-      setSavedRoutes(rs => [{ id: data.id, name: data.name, stops: data.stop_order, createdAt: data.created_at, updatedAt: data.updated_at }, ...rs]);
+      stops: stopOrder,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (userIdRef.current) {
+      const { data, error } = await supabase.from('saved_routes').insert({
+        nurse_id: userIdRef.current,
+        name,
+        stop_order: stopOrder,
+      }).select().single();
+      if (!error && data) {
+        setSavedRoutes(rs => [{ id: data.id, name: data.name, stops: data.stop_order, createdAt: data.created_at, updatedAt: data.updated_at }, ...rs]);
+        return;
+      }
     }
+
+    setSavedRoutes(rs => [newRoute, ...rs]);
   }, []);
 
   const loadRoute = useCallback((routeId) => {
     const route = savedRoutes.find(r => r.id === routeId);
-    if (route?.stops?.length) setScheduleIds(route.stops);
-  }, [savedRoutes]);
+    if (route?.stops?.length) {
+      setScheduleIds(route.stops);
+      setOptimized(true);
+      const orderedStops = route.stops.map(id => clients.find(c => c.id === id)).filter(Boolean);
+      if (orderedStops.length >= 2) {
+        const metrics = computeRouteMetrics(orderedStops);
+        setRouteResult(prev => prev ? { ...prev, metrics } : null);
+        fetchRoute(orderedStops).then(r => {
+          if (r) { setRouteGeoJson(r.routeGeoJson); setRouteDistance(r.distance); setRouteDuration(r.duration); }
+        }).catch(() => {});
+      }
+    }
+  }, [savedRoutes, clients]);
 
   const deleteSavedRoute = useCallback(async (routeId) => {
-      setSavedRoutes(rs => rs.filter(r => r.id !== routeId));
-      await supabase.from('saved_routes').delete().eq('id', routeId);
-    }, []);
+    setSavedRoutes(rs => rs.filter(r => r.id !== routeId));
+    if (userIdRef.current) {
+      await supabase.from('saved_routes').delete().eq('id', routeId).catch(() => {});
+    }
+  }, []);
 
     /* ─── Route management ────────────────────────────── */
 
