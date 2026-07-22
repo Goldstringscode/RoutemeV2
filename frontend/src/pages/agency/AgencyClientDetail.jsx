@@ -218,7 +218,7 @@ export default function AgencyClientDetail() {
           <div>
             <h3 className="font-display text-2xl">Visit notes</h3>
             <p className="text-sm text-stone-500 mt-0.5">
-              {clientNotes.length} note{clientNotes.length === 1 ? "" : "s"} · voice-transcribed &amp; encrypted
+              {clientNotes.length} note{clientNotes.length === 1 ? "" : "s"} · HIPAA encrypted
             </p>
           </div>
         </div>

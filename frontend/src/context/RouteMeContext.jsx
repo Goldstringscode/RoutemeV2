@@ -141,7 +141,8 @@ export function RouteMeProvider({ children }) {
         const [routeGeoJson, setRouteGeoJson] = useState(null);
         const [routeDistance, setRouteDistance] = useState(null);
         const [routeDuration, setRouteDuration] = useState(null);
-        const [rescheduledClients, setRescheduledClients] = useState(initial ? filterStaleRescheduled(initial?.rescheduledClients) : {});
+          const [routeKey, setRouteKey] = useState(0);
+          const [rescheduledClients, setRescheduledClients] = useState(initial ? filterStaleRescheduled(initial?.rescheduledClients) : {});
 
   /* ─── Voice note UI state ──────────────────────────── */
   const [voiceOpen, setVoiceOpen] = useState(false);
@@ -485,20 +486,21 @@ export function RouteMeProvider({ children }) {
   }, [pushAudit]);
 
   const reorder = useCallback((ids) => {
-        setScheduleIds(ids);
-        setOptimized(false);
-        const orderedStops = ids.map((id) => clients.find((c) => c.id === id)).filter(Boolean);
-        if (orderedStops.length >= 2) {
-          // Always update routeResult so summary cards reflect the new order
-                  const metrics = computeRouteMetrics(orderedStops);
-                  setRouteResult(prev => {
-                    if (prev) return { ...prev, metrics };
-                    const now = new Date();
-                    const dow = now.getDay();
-                    const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-                    return { order: ids, metrics, validation: null, label: "Manual reorder", dayOfWeek: dayNames[dow], trafficMultiplier: 1.5, weather: "clear" };
-                  });
-          fetchRoute(orderedStops).then((route) => {
+          setScheduleIds(ids);
+          setOptimized(false);
+          const orderedStops = ids.map((id) => clients.find((c) => c.id === id)).filter(Boolean);
+          if (orderedStops.length >= 2) {
+            // Always update routeResult so summary cards reflect the new order
+                    const metrics = computeRouteMetrics(orderedStops);
+                    setRouteResult(prev => {
+                      if (prev) return { ...prev, metrics };
+                      const now = new Date();
+                      const dow = now.getDay();
+                      const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+                      return { order: ids, metrics, validation: null, label: "Manual reorder", dayOfWeek: dayNames[dow], trafficMultiplier: 1.5, weather: "clear" };
+                    });
+            setRouteKey(k => k + 1);
+            fetchRoute(orderedStops).then((route) => {
           if (route) {
             setRouteGeoJson(route.routeGeoJson);
             setRouteDistance(route.distance);
@@ -563,7 +565,7 @@ export function RouteMeProvider({ children }) {
       ...n,
       [clientId]: [{ id: Math.random().toString(36).slice(2, 8), text, date: new Date().toISOString() }, ...(n[clientId] ?? [])],
     }));
-    pushAudit("Voice note transcribed", "note");
+    pushAudit("Visit note saved", "note");
     if (userIdRef.current) {
       supabase.from('visit_notes').insert({ nurse_id: userIdRef.current, client_id: clientId, text, visit_type: 'Routine visit', status: 'Completed' }).then().catch(err => {
         console.error("supabase error [addNote]:", err.message);
@@ -857,7 +859,7 @@ export function RouteMeProvider({ children }) {
     voiceOpen, setVoiceOpen, voiceTarget, setVoiceTarget, openVoice, noteViewMode, setNoteViewMode,
     optimizationMode, setOptimizationMode,
         savedRoutes, saveRoute, loadRoute, deleteSavedRoute, routeResult,
-            routeGeoJson, routeDistance, routeDuration,
+                    routeGeoJson, routeDistance, routeDuration, routeKey,
             // Notifications
             notifications, unreadNotifications, addNotification, markNotificationRead, markAllNotificationsRead, dismissNotification,
     // Route management

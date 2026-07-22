@@ -39,7 +39,7 @@ export default function NurseInviteEmail({
         <ul className="space-y-2.5">
           {[
             "Tomorrow's optimized route — every stop, in the right order",
-            "One-tap voice-to-text notes (transcribed in under 2 seconds)",
+            "One-tap visit notes (typed in seconds)",
             "Care flags that keep gate codes, allergies, pets in view",
             "Your own HIPAA audit trail — signed with your license #",
           ].map((f) => (

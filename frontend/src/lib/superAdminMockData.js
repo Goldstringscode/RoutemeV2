@@ -407,7 +407,7 @@ export const SYSTEM_METRICS = {
   workersHealthy: 12,
   errorRate24h: 0.02,
   featureFlags: [
-    { key: "voice_notes_beta", enabled: true, description: "Whisper-powered voice-to-text" },
+    { key: "visit_notes", enabled: true, description: "HIPAA-encrypted visit notes" },
     { key: "multi_stop_optimizer_v2", enabled: true, description: "Traffic-aware route re-optimization" },
     { key: "impersonation", enabled: true, description: "Super admin can view as any director/nurse" },
     { key: "sms_reminders", enabled: false, description: "Twilio SMS for visit reminders" },

@@ -115,7 +115,7 @@ export const NURSES_SEED = [
 
 export const LIVE_ACTIVITY_SEED = [
   { t: "09:52", nurseId: "n_amara", label: "Completed visit — Eleanor M.", type: "done" },
-  { t: "09:48", nurseId: "n_devi", label: "Voice note transcribed — Mary L.", type: "note" },
+  { t: "09:48", nurseId: "n_devi", label: "Visit note saved — Mary L.", type: "note" },
   { t: "09:41", nurseId: "n_marcus", label: "Started visit — Thomas R.", type: "start" },
   { t: "09:33", nurseId: "n_amara", label: "Route re-optimized · saved 12 min", type: "route" },
   { t: "09:22", nurseId: "n_priya", label: "Break started · 12 min", type: "break" },

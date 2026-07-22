@@ -9,7 +9,7 @@ import {
   Crown,
   ShieldCheck,
   Map,
-  Mic,
+  FileText,
   ScrollText,
   Radio,
 } from "lucide-react";
@@ -26,7 +26,7 @@ const TIER_INFO = {
     kicker: "The independent nurse's toolkit",
     newest: [
       { icon: Map, title: "Fuel-efficient multi-stop routing", desc: "Up to 8 stops · re-optimized as clients confirm." },
-      { icon: Mic, title: "Voice-to-text visit notes", desc: "Speak. We transcribe, timestamp, and lock." },
+      { icon: FileText, title: "Visit notes", desc: "Type. We encrypt, timestamp, and lock." },
       { icon: ScrollText, title: "Personal HIPAA audit trail", desc: "Every view, every note — signed with your license #." },
     ],
   },

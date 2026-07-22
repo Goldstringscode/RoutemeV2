@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, ShieldCheck, MapPin, Mic, Clock, Fuel, Building2 } from "lucide-react";
+import { ArrowRight, ShieldCheck, MapPin, FileText, Clock, Fuel, Building2 } from "lucide-react";
 import HipaaBadge from "@/components/HipaaBadge";
 import { useRouteMe } from "@/context/RouteMeContext";
 
@@ -19,9 +19,9 @@ const HIGHLIGHTS = [
   },
   {
     kicker: "03 · Field-first",
-    title: "Voice notes, hands-free.",
-    body: "Dictate visit notes between homes. Transcribed on-device — never leaves your session.",
-    icon: Mic,
+    title: "Visit notes.",
+        body: "Type visit notes between homes. Encrypted on-device — never leaves your session.",
+        icon: FileText,
   },
 ];
 
@@ -140,7 +140,7 @@ export default function Landing() {
         <div className="flex whitespace-nowrap py-4 rm-marquee">
           {[...Array(2)].map((_, k) => (
             <div key={k} className="flex items-center gap-16 pr-16 shrink-0">
-              {["Route optimization", "Voice-to-text notes", "PHI encryption", "Audit trail", "Fatigue-aware breaks", "Care flags", "Offline first", "Family alerts"].map((t) => (
+              {["Route optimization", "Visit notes", "PHI encryption", "Audit trail", "Fatigue-aware breaks", "Care flags", "Offline first", "Family alerts"].map((t) => (
                 <span key={t} className="text-sm text-stone-500 tracking-wide">
                   · {t}
                 </span>

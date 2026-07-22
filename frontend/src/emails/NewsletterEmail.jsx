@@ -12,7 +12,7 @@ const UPDATES = [
   {
     tag: "Improved",
     title: "Voice notes are 40% faster",
-    body: "We migrated to a lighter transcription model. Same accuracy, half the wait — your notes appear in under 2 seconds after you stop talking.",
+    body: "We updated the notes interface for faster entry — quicker typing, instant save.",
     href: "#",
     accent: "#7FA08B",
   },

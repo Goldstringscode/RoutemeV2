@@ -123,7 +123,7 @@ export const MAP_STOPS = [
 
 export const AUDIT_LOG = [
   { t: "08:14", label: "PHI access — Eleanor M.", type: "read" },
-  { t: "08:41", label: "Voice note transcribed", type: "note" },
+  { t: "08:41", label: "Visit note saved", type: "note" },
   { t: "09:02", label: "Route re-optimized", type: "route" },
   { t: "09:37", label: "Vitals uploaded — Rafael T.", type: "write" },
   { t: "10:16", label: "PHI access — Margaret K.", type: "read" },

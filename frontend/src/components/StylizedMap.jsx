@@ -19,7 +19,8 @@ function pixelToSvg(px, py, cw, ch) {
 
 /**
  * Stylized map: real Mapbox map behind real route lines + SVG stop overlays.
- * Stop positions are projected from actual client lat/lng via map.project().
+ * Uses streets-v12 for clear road networks and city labels.
+ * 3D terrain for subtle elevation context without obscuring labels.
  */
 export default function StylizedMap({ compact = false, onStopClick }) {
   const { schedule, routeGeoJson, routeDistance, routeDuration } = useRouteMe();
@@ -98,59 +99,51 @@ export default function StylizedMap({ compact = false, onStopClick }) {
     });
 
     map.on("load", () => {
-          // ── 1. DEM source + 3D terrain + hillshade (bottom layer) ──
-          let hasTerrain = false;
-          try {
-            map.addSource(DEM_SOURCE, {
-              type: "raster-dem",
-              url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-              tileSize: 512,
-              maxzoom: 14,
-            });
-            map.setTerrain({ source: DEM_SOURCE, exaggeration: 1.0 });
-            map.addLayer({
-                          id: "terrain-hillshade",
-                          type: "hillshade",
-                          source: DEM_SOURCE,
-                          paint: {
-                            "hillshade-exaggeration": 0.3,
-                            "hillshade-highlight-color": "#F5F0E8",
-                            "hillshade-shadow-color": "#4A4A4A",
-                          },
-                        }, "water");
-            hasTerrain = true;
-            console.log("[StylizedMap] 3D terrain + hillshade enabled");
-          } catch (e) {
-            console.warn("[StylizedMap] DEM terrain unavailable:", e);
-          }
-          if (hasTerrain) {
-            try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
-            if (!compact) map.easeTo({ pitch: 30, duration: 1000 });
-          }
-
-          // ── 2. Route layers (on top of everything) ──
-          try {
-            map.addSource(ROUTE_SOURCE, {
-              type: "geojson",
-              data: { type: "FeatureCollection", features: [] },
-            });
-            map.addLayer({
-              id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE,
-              layout: { "line-join": "round", "line-cap": "round" },
-              paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 },
-            });
-            map.addLayer({
-              id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE,
-              layout: { "line-join": "round", "line-cap": "round" },
-              paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 },
-            });
-          } catch (e) {
-            console.warn("Map layers setup failed:", e);
-          }
-
-          // Project stops after map loads
-          projectRef.current();
+      // ── 1. DEM source + 3D terrain (subtle, no hillshade layer) ──
+      // No hillshade layer — streets-v12 already has clear roads and labels.
+      // Terrain adds 3D elevation without washing out the base map.
+      let hasTerrain = false;
+      try {
+        map.addSource(DEM_SOURCE, {
+          type: "raster-dem",
+          url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+          tileSize: 512,
+          maxzoom: 14,
         });
+        map.setTerrain({ source: DEM_SOURCE, exaggeration: 0.6 });
+        hasTerrain = true;
+        console.log("[StylizedMap] 3D terrain enabled (exaggeration 0.6)");
+      } catch (e) {
+        console.warn("[StylizedMap] DEM terrain unavailable:", e);
+      }
+      if (hasTerrain) {
+        try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
+        if (!compact) map.easeTo({ pitch: 20, duration: 1000 });
+      }
+
+      // ── 2. Route layers (on top of everything) ──
+      try {
+        map.addSource(ROUTE_SOURCE, {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        });
+        map.addLayer({
+          id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE,
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 },
+        });
+        map.addLayer({
+          id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE,
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 },
+        });
+      } catch (e) {
+        console.warn("Map layers setup failed:", e);
+      }
+
+      // Project stops after map loads
+      projectRef.current();
+    });
 
     // On move/resize, project stops via ref (always latest callback)
     const onMove = () => projectRef.current();
@@ -163,14 +156,14 @@ export default function StylizedMap({ compact = false, onStopClick }) {
       map.remove();
       mapRef.current = null;
     };
-  }, [compact, schedule]); // re-init if schedule array identity changes
+  }, [compact, schedule]);
 
   // Re-project when schedule order/size changes (but map already exists)
   useEffect(() => {
     if (mapRef.current) {
       projectRef.current();
     }
-  }, [schedule.length, schedule.map(s => s.id).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [schedule.length, schedule.map(s => s.id).join(",")]);
 
   // Apply routeGeoJson to the map
   useEffect(() => {
