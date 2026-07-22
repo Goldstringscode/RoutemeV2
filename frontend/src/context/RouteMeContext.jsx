@@ -22,7 +22,7 @@ import {
 } from "@/lib/superAdminMockData";
 import { supabase, signOut } from "@/lib/supabase";
 import { optimizeRoute, computeRouteSummary, getDrivingConditions } from "@/lib/routeEngine";
-import { fetchRoute } from "@/lib/directions";
+import { fetchRoute, metersToMiles, secondsToShort } from "@/lib/directions";
 
 const KEY = "routeme.state.v1";
 const RouteMeContext = createContext(null);
@@ -481,55 +481,71 @@ export function RouteMeProvider({ children }) {
   const reorder = useCallback((ids) => {
       setScheduleIds(ids);
       setOptimized(false);
-      // Fetch Mapbox route for the new order
       const orderedStops = ids.map((id) => clients.find((c) => c.id === id)).filter(Boolean);
       if (orderedStops.length >= 2) {
+        console.log("[RouteMe] Reorder: fetching Mapbox route for", orderedStops.length, "stops");
         fetchRoute(orderedStops).then((route) => {
           if (route) {
+            console.log("[RouteMe] Route fetched:", metersToMiles(route.distance), "mi,", secondsToShort(route.duration));
             setRouteGeoJson(route.routeGeoJson);
             setRouteDistance(route.distance);
             setRouteDuration(route.duration);
+          } else {
+            console.warn("[RouteMe] fetchRoute returned null");
           }
-        }).catch(() => {});
+        }).catch((err) => {
+          console.error("[RouteMe] fetchRoute error:", err);
+        });
       }
     }, [clients]);
 
   const optimize = useCallback((mode) => {
-        const optMode = mode || optimizationMode;
-        const result = optimizeRoute(schedule, optMode, savedRoutes);
-        if (result.order?.length) {
-          setScheduleIds(result.order);
-          setOptimized(true);
-          setRouteResult(result);
-          pushAudit(`Route re-optimized (${optMode})`, "route");
-          // Fetch Mapbox route for the optimized order
-          const orderedStops = result.order.map((id) => schedule.find((s) => s.id === id)).filter(Boolean);
-          if (orderedStops.length >= 2) {
-            fetchRoute(orderedStops).then((route) => {
-              if (route) {
-                setRouteGeoJson(route.routeGeoJson);
-                setRouteDistance(route.distance);
-                setRouteDuration(route.duration);
-              }
-            }).catch(() => {});
+          const optMode = mode || optimizationMode;
+          const result = optimizeRoute(schedule, optMode, savedRoutes);
+          if (result.order?.length) {
+            setScheduleIds(result.order);
+            setOptimized(true);
+            setRouteResult(result);
+            pushAudit(`Route re-optimized (${optMode})`, "route");
+            const orderedStops = result.order.map((id) => schedule.find((s) => s.id === id)).filter(Boolean);
+            if (orderedStops.length >= 2) {
+              console.log("[RouteMe] Optimize: fetching Mapbox route for", orderedStops.length, "stops");
+              fetchRoute(orderedStops).then((route) => {
+                if (route) {
+                  console.log("[RouteMe] Route fetched:", metersToMiles(route.distance), "mi,", secondsToShort(route.duration));
+                  setRouteGeoJson(route.routeGeoJson);
+                  setRouteDistance(route.distance);
+                  setRouteDuration(route.duration);
+                } else {
+                  console.warn("[RouteMe] fetchRoute returned null");
+                }
+              }).catch((err) => {
+                console.error("[RouteMe] fetchRoute error:", err);
+              });
+            }
           }
-        }
-      }, [schedule, optimizationMode, savedRoutes, pushAudit]);
+        }, [schedule, optimizationMode, savedRoutes, pushAudit]);
 
         /* ─── Initial Mapbox route fetch ─────────────────────── */
-        const routeFetchedRef = useRef(false);
-        useEffect(() => {
-          if (schedule.length >= 2 && !routeGeoJson && !routeFetchedRef.current) {
-            routeFetchedRef.current = true;
-            fetchRoute(schedule).then((route) => {
-              if (route) {
-                setRouteGeoJson(route.routeGeoJson);
-                setRouteDistance(route.distance);
-                setRouteDuration(route.duration);
-              }
-            }).catch(() => {});
-          }
-        }, [schedule, routeGeoJson]);
+                const routeFetchedRef = useRef(false);
+                useEffect(() => {
+                  if (schedule.length >= 2 && !routeGeoJson && !routeFetchedRef.current) {
+                    routeFetchedRef.current = true;
+                    console.log("[RouteMe] Initial fetch for", schedule.length, "stops");
+                    fetchRoute(schedule).then((route) => {
+                      if (route) {
+                        console.log("[RouteMe] Initial route:", metersToMiles(route.distance), "mi,", secondsToShort(route.duration));
+                        setRouteGeoJson(route.routeGeoJson);
+                        setRouteDistance(route.distance);
+                        setRouteDuration(route.duration);
+                      } else {
+                        console.warn("[RouteMe] Initial fetchRoute returned null");
+                      }
+                    }).catch((err) => {
+                      console.error("[RouteMe] Initial fetchRoute error:", err);
+                    });
+                  }
+                }, [schedule, routeGeoJson]);
 
         const addNote = useCallback((clientId, text) => {
     setNotes(n => ({
