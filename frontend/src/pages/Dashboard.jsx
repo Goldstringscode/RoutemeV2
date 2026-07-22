@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { Clock, Fuel, Route, ArrowUpRight, Phone, ShieldCheck, Mic, TrendingUp, Coffee, Plus } from "lucide-react";
+import { Clock, Fuel, Route, ArrowUpRight, Phone, ShieldCheck, Stethoscope, TrendingUp, Coffee, Plus } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { formatTimeWindow } from "@/lib/utils";
 import StylizedMap from "@/components/StylizedMap";
@@ -87,7 +87,7 @@ export default function Dashboard() {
               data-testid="dashboard-voice-btn"
               className="inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-4 py-2.5 text-sm font-semibold transition-colors"
             >
-              <Mic className="h-4 w-4" /> Start visit note
+              <Stethoscope className="h-4 w-4" /> Visit note
             </button>
             <Link
               to="/app/clients"

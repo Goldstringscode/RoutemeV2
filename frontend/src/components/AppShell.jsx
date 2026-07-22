@@ -1,24 +1,27 @@
 import React, { useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
-import { Home, Map, Users, Calendar, User, LogOut, Mic, Plus, Menu, X } from "lucide-react";
+import { Home, Map, Users, Calendar, User, LogOut, Bookmark, Stethoscope, Plus, Menu, X } from "lucide-react";
 import HipaaBadge from "@/components/HipaaBadge";
 import NoteModal from "@/components/VoiceNoteModal";
+import NewActionModal from "@/components/NewActionModal";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { supabase } from "@/lib/supabase";
 
 const NAV = [
   { to: "/app/dashboard", label: "Today", icon: Home, testId: "nav-dashboard" },
   { to: "/app/route", label: "Route", icon: Map, testId: "nav-route" },
+  { to: "/app/routes", label: "Saved Routes", icon: Bookmark, testId: "nav-routes" },
   { to: "/app/schedule", label: "Schedule", icon: Calendar, testId: "nav-schedule" },
   { to: "/app/clients", label: "Clients", icon: Users, testId: "nav-clients" },
   { to: "/app/profile", label: "Profile", icon: User, testId: "nav-profile" },
 ];
 
 export default function AppShell() {
-  const { nurse, setAuthed, openVoice, schedule, agency } = useRouteMe();
+  const { nurse, setAuthed, schedule, agency } = useRouteMe();
     const navigate = useNavigate();
     const location = useLocation();
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [newActionOpen, setNewActionOpen] = useState(false);
 
   const logout = async () => {
       await supabase.auth.signOut();
@@ -214,19 +217,21 @@ export default function AppShell() {
           <Outlet />
         </main>
 
-        {/* Floating note FAB */}
+        {/* Floating "New" FAB */}
         <button
-          data-testid="note-fab"
-          onClick={() => openVoice(schedule[0]?.id)}
+          data-testid="new-action-fab"
+          onClick={() => setNewActionOpen(true)}
           className="fixed bottom-6 right-6 z-40 group inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white pl-4 pr-5 py-3 shadow-lg shadow-[#D95D39]/30 transition-transform duration-300 hover:-translate-y-0.5"
         >
           <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white/15">
             <Plus className="h-4 w-4" />
           </span>
-          <span className="text-sm font-semibold hidden sm:inline">New note</span>
+          <span className="text-sm font-semibold hidden sm:inline">New</span>
         </button>
 
+        {/* Modals */}
         <NoteModal />
+        <NewActionModal open={newActionOpen} onClose={() => setNewActionOpen(false)} />
       </div>
     </div>
   );

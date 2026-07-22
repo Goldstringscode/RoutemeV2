@@ -8,10 +8,11 @@ import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import RouteView from "@/pages/RouteView";
+import RoutesPage from "@/pages/Routes";
 import Schedule from "@/pages/Schedule";
 import Clients from "@/pages/Clients";
-import Profile from "@/pages/Profile";
 import ClientDetail from "@/pages/ClientDetail";
+import Profile from "@/pages/Profile";
 import Pricing from "@/pages/Pricing";
 import Signup from "@/pages/Signup";
 import Payment from "@/pages/Payment";
@@ -119,6 +120,7 @@ function App() {
               <Route index element={<Navigate to="/app/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="route" element={<RouteView />} />
+              <Route path="routes" element={<RoutesPage />} />
               <Route path="schedule" element={<Schedule />} />
               <Route path="clients" element={<Clients />} />
               <Route path="clients/:id" element={<ClientDetail />} />

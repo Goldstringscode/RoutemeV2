@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from "react";
 import StylizedMap from "@/components/StylizedMap";
 import { useRouteMe } from "@/context/RouteMeContext";
-import { Sparkles, Clock, MapPin, Mic, Phone, ChevronRight, Fuel, Route, GripVertical, Lock, Unlock, Brain, Zap, Compass, SlidersHorizontal, Loader, CheckCircle, X, Info, ChevronDown, Map as MapIcon, ArrowUpDown, Plus, Trash2 } from "lucide-react";
+import { Sparkles, Clock, MapPin, Stethoscope, Phone, ChevronRight, Fuel, Route, GripVertical, Lock, Unlock, Brain, Zap, Compass, SlidersHorizontal, Loader, CheckCircle, X, Info, ChevronDown, Map as MapIcon, ArrowUpDown, Plus, Trash2 } from "lucide-react";
 import RouteBuilderModal from "@/components/RouteBuilderModal";
 import RemoveFromRouteModal from "@/components/RemoveFromRouteModal";
 import { formatTimeWindow } from "@/lib/utils";
@@ -113,6 +113,21 @@ export default function RouteView() {
           </h1>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleSaveRoute}
+            data-testid="save-route-header-btn"
+            className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-colors ${
+              justSaved
+                ? "bg-[#E3ECE5] border border-emerald-200 text-emerald-800"
+                : "border border-stone-300 text-stone-700 hover:bg-stone-50"
+            }`}
+          >
+            {justSaved ? (
+              <><CheckCircle className="h-4 w-4" /> Saved</>
+            ) : (
+              <><Loader className="h-4 w-4" /> Save route</>
+            )}
+          </button>
           <button
             onClick={openOptimize}
             data-testid="optimize-btn"
@@ -337,7 +352,7 @@ export default function RouteView() {
                 data-testid="route-voice-btn"
                 className="inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-4 py-2.5 text-sm font-semibold transition-colors"
               >
-                <Mic className="h-4 w-4" /> Record visit note
+                <Stethoscope className="h-4 w-4" /> Visit note
               </button>
             </div>
           </div>
