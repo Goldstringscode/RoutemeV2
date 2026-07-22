@@ -479,14 +479,20 @@ export function RouteMeProvider({ children }) {
   }, [pushAudit]);
 
   const reorder = useCallback((ids) => {
-      setScheduleIds(ids);
-      setOptimized(false);
-      const orderedStops = ids.map((id) => clients.find((c) => c.id === id)).filter(Boolean);
-      if (orderedStops.length >= 2) {
-        // Also update routeResult metrics so summary cards stay in sync
-                const metrics = computeRouteMetrics(orderedStops);
-                setRouteResult(prev => prev ? { ...prev, metrics } : null);
-        fetchRoute(orderedStops).then((route) => {
+        setScheduleIds(ids);
+        setOptimized(false);
+        const orderedStops = ids.map((id) => clients.find((c) => c.id === id)).filter(Boolean);
+        if (orderedStops.length >= 2) {
+          // Always update routeResult so summary cards reflect the new order
+                  const metrics = computeRouteMetrics(orderedStops);
+                  setRouteResult(prev => {
+                    if (prev) return { ...prev, metrics };
+                    const now = new Date();
+                    const dow = now.getDay();
+                    const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+                    return { order: ids, metrics, validation: null, label: "Manual reorder", dayOfWeek: dayNames[dow], trafficMultiplier: 1.5, weather: "clear" };
+                  });
+          fetchRoute(orderedStops).then((route) => {
           if (route) {
             setRouteGeoJson(route.routeGeoJson);
             setRouteDistance(route.distance);
@@ -596,9 +602,15 @@ export function RouteMeProvider({ children }) {
       setScheduleIds(route.stops);
       setOptimized(true);
       const orderedStops = route.stops.map(id => clients.find(c => c.id === id)).filter(Boolean);
-      if (orderedStops.length >= 2) {
-        const metrics = computeRouteMetrics(orderedStops);
-        setRouteResult(prev => prev ? { ...prev, metrics } : null);
+            if (orderedStops.length >= 2) {
+              const metrics = computeRouteMetrics(orderedStops);
+              setRouteResult(prev => {
+                if (prev) return { ...prev, metrics };
+                const now = new Date();
+                const dow = now.getDay();
+                const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+                return { order: route.stops, metrics, validation: null, label: "Loaded route", dayOfWeek: dayNames[dow], trafficMultiplier: 1.5, weather: "clear" };
+              });
         fetchRoute(orderedStops).then(r => {
           if (r) { setRouteGeoJson(r.routeGeoJson); setRouteDistance(r.distance); setRouteDuration(r.duration); }
         }).catch(() => {});
@@ -622,8 +634,12 @@ export function RouteMeProvider({ children }) {
                 // Recalculate route metrics after removal
                                 const remaining = newIds.map(sid => clients.find(c => c.id === sid)).filter(Boolean);
                                 if (remaining.length >= 2) {
-                                  const metrics = computeRouteMetrics(remaining);
-                                  setRouteResult(prev => prev ? { ...prev, metrics } : null);
+                                                                  const metrics = computeRouteMetrics(remaining);
+                                                                  setRouteResult(prev => {
+                                                                    if (prev) return { ...prev, metrics };
+                                                                    const now = new Date(); const dow = now.getDay(); const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+                                                                    return { order: newIds, metrics, validation: null, label: "Manual edit", dayOfWeek: dayNames[dow], trafficMultiplier: 1.5, weather: "clear" };
+                                                                  });
                   fetchRoute(remaining).then(route => {
                     if (route) { setRouteGeoJson(route.routeGeoJson); setRouteDistance(route.distance); setRouteDuration(route.duration); }
                   });

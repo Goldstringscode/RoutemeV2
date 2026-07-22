@@ -107,17 +107,17 @@ export default function StylizedMap({ compact = false, onStopClick }) {
               tileSize: 512,
               maxzoom: 14,
             });
-            map.setTerrain({ source: DEM_SOURCE, exaggeration: 1.5 });
+            map.setTerrain({ source: DEM_SOURCE, exaggeration: 1.0 });
             map.addLayer({
-              id: "terrain-hillshade",
-              type: "hillshade",
-              source: DEM_SOURCE,
-              paint: {
-                "hillshade-exaggeration": 0.6,
-                "hillshade-highlight-color": "#FFFFFF",
-                "hillshade-shadow-color": "#2D2D2D",
-              },
-            });
+                          id: "terrain-hillshade",
+                          type: "hillshade",
+                          source: DEM_SOURCE,
+                          paint: {
+                            "hillshade-exaggeration": 0.3,
+                            "hillshade-highlight-color": "#F5F0E8",
+                            "hillshade-shadow-color": "#4A4A4A",
+                          },
+                        }, "water");
             hasTerrain = true;
             console.log("[StylizedMap] 3D terrain + hillshade enabled");
           } catch (e) {
@@ -125,7 +125,7 @@ export default function StylizedMap({ compact = false, onStopClick }) {
           }
           if (hasTerrain) {
             try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
-            if (!compact) map.easeTo({ pitch: 55, duration: 1000 });
+            if (!compact) map.easeTo({ pitch: 30, duration: 1000 });
           }
 
           // ── 2. Route layers (on top of everything) ──
