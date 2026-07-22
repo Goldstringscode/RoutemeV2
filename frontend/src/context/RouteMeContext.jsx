@@ -514,10 +514,7 @@ export function RouteMeProvider({ children }) {
 
   const optimize = useCallback((mode) => {
             const optMode = mode || optimizationMode;
-            console.log("[DEBUG] optimize called with mode:", optMode, "scheduleIds:", scheduleIds.join(","));
             const result = optimizeRoute(schedule, optMode, savedRoutes);
-            console.log("[DEBUG] optimizeRoute result order:", result.order.join(","));
-            console.log("[DEBUG] same as current?", JSON.stringify(result.order) === JSON.stringify(scheduleIds));
             if (result.order?.length) {
               setScheduleIds(result.order);
             setOptimized(true);
