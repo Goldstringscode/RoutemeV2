@@ -33,17 +33,16 @@ export default function RouteView() {
 
   /* ─── Optimize modal ─────────────────────────────────── */
   const openOptimize = () => {
+    // Start in the current mode
     setModalOpen(true);
   };
 
   const applyOptimization = (modeId) => {
     setOptimizing(true);
-    // Small delay so the UX shows the loading state
-    setTimeout(() => {
-      optimize(modeId);
-      setOptimizing(false);
-      setModalOpen(false);
-    }, 400);
+    setModalOpen(false);
+    // Call optimize directly — no setTimeout, no stale closures
+    optimize(modeId);
+    setOptimizing(false);
   };
 
   const handleSaveRoute = async () => {
@@ -386,16 +385,23 @@ export default function RouteView() {
               </button>
             </div>
 
-            {/* Mode options */}
+            {/* Mode options — auto-apply immediately on click */}
             <div className="px-6 py-4 space-y-2 max-h-[60vh] overflow-y-auto">
               {OPTIMIZATION_MODES.map((m) => {
-                const isActive = optimizationMode === m.id;
-                const Icon = m.icon;
-                return (
-                  <button
-                    key={m.id}
-                    onClick={() => setOptimizationMode(m.id)}
-                    data-testid={`opt-mode-${m.id}`}
+                  const isActive = optimizationMode === m.id;
+                  const Icon = m.icon;
+                  const isSaved = m.id === "saved";
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        if (isSaved) {
+                          setOptimizationMode(m.id);
+                        } else {
+                          applyOptimization(m.id);
+                        }
+                      }}
+                      data-testid={`opt-mode-${m.id}`}
                     className={`w-full text-left flex items-start gap-4 rounded-2xl border p-4 transition-all ${
                       isActive
                         ? "bg-[#F7E5DD] border-[#D95D39] ring-1 ring-[#D95D39]/20"
