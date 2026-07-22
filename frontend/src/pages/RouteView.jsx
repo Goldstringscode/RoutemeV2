@@ -15,14 +15,13 @@ const OPTIMIZATION_MODES = [
 ];
 
 export default function RouteView() {
-  const { schedule, optimize, optimized, openVoice, saveRoute, savedRoutes, loadRoute, reorder, routeResult, clients, scheduleIds, createRoute, removeFromRoute, rescheduleClient, rescheduledClients } = useRouteMe();
-  const [selected, setSelected] = useState(schedule[0]?.id);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [builderOpen, setBuilderOpen] = useState(false);
-  const [removeModalOpen, setRemoveModalOpen] = useState(false);
-  const [clientToRemove, setClientToRemove] = useState(null);
-  const [activeMode, setActiveMode] = useState("ai");
-  const [dragEnabled, setDragEnabled] = useState(false);
+  const { schedule, optimize, optimized, openVoice, saveRoute, savedRoutes, loadRoute, reorder, routeResult, clients, scheduleIds, createRoute, removeFromRoute, rescheduleClient, rescheduledClients, optimizationMode, setOptimizationMode } = useRouteMe();
+    const [selected, setSelected] = useState(schedule[0]?.id);
+    const [modalOpen, setModalOpen] = useState(false);
+    const [builderOpen, setBuilderOpen] = useState(false);
+    const [removeModalOpen, setRemoveModalOpen] = useState(false);
+    const [clientToRemove, setClientToRemove] = useState(null);
+    const [dragEnabled, setDragEnabled] = useState(false);
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
   const [justSaved, setJustSaved] = useState(false);
@@ -34,7 +33,6 @@ export default function RouteView() {
 
   /* ─── Optimize modal ─────────────────────────────────── */
   const openOptimize = () => {
-    setActiveMode("ai");
     setModalOpen(true);
   };
 
@@ -100,7 +98,7 @@ export default function RouteView() {
     dragItem.current = null;
   }, [schedule, reorder]);
 
-  const modeLabel = OPTIMIZATION_MODES.find(m => m.id === activeMode)?.label || "AI smart route";
+  const modeLabel = OPTIMIZATION_MODES.find(m => m.id === optimizationMode)?.label || "AI smart route";
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -167,10 +165,10 @@ export default function RouteView() {
 
           {/* Route summary strip */}
           <div className="grid grid-cols-4 gap-3">
-            <SumCard icon={Route} label="Distance" value={routeResult?.metrics ? `${routeResult.metrics.totalDriveMiles} mi` : "34.2 mi"} tone="ink" />
-            <SumCard icon={Clock} label="Drive time" value={routeResult?.metrics ? `${Math.floor(routeResult.metrics.totalDriveMinutes / 60)}h ${routeResult.metrics.totalDriveMinutes % 60}m` : "1h 08m"} tone="ink" />
-            <SumCard icon={Fuel} label="Fuel saved" value={routeResult?.metrics?.totalDriveMiles > 30 ? "+8.4%" : "+4.2%"} tone="terra" />
-            <SumCard icon={Sparkles} label="Time saved" value={routeResult?.metrics ? `${Math.round(routeResult.metrics.totalDriveMinutes * 0.15)} min` : "27 min"} tone="sage" />
+                      <SumCard icon={Route} label="Distance" value={routeResult?.metrics ? `${routeResult.metrics.totalDriveMiles} mi` : "--"} tone="ink" />
+                      <SumCard icon={Clock} label="Drive time" value={routeResult?.metrics ? `${Math.floor(routeResult.metrics.totalDriveMinutes / 60)}h ${routeResult.metrics.totalDriveMinutes % 60}m` : "--"} tone="ink" />
+                      <SumCard icon={Fuel} label="Fuel saved" value={routeResult?.metrics?.totalDriveMiles > 30 ? "+8.4%" : routeResult ? "+4.2%" : "--"} tone="terra" />
+                      <SumCard icon={Sparkles} label="Time saved" value={routeResult?.metrics ? `${Math.round(routeResult.metrics.totalDriveMinutes * 0.15)} min` : "--"} tone="sage" />
           </div>
         </div>
 
@@ -191,7 +189,7 @@ export default function RouteView() {
                 }`}
               >
                 {dragEnabled ? <Unlock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-                {dragEnabled ? "Drag to reorder" : "Unlock order"}
+                                {dragEnabled ? "Drag to reorder" : "Change order"}
               </button>
             </div>
             <ol className="mt-4 relative">
@@ -376,12 +374,12 @@ export default function RouteView() {
             {/* Mode options */}
             <div className="px-6 py-4 space-y-2 max-h-[60vh] overflow-y-auto">
               {OPTIMIZATION_MODES.map((m) => {
-                const isActive = activeMode === m.id;
+                const isActive = optimizationMode === m.id;
                 const Icon = m.icon;
                 return (
                   <button
                     key={m.id}
-                    onClick={() => setActiveMode(m.id)}
+                    onClick={() => setOptimizationMode(m.id)}
                     data-testid={`opt-mode-${m.id}`}
                     className={`w-full text-left flex items-start gap-4 rounded-2xl border p-4 transition-all ${
                       isActive
@@ -413,7 +411,7 @@ export default function RouteView() {
             {/* Footer: validation + apply */}
             <div className="px-6 py-4 border-t border-stone-100 bg-[#F9F8F6] space-y-3">
               {/* Route plan preview */}
-              {activeMode !== "saved" && (
+              {optimizationMode !== "saved" && (
                 <div className="rounded-xl bg-white border border-stone-200 p-3">
                   <div className="flex items-center gap-2 text-xs text-stone-500">
                     <MapIcon className="h-3.5 w-3.5 text-stone-400" />
@@ -425,7 +423,7 @@ export default function RouteView() {
               )}
 
               {/* Saved routes picker */}
-              {activeMode === "saved" && (
+              {optimizationMode === "saved" && (
                 <div className="space-y-2">
                   <p className="text-xs uppercase tracking-widest text-stone-500 font-semibold">Saved routes</p>
                   {savedRoutes.length === 0 ? (
@@ -451,7 +449,7 @@ export default function RouteView() {
               {/* Action buttons */}
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => applyOptimization(activeMode)}
+                  onClick={() => applyOptimization(optimizationMode)}
                   data-testid="apply-optimization-btn"
                   disabled={optimizing}
                   className={`flex-1 inline-flex items-center justify-center gap-2 rounded-full h-11 text-sm font-semibold transition-colors ${
@@ -464,7 +462,7 @@ export default function RouteView() {
                     <><Loader className="h-4 w-4 animate-spin" /> Optimizing…</>
                   ) : (
                     <><Sparkles className="h-4 w-4" />
-                    Apply {OPTIMIZATION_MODES.find(m => m.id === activeMode)?.label || "optimization"}</>
+                    Apply {OPTIMIZATION_MODES.find(m => m.id === optimizationMode)?.label || "optimization"}</>
                   )}
                 </button>
                 <button

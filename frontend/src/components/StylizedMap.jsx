@@ -133,11 +133,11 @@ export default function StylizedMap({ compact = false, onStopClick }) {
           type: "hillshade",
           source: DEM_SOURCE,
           paint: {
-            "hillshade-exaggeration": 0.8,
+            "hillshade-exaggeration": 0.6,
             "hillshade-highlight-color": "#FFFFFF",
             "hillshade-shadow-color": "#2D2D2D",
           },
-        });
+        }, "water"); // Insert BEFORE "water" so roads/labels/route render on top
         hasTerrain = true;
         console.log("[StylizedMap] 3D terrain + hillshade enabled");
       } catch (e) {

@@ -483,15 +483,14 @@ export function RouteMeProvider({ children }) {
       setOptimized(false);
       const orderedStops = ids.map((id) => clients.find((c) => c.id === id)).filter(Boolean);
       if (orderedStops.length >= 2) {
-        console.log("[RouteMe] Reorder: fetching Mapbox route for", orderedStops.length, "stops");
+        // Also update routeResult metrics so summary cards stay in sync
+        const summary = computeRouteSummary(orderedStops);
+        setRouteResult(prev => prev ? { ...prev, metrics: summary } : null);
         fetchRoute(orderedStops).then((route) => {
           if (route) {
-            console.log("[RouteMe] Route fetched:", metersToMiles(route.distance), "mi,", secondsToShort(route.duration));
             setRouteGeoJson(route.routeGeoJson);
             setRouteDistance(route.distance);
             setRouteDuration(route.duration);
-          } else {
-            console.warn("[RouteMe] fetchRoute returned null");
           }
         }).catch((err) => {
           console.error("[RouteMe] fetchRoute error:", err);
@@ -593,9 +592,26 @@ export function RouteMeProvider({ children }) {
 
         // getWeekStart is a module-level function — no useCallback needed
         const removeFromRoute = useCallback((id) => {
-      setScheduleIds(ids => ids.filter(sid => sid !== id));
-      pushAudit(`Client removed from route`, "write");
-    }, [pushAudit]);
+              setScheduleIds(ids => {
+                const newIds = ids.filter(sid => sid !== id);
+                // Recalculate route metrics after removal
+                const remaining = newIds.map(sid => clients.find(c => c.id === sid)).filter(Boolean);
+                if (remaining.length >= 2) {
+                  const summary = computeRouteSummary(remaining);
+                  setRouteResult(prev => prev ? { ...prev, metrics: summary } : null);
+                  fetchRoute(remaining).then(route => {
+                    if (route) { setRouteGeoJson(route.routeGeoJson); setRouteDistance(route.distance); setRouteDuration(route.duration); }
+                  });
+                } else {
+                  setRouteResult(null);
+                  setRouteGeoJson(null);
+                  setRouteDistance(null);
+                  setRouteDuration(null);
+                }
+                return newIds;
+              });
+              pushAudit(`Client removed from route`, "write");
+            }, [pushAudit, clients]);
 
     const rescheduleClient = useCallback((id, day) => {
       const weekStart = getWeekStart();
@@ -608,11 +624,22 @@ export function RouteMeProvider({ children }) {
           }, [pushAudit]);
 
     const createRoute = useCallback((clientIds) => {
-      setScheduleIds(clientIds);
-      setOptimized(false);
-      setRouteResult(null);
-      pushAudit(`Route created — ${clientIds.length} stops`, "route");
-    }, [pushAudit]);
+          setScheduleIds(clientIds);
+          setOptimized(false);
+          setRouteResult(null);
+          // Fetch Mapbox route for the new set of stops
+          const orderedStops = clientIds.map(id => clients.find(c => c.id === id)).filter(Boolean);
+          if (orderedStops.length >= 2) {
+            fetchRoute(orderedStops).then(route => {
+              if (route) {
+                setRouteGeoJson(route.routeGeoJson);
+                setRouteDistance(route.distance);
+                setRouteDuration(route.duration);
+              }
+            });
+          }
+          pushAudit(`Route created — ${clientIds.length} stops`, "route");
+        }, [pushAudit, clients]);
 
     const clearRescheduled = useCallback(() => {
       setRescheduledClients({});
