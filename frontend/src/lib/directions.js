@@ -4,17 +4,27 @@ const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 /**
  * Fetch a driving route from Mapbox Directions API.
  * @param {Array<{lat: number, lng: number}>} waypoints - Ordered list of stops
+ * @param {Object} [homeBase] - Optional starting location {lat, lng}. When provided,
+ *   the route begins from homeBase → stop[0] → stop[1] → ...
  * @returns {Promise<{routeGeoJson: object, distance: number, duration: number, legs: Array}>}
  */
-export async function fetchRoute(waypoints) {
+export async function fetchRoute(waypoints, homeBase) {
   if (!TOKEN) {
     console.warn("⚠️ REACT_APP_MAPBOX_TOKEN missing");
     return null;
   }
-  if (waypoints.length < 2) return null;
 
-  // Build coordinate string: lng,lat;lng,lat;...
-  const coords = waypoints.map((p) => `${p.lng},${p.lat}`).join(";");
+  // Build coordinate string: start from homeBase if provided
+  let coords;
+  if (homeBase && homeBase.lat != null && homeBase.lng != null) {
+    coords = `${homeBase.lng},${homeBase.lat};${waypoints.map((p) => `${p.lng},${p.lat}`).join(";")}`;
+  } else {
+    coords = waypoints.map((p) => `${p.lng},${p.lat}`).join(";");
+  }
+
+  if (waypoints.length < 1 && !homeBase) return null;
+  // Need at least 2 points for a route (homeBase + 1 stop, or 2+ stops)
+  if (waypoints.length < 2 && !homeBase) return null;
 
   const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coords}?access_token=${TOKEN}&geometries=geojson&steps=true&overview=full&language=en`;
 

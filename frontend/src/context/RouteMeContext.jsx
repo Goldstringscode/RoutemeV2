@@ -505,7 +505,7 @@ export function RouteMeProvider({ children }) {
                                 return { order: ids, metrics, validation: null, label: "Manual reorder", dayOfWeek: dayNames[dow], trafficMultiplier: 1.5, weather: "clear" };
                     });
             setRouteKey(k => k + 1);
-            fetchRoute(orderedStops).then((route) => {
+                        fetchRoute(orderedStops, nurse.homeBase).then((route) => {
           if (route) {
             setRouteGeoJson(route.routeGeoJson);
             setRouteDistance(route.distance);
@@ -528,7 +528,7 @@ export function RouteMeProvider({ children }) {
             const orderedStops = result.order.map((id) => schedule.find((s) => s.id === id)).filter(Boolean);
             if (orderedStops.length >= 2) {
               console.log("[RouteMe] Optimize: fetching Mapbox route for", orderedStops.length, "stops");
-              fetchRoute(orderedStops).then((route) => {
+              fetchRoute(orderedStops, nurse.homeBase).then((route) => {
                 if (route) {
                   console.log("[RouteMe] Route fetched:", metersToMiles(route.distance), "mi,", secondsToShort(route.duration));
                   setRouteGeoJson(route.routeGeoJson);
@@ -570,7 +570,7 @@ export function RouteMeProvider({ children }) {
                               trafficMultiplier: 1.5,
                               weather: "clear",
                             });
-                            fetchRoute(schedule).then((route) => {
+                            fetchRoute(schedule, nurse.homeBase).then((route) => {
                       if (route) {
                         console.log("[RouteMe] Initial route:", metersToMiles(route.distance), "mi,", secondsToShort(route.duration));
                         setRouteGeoJson(route.routeGeoJson);
