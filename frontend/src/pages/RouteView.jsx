@@ -100,6 +100,34 @@ export default function RouteView() {
 
   const modeLabel = OPTIMIZATION_MODES.find(m => m.id === optimizationMode)?.label || "AI smart route";
 
+  /* ─── Dynamic fuel & time saved ──────────────────────────── */
+  // Baseline: store the first-ever routeDistance as reference
+  const baselineDistRef = useRef(null);
+  if (routeDistance && !baselineDistRef.current) {
+    baselineDistRef.current = routeDistance;
+  }
+
+  const computeFuelSaved = (currentDist, result) => {
+    if (!currentDist || !baselineDistRef.current) return "--";
+    const baselineMiles = metersToMiles(baselineDistRef.current);
+    const currentMiles = metersToMiles(currentDist);
+    const pct = ((baselineMiles - currentMiles) / baselineMiles) * 100;
+    if (Math.abs(pct) < 0.1) return "—";
+    return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
+  };
+
+  const computeTimeSaved = (currentDur) => {
+    // Compare drive time vs total care time to show efficiency
+    if (!currentDur) return "--";
+    const totalCare = schedule.reduce((s, c) => s + (c.duration || 30), 0);
+    const driveSec = currentDur;
+    const driveMin = driveSec / 60;
+    // "Time saved" = how much less driving vs care time
+    const raw = Math.round(totalCare - driveMin);
+    const val = Math.max(0, raw);
+    return `${val} min`;
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* ── Header ── */}
@@ -203,8 +231,8 @@ export default function RouteView() {
           <div className="grid grid-cols-4 gap-3">
             <SumCard icon={Route} label="Distance" value={routeDistance ? `${metersToMiles(routeDistance)} mi` : "--"} tone="ink" />
             <SumCard icon={Clock} label="Drive time" value={routeDuration ? secondsToShort(routeDuration) : "--"} tone="ink" />
-            <SumCard icon={Fuel} label="Fuel saved" value={routeDistance && routeDistance > 160934 ? "+8.4%" : routeDistance ? "+4.2%" : "--"} tone="terra" />
-            <SumCard icon={Sparkles} label="Time saved" value={routeDuration ? `${Math.round((routeDuration / 60) * 0.15)} min` : "--"} tone="sage" />
+            <SumCard icon={Fuel} label="Fuel saved" value={computeFuelSaved(routeDistance, routeResult)} tone="terra" />
+            <SumCard icon={Sparkles} label="Time saved" value={computeTimeSaved(routeDuration)} tone="sage" />
           </div>
         </div>
 
