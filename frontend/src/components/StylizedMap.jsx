@@ -81,7 +81,7 @@ export default function StylizedMap({ compact = false, onStopClick }) {
 
     const map = new mapboxgl.Map({
               container: mapContainer.current,
-              style: "mapbox://styles/mapbox/outdoors-v12",
+              style: "mapbox://styles/mapbox/streets-v12",
               center: [centerLng, centerLat],
               zoom: compact ? 9.5 : 9,
               pitch: compact ? 0 : 55,
@@ -101,7 +101,25 @@ export default function StylizedMap({ compact = false, onStopClick }) {
                     } catch (e) {}
                   }
 
+                  // ── Sky atmosphere ──
+                  if (!map.getLayer("sky")) {
+                    try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
+                  }
+
                   updatePositions();
+                });
+
+                // Delay terrain setup until map is fully settled (avoids race condition
+                // in production builds where setTerrain() triggers a style update that
+                // temporarily makes the 'composite' source undefined)
+                map.once("idle", () => {
+                  if (!map.getSource("mapbox-dem")) {
+                    try {
+                      map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
+                      map.setTerrain({ source: "mapbox-dem", exaggeration: 2.5 });
+                      map.addLayer({ id: "hillshade", type: "hillshade", source: "mapbox-dem", paint: { "hillshade-exaggeration": 1.2, "hillshade-shadow-color": "#1a1a2e", "hillshade-highlight-color": "#e8dcc8" } });
+                    } catch (e) {}
+                  }
                 });
 
     // Update positions on map move/zoom
