@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import StylizedMap from "@/components/StylizedMap";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { Sparkles, Clock, MapPin, Stethoscope, Phone, ChevronRight, Fuel, Route, GripVertical, Lock, Unlock, Brain, Zap, Compass, SlidersHorizontal, Loader, CheckCircle, X, Info, ChevronDown, Map as MapIcon, ArrowUpDown, Plus, Trash2 } from "lucide-react";
@@ -101,56 +101,43 @@ export default function RouteView() {
   const modeLabel = OPTIMIZATION_MODES.find(m => m.id === optimizationMode)?.label || "AI smart route";
 
   /* ─── Dynamic fuel & time saved ──────────────────────────── */
-  // Baseline = the sum of individual legs if visited in original (unoptimized) order.
-  // This gives a stable reference point that doesn't depend on async Mapbox fetches.
-  const computeBaselineDist = () => {
-    const homeLat = nurse?.homeBase?.lat;
-    const homeLng = nurse?.homeBase?.lng;
-    let total = 0;
-    let prevLat = homeLat;
-    let prevLng = homeLng;
-    const origOrder = clients.filter(c => scheduleIds.includes(c.id));
-    // Use scheduleIds order (original seed order) not schedule (current order)
-    for (const id of scheduleIds) {
-      const c = clients.find(cl => cl.id === id);
-      if (!c) continue;
-      if (prevLat != null && prevLng != null) {
-        const R = 3958.8;
-        const toRad = d => d * Math.PI / 180;
-        const dLat = toRad((c.lat||0) - prevLat);
-        const dLng = toRad((c.lng||0) - prevLng);
-        const a = Math.sin(dLat/2)**2 + Math.cos(toRad(prevLat)) * Math.cos(toRad(c.lat||0)) * Math.sin(dLng/2)**2;
-        total += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      }
-      prevLat = c.lat;
-      prevLng = c.lng;
-    }
-    return total; // in miles
-  };
-
-  const baselineMilesRef = useRef(null);
-  if (!baselineMilesRef.current) {
-    baselineMilesRef.current = computeBaselineDist();
+  // Baseline = the Mapbox driving distance of the route when the page first loads.
+  // We store it in a ref (set during render, not in an effect) so the first
+  // render immediately shows the correct comparison. After optimization, the
+  // new Mapbox route distance is compared against this baseline.
+  const baselineRef = useRef(null);
+  // Set baseline during render (synchronous) — only on first real data
+  if (routeDistance && routeDuration && !baselineRef.current) {
+    baselineRef.current = { distance: routeDistance, duration: routeDuration };
   }
 
-  const computeFuelSaved = (currentDistMeters) => {
-    if (!currentDistMeters || !baselineMilesRef.current) return "--";
-    const currentMiles = currentDistMeters * 0.000621371;
-    const baseline = baselineMilesRef.current;
-    if (baseline < 0.1) return "--";
-    const pct = ((baseline - currentMiles) / baseline) * 100;
-    if (Math.abs(pct) < 0.1) return "—";
+  // Reset baseline when user manually reorders (optimized goes to false)
+  // so the next optimization compares against the new manual order
+  const prevOptimizedRef = useRef(optimized);
+  useEffect(() => {
+    if (prevOptimizedRef.current === true && !optimized && routeDistance) {
+      // User toggled drag reorder — capture current distance as new baseline
+      baselineRef.current = { distance: routeDistance, duration: routeDuration };
+    }
+    prevOptimizedRef.current = optimized;
+  }, [optimized, routeDistance, routeDuration]);
+
+  const computeFuelSaved = () => {
+    const b = baselineRef.current;
+    if (!b?.distance || !routeDistance) return "—";
+    if (b.distance === routeDistance) return "0%";
+    const pct = ((b.distance - routeDistance) / b.distance) * 100;
+    if (Math.abs(pct) < 0.1) return "0%";
     return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
   };
 
-  const computeTimeSaved = (currentDur) => {
-    if (!currentDur) return "--";
-    // Time saved = baseline drive time estimate (haversine, 30mph, traffic 1.5x) minus actual
-    const baselineDriveMin = (baselineMilesRef.current / 30) * 60 * 1.5;
-    const currentDriveMin = currentDur / 60;
-    const saved = Math.round(baselineDriveMin - currentDriveMin);
-    if (saved <= 0) return "0 min";
-    return `${saved} min`;
+  const computeTimeSaved = () => {
+    const b = baselineRef.current;
+    if (!b?.duration || !routeDuration) return "—";
+    const savedSec = b.duration - routeDuration;
+    if (savedSec <= 0) return "0 min";
+    const mins = Math.round(savedSec / 60);
+    return `${mins} min`;
   };
 
   return (
@@ -256,8 +243,8 @@ export default function RouteView() {
           <div className="grid grid-cols-4 gap-3">
             <SumCard icon={Route} label="Distance" value={routeDistance ? `${metersToMiles(routeDistance)} mi` : "--"} tone="ink" />
             <SumCard icon={Clock} label="Drive time" value={routeDuration ? secondsToShort(routeDuration) : "--"} tone="ink" />
-            <SumCard icon={Fuel} label="Fuel saved" value={computeFuelSaved(routeDistance, routeResult)} tone="terra" />
-            <SumCard icon={Sparkles} label="Time saved" value={computeTimeSaved(routeDuration)} tone="sage" />
+            <SumCard icon={Fuel} label="Fuel saved" value={computeFuelSaved()} tone="terra" />
+            <SumCard icon={Sparkles} label="Time saved" value={computeTimeSaved()} tone="sage" />
           </div>
         </div>
 
