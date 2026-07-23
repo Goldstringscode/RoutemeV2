@@ -82,17 +82,25 @@ let webpackConfig = {
     configure: (webpackConfig) => {
 
       // Add ignored patterns to reduce watched directories
-        webpackConfig.watchOptions = {
-          ...webpackConfig.watchOptions,
-          ignored: [
-            '**/node_modules/**',
-            '**/.git/**',
-            '**/build/**',
-            '**/dist/**',
-            '**/coverage/**',
-            '**/public/**',
-        ],
-      };
+              webpackConfig.watchOptions = {
+                ...webpackConfig.watchOptions,
+                ignored: [
+                  '**/node_modules/**',
+                  '**/.git/**',
+                  '**/build/**',
+                  '**/dist/**',
+                  '**/coverage/**',
+                  '**/public/**',
+              ],
+            };
+
+            // Disable JS minification — Terser produces corrupted bundles with mapbox-gl v3.26
+            // The ReferenceError "a is not defined" + TypeError "composite" are minification bugs
+            if (process.env.NODE_ENV === 'production') {
+              webpackConfig.optimization.minimizer = webpackConfig.optimization.minimizer.filter(
+                (plugin) => !(plugin.constructor && plugin.constructor.name === 'TerserPlugin')
+              );
+            }
 
       // Add health check plugin to webpack if enabled
             if (config.enableHealthCheck && healthPluginInstance) {

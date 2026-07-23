@@ -10,8 +10,8 @@ const DEM_SOURCE = "mapbox-dem";
 
 /**
  * Stylized map: real Mapbox map with real route lines and SVG stop overlays.
- * Stop positions are derived from actual client lat/lng via map.project().
- * 3D terrain for elevation context.
+ * 3D terrain via outdoors-v12 style (DEM source + hillshade added on style.load).
+ * Mercator projection required — globe silently breaks setTerrain().
  */
 export default function StylizedMap({ compact = false, onStopClick }) {
   const { schedule, routeGeoJson, routeDistance, routeDuration, nurse } = useRouteMe();
@@ -26,20 +26,16 @@ export default function StylizedMap({ compact = false, onStopClick }) {
     const map = mapRef.current;
     if (!map || !schedule.length) return;
 
-    // Get the map container's bounding rect for offset
     const rect = mapContainer.current?.getBoundingClientRect();
     if (!rect) return;
 
     const positions = schedule.map((c, idx) => {
       if (c.lat && c.lng) {
         const point = map.project([c.lng, c.lat]);
-        // point.x and point.y are relative to the map container
-        // Scale to SVG viewBox (1000x600) using the map container dimensions
         const svgX = (point.x / rect.width) * 1000;
         const svgY = (point.y / rect.height) * 600;
         return { x: svgX, y: svgY, id: c.id, label: String(idx + 1), name: c.fullName };
       }
-      // Fallback: spread across the viewBox
       return {
         x: 150 + ((idx * 120) % 700),
         y: 260 + ((idx * 47) % 200),
@@ -111,35 +107,28 @@ export default function StylizedMap({ compact = false, onStopClick }) {
             try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
           }
 
-          // ── 3. DEM source + 3D terrain ──
-          if (!map.getSource("mapbox-dem")) {
-            try {
-              map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
-              map.setTerrain({ source: "mapbox-dem", exaggeration: 2.5 });
-            } catch (e) {}
-          }
-
-          // ── 4. Hillshade layer ──
-          if (!map.getLayer("hillshade") && map.getSource("mapbox-dem")) {
-            try {
-              map.addLayer({ id: "hillshade", type: "hillshade", source: "mapbox-dem", paint: { "hillshade-exaggeration": 1.2, "hillshade-shadow-color": "#1a1a2e", "hillshade-highlight-color": "#e8dcc8" } });
-            } catch (e) {}
-          }
+          // Terrain (DEM source + setTerrain + hillshade) is handled in style.load below.
+          // We keep it separate because setTerrain() in the load handler triggers a
+          // cascade failure in minified production builds (Terser bug with mapbox-gl v3.26).
 
           updatePositions();
         });
 
-        // style.load backup — re-adds anything wiped by a style reload
+        // style.load: add DEM source, enable terrain, add hillshade
         map.on("style.load", () => {
           if (!map.getSource("mapbox-dem")) {
-            try { map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 }); } catch (e) {}
-            try { map.setTerrain({ source: "mapbox-dem", exaggeration: 2.5 }); } catch (e) {}
-          }
+                      try {
+                        map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
+                        map.setTerrain({ source: "mapbox-dem", exaggeration: 2.5 });
+                      } catch (e) {}
+                    }
+                    if (!map.getLayer("hillshade") && map.getSource("mapbox-dem")) {
+                      try {
+                        map.addLayer({ id: "hillshade", type: "hillshade", source: "mapbox-dem", paint: { "hillshade-exaggeration": 1.2, "hillshade-shadow-color": "#1a1a2e", "hillshade-highlight-color": "#e8dcc8" } });
+                      } catch (e) {}
+                    }
           if (!map.getLayer("sky")) {
             try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
-          }
-          if (!map.getLayer("hillshade") && map.getSource("mapbox-dem")) {
-            try { map.addLayer({ id: "hillshade", type: "hillshade", source: "mapbox-dem", paint: { "hillshade-exaggeration": 1.2, "hillshade-shadow-color": "#1a1a2e", "hillshade-highlight-color": "#e8dcc8" } }); } catch (e) {}
           }
           if (!map.getSource(ROUTE_SOURCE)) {
             try {
@@ -166,7 +155,6 @@ export default function StylizedMap({ compact = false, onStopClick }) {
   // Update positions when schedule changes
   useEffect(() => {
     if (mapRef.current) {
-      // Small delay to let the map settle
       setTimeout(updatePositions, 100);
     }
   }, [schedule, updatePositions]);
