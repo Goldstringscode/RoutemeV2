@@ -1,11 +1,25 @@
-import React from "react";
-import { Shield, Trash2, Bell, Volume2, MapPin, HeartPulse } from "lucide-react";
+import React, { useState } from "react";
+import { Shield, Trash2, Bell, Volume2, MapPin, HeartPulse, Home, Map } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { Switch } from "@/components/ui/switch";
 
 export default function Profile() {
-  const { nurse, audit, clients, notes } = useRouteMe();
+  const { nurse, audit, clients, notes, updateNurseHomeBase } = useRouteMe();
   const totalNotes = Object.values(notes).reduce((s, arr) => s + arr.length, 0);
+  const [editingHome, setEditingHome] = useState(false);
+  const [homeAddress, setHomeAddress] = useState(nurse.homeBase?.address || "");
+  const [homeLat, setHomeLat] = useState(nurse.homeBase?.lat || 34.05);
+  const [homeLng, setHomeLng] = useState(nurse.homeBase?.lng || -118.24);
+
+  const handleSaveHome = () => {
+    const hb = {
+      address: homeAddress,
+      lat: parseFloat(homeLat),
+      lng: parseFloat(homeLng),
+    };
+    updateNurseHomeBase(hb);
+    setEditingHome(false);
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -44,6 +58,103 @@ export default function Profile() {
         <MiniStat label="Notes recorded" value={totalNotes} />
         <MiniStat label="Audit events" value={audit.length} />
         <MiniStat label="Miles saved / wk" value={nurse.weeklySavedMiles} />
+      </div>
+
+      {/* Home Base */}
+      <div className="rounded-3xl border border-stone-200 bg-white p-6">
+        <div className="flex items-start justify-between mb-5">
+          <div>
+            <div className="flex items-center gap-2">
+              <Home className="h-5 w-5 text-[#D95D39]" />
+              <h3 className="font-display text-xl">Home Base</h3>
+            </div>
+            <p className="text-sm text-stone-500 mt-1">
+              Your starting location. All routes begin from here.
+            </p>
+          </div>
+          {!editingHome && (
+            <button
+              onClick={() => {
+                setHomeAddress(nurse.homeBase?.address || "");
+                setHomeLat(nurse.homeBase?.lat || 34.05);
+                setHomeLng(nurse.homeBase?.lng || -118.24);
+                setEditingHome(true);
+              }}
+              className="text-sm text-[#D95D39] hover:text-[#c04d2a] font-semibold"
+            >
+              Edit
+            </button>
+          )}
+        </div>
+
+        {editingHome ? (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-stone-600 mb-1 uppercase tracking-wider">
+                Address
+              </label>
+              <input
+                type="text"
+                value={homeAddress}
+                onChange={(e) => setHomeAddress(e.target.value)}
+                placeholder="123 Main St, City, State ZIP"
+                className="w-full rounded-xl border border-stone-200 bg-[#F9F8F6] px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D95D39]/30 focus:border-[#D95D39] font-mono"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-stone-600 mb-1 uppercase tracking-wider">
+                  Latitude
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={homeLat}
+                  onChange={(e) => setHomeLat(e.target.value)}
+                  className="w-full rounded-xl border border-stone-200 bg-[#F9F8F6] px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D95D39]/30 focus:border-[#D95D39] font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-stone-600 mb-1 uppercase tracking-wider">
+                  Longitude
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={homeLng}
+                  onChange={(e) => setHomeLng(e.target.value)}
+                  className="w-full rounded-xl border border-stone-200 bg-[#F9F8F6] px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D95D39]/30 focus:border-[#D95D39] font-mono"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={handleSaveHome}
+                className="rounded-xl bg-[#D95D39] text-white px-6 py-2.5 text-sm font-semibold hover:bg-[#c04d2a] transition-colors"
+              >
+                Save home base
+              </button>
+              <button
+                onClick={() => setEditingHome(false)}
+                className="text-sm text-stone-500 hover:text-stone-700 font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 rounded-2xl bg-[#F9F8F6] border border-stone-200 p-4">
+            <div className="h-10 w-10 rounded-xl bg-[#D95D39]/10 border border-[#D95D39]/20 flex items-center justify-center">
+              <Map className="h-5 w-5 text-[#D95D39]" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm">{nurse.homeBase?.address || "Not set"}</p>
+              <p className="text-xs text-stone-500 font-mono">
+                {nurse.homeBase?.lat?.toFixed(4)}, {nurse.homeBase?.lng?.toFixed(4)}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Preferences */}

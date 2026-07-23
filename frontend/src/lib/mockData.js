@@ -8,6 +8,11 @@ export const NURSE = {
     "https://images.unsplash.com/photo-1594824476967-48c8b964273f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHwyfHxudXJzZSUyMHBvcnRyYWl0JTIwc21pbGluZ3xlbnwwfHx8fDE3ODQyMzM0OTl8MA&ixlib=rb-4.1.0&q=85",
   weeklySavedMinutes: 214,
   weeklySavedMiles: 38.4,
+  homeBase: {
+    lat: 34.0522,
+    lng: -118.2437,
+    address: "742 S Broadway, Los Angeles, CA 90014",
+  },
 };
 
 export const CLIENTS_SEED = [

@@ -13,6 +13,7 @@
  *   • Weather history for that day of week
  *   • Route-history patterns
  *   • Drive-time estimates with traffic multipliers
+ *   • Home base (nurse starting location)
  */
 
 /* ─── Day-of-week traffic multipliers ──────────────────── */
@@ -29,7 +30,6 @@ const TRAFFIC_BY_DOW = {
 };
 
 /* ─── Weather modifiers by DOW ─────────────────────────── */
-// Mock data: typical SoCal weather patterns (Jun–Aug)
 const WEATHER_BY_DOW = {
   0: { condition: "clear", visibility: 1.0, wind: 0.95 },
   1: { condition: "clear", visibility: 1.0, wind: 0.90 },
@@ -42,7 +42,7 @@ const WEATHER_BY_DOW = {
 
 /* ─── Utility: haversine distance (miles) ──────────────── */
 function haversine(lat1, lng1, lat2, lng2) {
-  const R = 3958.8; // Earth radius in miles
+  const R = 3958.8;
   const toRad = (d) => (d * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
   const dLng = toRad(lng2 - lng1);
@@ -55,12 +55,10 @@ function haversine(lat1, lng1, lat2, lng2) {
 /* ─── Utility: parse time window to hour number ────────── */
 function windowToHour(w) {
   if (!w) return 12;
-  // Try 24-hour format first: "HH:MM – HH:MM" (e.g. "08:00 – 09:30")
   const match24 = w.match(/^\s*(\d{1,2}):(\d{2})/);
   if (match24) {
     return parseInt(match24[1], 10) + parseInt(match24[2], 10) / 60;
   }
-  // Fallback to 12-hour format: "H:MM AM/PM" (e.g. "8:00 AM")
   const match12 = w.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
   if (!match12) return 12;
   let h = parseInt(match12[1], 10);
@@ -71,8 +69,8 @@ function windowToHour(w) {
   return h + m / 60;
 }
 
-/* ─── Utility: compute route metrics ───────────────────── */
-export function computeRouteMetrics(stops) {
+/* ─── Utility: compute route metrics FROM home base ────── */
+export function computeRouteMetrics(stops, homeBase) {
   let totalDriveMiles = 0;
   let totalDriveMinutes = 0;
   let totalCareMinutes = 0;
@@ -85,30 +83,33 @@ export function computeRouteMetrics(stops) {
   const weatherFactor = (weather.visibility || 1.0) * (weather.wind || 0.95);
 
   let currentHour = 8; // Start at 8 AM
+  let prevLat = homeBase?.lat;
+  let prevLng = homeBase?.lng;
+
   for (let i = 0; i < stops.length; i++) {
     const s = stops[i];
     const duration = s.duration || 30;
     totalCareMinutes += duration;
 
-    if (i > 0) {
-      const prev = stops[i - 1];
+    if (prevLat != null && prevLng != null) {
       const dist = haversine(
-        prev.lat || 0, prev.lng || 0,
+        prevLat, prevLng,
         s.lat || 0, s.lng || 0
       );
       totalDriveMiles += dist;
 
-      // Drive time: 30 mph average * traffic multiplier * weather
       const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
       totalDriveMinutes += driveMin;
       currentHour += driveMin / 60 + duration / 60;
 
-      // Check window violation: arrival time vs requested window
       const windowHour = windowToHour(s.window);
       if (windowHour < currentHour - 1) {
         windowViolations++;
       }
     }
+
+    prevLat = s.lat;
+    prevLng = s.lng;
   }
 
   return {
@@ -124,24 +125,19 @@ export function computeRouteMetrics(stops) {
 }
 
 /* ─── Strategy: AI (smart) ─────────────────────────────── */
-// Combines priority, time windows, and distance into a weighted score.
-// Lower score = better position in route.
-function optimizeAI(stops, dow) {
+// Combines priority, time windows, and distance from home base.
+function optimizeAI(stops, dow, homeBase) {
   if (stops.length < 2) return stops.map((s) => s.id);
 
   const priorityRank = { high: 0, medium: 1, low: 2 };
-  const traffic = TRAFFIC_BY_DOW[dow] || 1.5;
 
-  // Score each stop: lower = earlier in route
   const scored = stops.map((s) => {
     const p = priorityRank[s.priority] ?? 1;
     const w = windowToHour(s.window);
-    // Distance from LA center
     const fromHome = haversine(
       s.lat || 0, s.lng || 0,
-      34.0522, -118.2437
+      homeBase?.lat || 34.0522, homeBase?.lng || -118.2437
     );
-    // Updated weights: priority high, time window moderate, distance moderate
     const score = p * 200 + w * 5 + fromHome * 2;
     return { ...s, _score: score };
   });
@@ -150,10 +146,8 @@ function optimizeAI(stops, dow) {
   return scored.map((s) => s.id);
 }
 
-/* ─── Strategy: Fastest (time-window + traffic-aware) ──── */
-// Builds a route that respects time windows while minimizing drive time.
-// Accounts for traffic multiplier to estimate realistic drive times.
-function optimizeFastest(stops) {
+/* ─── Strategy: Fastest (traffic-aware, starts from home) ── */
+function optimizeFastest(stops, homeBase) {
   if (stops.length < 2) return stops.map((s) => s.id);
 
   const dow = new Date().getDay();
@@ -161,36 +155,30 @@ function optimizeFastest(stops) {
   const weather = WEATHER_BY_DOW[dow] || { visibility: 1.0, wind: 0.95 };
   const weatherFactor = (weather.visibility || 1.0) * (weather.wind || 0.95);
 
-  // Start from the earliest time window
-  const sorted = [...stops].sort((a, b) => windowToHour(a.window) - windowToHour(b.window));
-  const ordered = [sorted[0]];
-  const remaining = sorted.slice(1);
-
-  // Greedy: at each step, pick the next stop that minimizes
-  // (drive time from current location + time pressure to meet its window)
-  let currentHour = windowToHour(ordered[0].window);
+  // Start from home base, pick closest stop by drive time + time window
+  const remaining = [...stops];
+  const ordered = [];
+  let currentLat = homeBase?.lat || 34.0522;
+  let currentLng = homeBase?.lng || -118.2437;
+  let currentHour = 8;
 
   while (remaining.length > 0) {
-    const last = ordered[ordered.length - 1];
     let bestIdx = 0;
     let bestScore = Infinity;
 
     for (let i = 0; i < remaining.length; i++) {
       const s = remaining[i];
       const dist = haversine(
-        last.lat || 0, last.lng || 0,
+        currentLat, currentLng,
         s.lat || 0, s.lng || 0
       );
       const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
-      const arrivalHour = currentHour + (last.duration || 30) / 60 + driveMin / 60;
+      const arrivalHour = currentHour + driveMin / 60;
       const windowHour = windowToHour(s.window);
 
-      // Score: how late we'd arrive (penalty) + drive time
-      // If we arrive before the window opens, we wait (no penalty)
-      // If we arrive after the window closes, heavy penalty
-      const lateness = Math.max(0, arrivalHour - (windowHour + 1)); // 1h window assumed
-      const windowMiss = windowHour < arrivalHour - 1 ? 50 : 0;
-      const score = driveMin + lateness * 30 + windowMiss;
+      // Score: drive time + lateness penalty
+      const lateness = Math.max(0, arrivalHour - (windowHour + 1));
+      const score = driveMin + lateness * 30;
 
       if (score < bestScore) {
         bestScore = score;
@@ -200,11 +188,13 @@ function optimizeFastest(stops) {
 
     const chosen = remaining[bestIdx];
     const dist = haversine(
-      last.lat || 0, last.lng || 0,
+      currentLat, currentLng,
       chosen.lat || 0, chosen.lng || 0
     );
     const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
-    currentHour += (last.duration || 30) / 60 + driveMin / 60;
+    currentHour += driveMin / 60 + (chosen.duration || 30) / 60;
+    currentLat = chosen.lat;
+    currentLng = chosen.lng;
 
     ordered.push(chosen);
     remaining.splice(bestIdx, 1);
@@ -213,16 +203,17 @@ function optimizeFastest(stops) {
   return ordered.map((s) => s.id);
 }
 
-/* ─── Strategy: Least mileage (best-start TSP) ─────────── */
-// Tries EVERY stop as the starting point, runs nearest-neighbor TSP,
-// and picks the ordering with the shortest total driving distance.
-function optimizeLeastMileage(stops) {
+/* ─── Strategy: Least mileage (best-start TSP from home) ── */
+function optimizeLeastMileage(stops, homeBase) {
   if (stops.length < 2) return stops.map((s) => s.id);
 
   let bestOrder = null;
   let bestDist = Infinity;
 
-  // Try each stop as the starting point
+  const homeLat = homeBase?.lat || 34.0522;
+  const homeLng = homeBase?.lng || -118.2437;
+
+  // Try each stop as the FIRST patient (from home base)
   for (let startIdx = 0; startIdx < stops.length; startIdx++) {
     const ordered = [stops[startIdx]];
     const remaining = stops.filter((_, i) => i !== startIdx);
@@ -244,8 +235,11 @@ function optimizeLeastMileage(stops) {
       ordered.push(remaining.splice(closest, 1)[0]);
     }
 
-    // Compute total distance for this ordering
-    let totalDist = 0;
+    // Compute total distance: home → first stop → ... → last stop
+    let totalDist = haversine(
+      homeLat, homeLng,
+      ordered[0].lat || 0, ordered[0].lng || 0
+    );
     for (let i = 1; i < ordered.length; i++) {
       totalDist += haversine(
         ordered[i - 1].lat || 0, ordered[i - 1].lng || 0,
@@ -269,7 +263,6 @@ function optimizeCustom(stops) {
     .sort((a, b) => {
       const p = priorityRank[a.priority] - priorityRank[b.priority];
       if (p !== 0) return p;
-      // Within same priority, order by time window then duration
       const w = windowToHour(a.window) - windowToHour(b.window);
       if (w !== 0) return w;
       return (a.duration || 30) - (b.duration || 30);
@@ -277,12 +270,11 @@ function optimizeCustom(stops) {
     .map((s) => s.id);
 }
 
-/* ─── Validation: is this route actually optimal? ──────── */
-function validateRoute(stops, orderIds, mode, dow) {
+/* ─── Validation ────────────────────────────────────────── */
+function validateRoute(stops, orderIds, mode, dow, homeBase) {
   const currentOrder = orderIds.map((id) => stops.find((s) => s.id === id)).filter(Boolean);
-  const currentMetrics = computeRouteMetrics(currentOrder);
+  const currentMetrics = computeRouteMetrics(currentOrder, homeBase);
 
-  // Generate a few alternative orderings and compare
   const alternatives = [];
 
   // Try: nearest-neighbor from different starting points
@@ -302,26 +294,17 @@ function validateRoute(stops, orderIds, mode, dow) {
     alternatives.push(alt);
   }
 
-  // Try: time-window sorted
   const timeSorted = [...stops].sort((a, b) => windowToHour(a.window) - windowToHour(b.window));
   alternatives.push(timeSorted);
-
-  // Try: reverse order
   alternatives.push([...stops].reverse());
 
-  // Score each alternative
   const altMetrics = alternatives.map((alt) => {
-    const m = computeRouteMetrics(alt);
-    return {
-      order: alt.map((s) => s.id),
-      ...m,
-    };
+    const m = computeRouteMetrics(alt, homeBase);
+    return { order: alt.map((s) => s.id), ...m };
   });
 
-  // Find the best alternative for the current mode
   let bestScore = Infinity;
   let bestAlt = null;
-  let improvement = 0;
 
   for (const alt of altMetrics) {
     let score;
@@ -342,14 +325,12 @@ function validateRoute(stops, orderIds, mode, dow) {
       default:
         score = alt.totalDriveMiles + alt.totalDriveMinutes;
     }
-
     if (score < bestScore) {
       bestScore = score;
       bestAlt = alt;
     }
   }
 
-  // Compare current against best
   let currentScore;
   switch (mode) {
     case "ai":
@@ -369,7 +350,7 @@ function validateRoute(stops, orderIds, mode, dow) {
       currentScore = currentMetrics.totalDriveMiles + currentMetrics.totalDriveMinutes;
   }
 
-  improvement = currentScore - bestScore;
+  const improvement = currentScore - bestScore;
 
   return {
     isOptimal: improvement <= 0,
@@ -382,7 +363,7 @@ function validateRoute(stops, orderIds, mode, dow) {
 }
 
 /* ─── Main optimization entry point ────────────────────── */
-export function optimizeRoute(stops, mode = "ai", savedRoutes = []) {
+export function optimizeRoute(stops, mode = "ai", savedRoutes = [], homeBase = null) {
   if (!stops || stops.length === 0) return { order: [], metrics: null, validation: null, label: "No stops" };
 
   const now = new Date();
@@ -394,7 +375,6 @@ export function optimizeRoute(stops, mode = "ai", savedRoutes = []) {
   let order = [];
   let strategyLabel = "";
 
-  // Handle "Load existing route" — first saved route by default
   if (mode === "saved" && savedRoutes.length > 0) {
     const route = savedRoutes[0];
     order = route.stops;
@@ -402,33 +382,32 @@ export function optimizeRoute(stops, mode = "ai", savedRoutes = []) {
   } else {
     switch (mode) {
       case "ai":
-        order = optimizeAI(stops, dow);
+        order = optimizeAI(stops, dow, homeBase);
         strategyLabel = `AI smart route (${dayNames[dow]}, traffic ${traffic.toFixed(2)}×, ${weather.condition})`;
         break;
       case "fastest":
-        order = optimizeFastest(stops);
+        order = optimizeFastest(stops, homeBase);
         strategyLabel = `Fastest route (traffic-aware, ${dayNames[dow]} traffic ${traffic.toFixed(2)}×)`;
         break;
       case "shortest":
       case "mileage":
-        order = optimizeLeastMileage(stops);
-        strategyLabel = `Least mileage (best-start TSP, ${dayNames[dow]})`;
+        order = optimizeLeastMileage(stops, homeBase);
+        strategyLabel = `Least mileage (best-start TSP from home, ${dayNames[dow]})`;
         break;
       case "custom":
         order = optimizeCustom(stops);
         strategyLabel = `Custom route (priority-first, ${dayNames[dow]})`;
         break;
       default:
-        order = optimizeAI(stops, dow);
+        order = optimizeAI(stops, dow, homeBase);
         strategyLabel = `AI smart route (${dayNames[dow]}, traffic ${traffic.toFixed(2)}×)`;
     }
   }
 
   const orderedStops = order.map((id) => stops.find((s) => s.id === id)).filter(Boolean);
-  const metrics = computeRouteMetrics(orderedStops);
-  const validation = validateRoute(stops, order, mode, dow);
+  const metrics = computeRouteMetrics(orderedStops, homeBase);
+  const validation = validateRoute(stops, order, mode, dow, homeBase);
 
-  // Generate explanation text
   const explanation = buildExplanation(strategyLabel, metrics, validation, mode, dow, weather, traffic);
 
   return {
@@ -446,19 +425,11 @@ export function optimizeRoute(stops, mode = "ai", savedRoutes = []) {
 /* ─── Explanation builder ──────────────────────────────── */
 function buildExplanation(label, metrics, validation, mode, dow, weather, traffic) {
   const parts = [];
-
-  // What mode was used
   parts.push(`Optimized using **${label}**`);
-
-  // Route stats
   const savedMin = Math.max(0, Math.round(metrics.totalDriveMinutes * 0.15));
   parts.push(`• ${metrics.totalDriveMiles} mi · ${metrics.totalDriveMinutes} min drive · ${metrics.totalCareMinutes} min care`);
-
-  // Day & traffic insight
   const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   parts.push(`• ${dayNames[dow]} · traffic ${traffic.toFixed(2)}× · ${weather.condition}`);
-
-  // Validation
   if (validation) {
     if (validation.isOptimal) {
       parts.push(`✓ This route is optimal for the selected mode`);
@@ -466,7 +437,6 @@ function buildExplanation(label, metrics, validation, mode, dow, weather, traffi
       parts.push(`⚠ Route could be improved by ${validation.improvement} points`);
     }
   }
-
   return parts.join("\n");
 }
 
@@ -494,17 +464,41 @@ export function getDrivingConditions() {
 }
 
 /* ─── Compute route summary metrics for display ────────── */
-export function computeRouteSummary(stops) {
+export function computeRouteSummary(stops, homeBase) {
   if (!stops || stops.length === 0) {
     return { totalMiles: 0, totalDriveMin: 0, totalCareMin: 0, totalMin: 0, avgSpeed: 0, stopsCount: 0 };
   }
-  const metrics = computeRouteMetrics(stops);
+  const homeLat = homeBase?.lat;
+  const homeLng = homeBase?.lng;
+  let totalMiles = 0;
+  let totalMin = 0;
+  const now = new Date();
+  const dow = now.getDay();
+  const traffic = TRAFFIC_BY_DOW[dow] || 1.5;
+  const weather = WEATHER_BY_DOW[dow] || { visibility: 1.0, wind: 0.95 };
+  const wf = (weather.visibility || 1.0) * (weather.wind || 0.95);
+
+  let prevLat = homeLat;
+  let prevLng = homeLng;
+
+  for (let i = 0; i < stops.length; i++) {
+    const s = stops[i];
+    if (prevLat != null && prevLng != null) {
+      const d = haversine(prevLat, prevLng, s.lat || 0, s.lng || 0);
+      totalMiles += d;
+      totalMin += (d / 30) * 60 * traffic * wf;
+    }
+    totalMin += s.duration || 30;
+    prevLat = s.lat;
+    prevLng = s.lng;
+  }
+
   return {
-    totalMiles: metrics.totalDriveMiles,
-    totalDriveMin: metrics.totalDriveMinutes,
-    totalCareMin: metrics.totalCareMinutes,
-    totalMin: metrics.totalTimeMinutes,
-    avgSpeed: metrics.avgSpeed,
+    totalMiles: Math.round(totalMiles * 10) / 10,
+    totalDriveMin: Math.round(totalMin),
+    totalCareMin: stops.reduce((s, c) => s + (c.duration || 30), 0),
+    totalMin: Math.round(totalMin),
+    avgSpeed: totalMin > 0 ? Math.round((totalMiles / (totalMin / 60)) * 10) / 10 : 0,
     stopsCount: stops.length,
   };
 }

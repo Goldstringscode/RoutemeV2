@@ -14,12 +14,12 @@ const DEM_SOURCE = "mapbox-dem";
  * 3D terrain for elevation context.
  */
 export default function StylizedMap({ compact = false, onStopClick }) {
-  const { schedule, routeGeoJson, routeDistance, routeDuration } = useRouteMe();
+  const { schedule, routeGeoJson, routeDistance, routeDuration, nurse } = useRouteMe();
+  const homeBase = nurse?.homeBase;
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const [svgPositions, setSvgPositions] = useState([]);
     const updateTimer = useRef(null);
-    const mapLoaded = useRef(false);
 
   // Project lat/lng to SVG pixel coordinates
   const updatePositions = useCallback(() => {
@@ -86,7 +86,7 @@ export default function StylizedMap({ compact = false, onStopClick }) {
 
     const map = new mapboxgl.Map({
       container: mapContainer.current,
-      style: "mapbox://styles/mapbox/streets-v12",
+      style: "mapbox://styles/mapbox/outdoors-v12",
       center: [centerLng, centerLat],
       zoom: compact ? 9.5 : 9,
       pitch: compact ? 0 : 45,
@@ -96,87 +96,91 @@ export default function StylizedMap({ compact = false, onStopClick }) {
     });
 
     map.on("load", () => {
-          // Guard: setTerrain triggers style reloads which fire "load" again
-          if (mapLoaded.current) return;
-          mapLoaded.current = true;
+      // ── 1. DEM source & terrain (idempotent — only adds if missing) ──
+      // outdoors-v12 already has terrain support; this activates it.
+      // If the source already exists (e.g. after style reload), we skip adding.
+      let hasTerrain = !!map.getSource(DEM_SOURCE);
+      if (!hasTerrain) {
+        try {
+          map.addSource(DEM_SOURCE, {
+            type: "raster-dem",
+            url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+            tileSize: 512,
+            maxzoom: 14,
+          });
+          map.setTerrain({ source: DEM_SOURCE, exaggeration: 1.2 });
+          hasTerrain = true;
+          console.log("[StylizedMap] 3D terrain enabled");
+        } catch (e) {
+          console.warn("[StylizedMap] Terrain unavailable:", e);
+        }
+      }
 
-          // ── 1. Terrain ──
-          let hasTerrain = false;
-          try {
-            map.addSource(DEM_SOURCE, {
-              type: "raster-dem",
-              url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-              tileSize: 512,
-              maxzoom: 14,
-            });
-            map.setTerrain({ source: DEM_SOURCE, exaggeration: 1.0 });
-            hasTerrain = true;
-            console.log("[StylizedMap] 3D terrain enabled");
-          } catch (e) {
-            console.warn("[StylizedMap] Terrain unavailable:", e);
-          }
+      // ── 2. Hillshade (re-safe after style reloads) ──
+      if (hasTerrain && !map.getLayer("hillshade")) {
+        try {
+          map.addLayer({
+            id: "hillshade",
+            type: "hillshade",
+            source: DEM_SOURCE,
+            paint: {
+              "hillshade-exaggeration": 0.6,
+              "hillshade-shadow-color": "#2C3E50",
+              "hillshade-highlight-color": "#FFFFFF",
+            },
+          });
+          console.log("[StylizedMap] Hillshade layer added");
+        } catch (e) {
+          console.warn("[StylizedMap] Hillshade layer failed:", e);
+        }
+      }
 
-          if (hasTerrain) {
-                  // Add hillshade for visible terrain relief (only if not already added)
-                  if (!map.getLayer("hillshade")) {
-                    try {
-                      map.addLayer({
-                        id: "hillshade",
-                        type: "hillshade",
-                        source: DEM_SOURCE,
-                        paint: {
-                          "hillshade-exaggeration": 0.6,
-                          "hillshade-shadow-color": "#2C3E50",
-                          "hillshade-highlight-color": "#FFFFFF",
-                        },
-                      });
-                    } catch (e) {
-                      console.warn("[StylizedMap] Hillshade layer failed:", e);
-                    }
-                  }
-                  // Sky atmosphere so terrain is visible against a sky backdrop
-                  if (!map.getLayer("sky")) {
-                    try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
-                  }
-                }
+      // ── 3. Sky atmosphere ──
+      if (hasTerrain && !map.getLayer("sky")) {
+        try {
+          map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } });
+        } catch (e) {}
+      }
 
-      // ── 2. Route layers ──
-      try {
-        map.addSource(ROUTE_SOURCE, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        });
+      // ── 4. Route layers (idempotent) ──
+      if (!map.getSource(ROUTE_SOURCE)) {
+        try {
+          map.addSource(ROUTE_SOURCE, {
+            type: "geojson",
+            data: { type: "FeatureCollection", features: [] },
+          });
 
-        // Glow layer
-        map.addLayer({
-          id: ROUTE_GLOW,
-          type: "line",
-          source: ROUTE_SOURCE,
-          layout: { "line-join": "round", "line-cap": "round" },
-          paint: {
-            "line-color": "#D95D39",
-            "line-opacity": 0.2,
-            "line-width": 12,
-          },
-        });
+          // Glow layer
+          map.addLayer({
+            id: ROUTE_GLOW,
+            type: "line",
+            source: ROUTE_SOURCE,
+            layout: { "line-join": "round", "line-cap": "round" },
+            paint: {
+              "line-color": "#D95D39",
+              "line-opacity": 0.2,
+              "line-width": 12,
+            },
+          });
 
-        // Main route layer
-        map.addLayer({
-          id: ROUTE_LAYER,
-          type: "line",
-          source: ROUTE_SOURCE,
-          layout: { "line-join": "round", "line-cap": "round" },
-          paint: {
-            "line-color": "#D95D39",
-            "line-width": 4,
-            "line-opacity": 0.85,
-          },
-        });
+          // Main route layer
+          map.addLayer({
+            id: ROUTE_LAYER,
+            type: "line",
+            source: ROUTE_SOURCE,
+            layout: { "line-join": "round", "line-cap": "round" },
+            paint: {
+              "line-color": "#D95D39",
+              "line-width": 4,
+              "line-opacity": 0.85,
+            },
+          });
 
-        // Hide labels
-        try { map.setLayoutProperty("country-label", "visibility", "none"); } catch {}
-      } catch (e) {
-        console.warn("Map layers setup failed:", e);
+          // Hide labels
+          try { map.setLayoutProperty("country-label", "visibility", "none"); } catch {}
+        } catch (e) {
+          console.warn("Map layers setup failed:", e);
+        }
       }
 
       // Initial position projection
@@ -193,7 +197,6 @@ export default function StylizedMap({ compact = false, onStopClick }) {
           if (updateTimer.current) clearTimeout(updateTimer.current);
           map.remove();
           mapRef.current = null;
-          mapLoaded.current = false;
         };
   }, [compact]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -304,6 +307,30 @@ export default function StylizedMap({ compact = false, onStopClick }) {
               className="rm-route-path"
             />
           </>
+        )}
+
+        {/* Home base marker — always visible when homeBase is set */}
+        {homeBase && (
+          (() => {
+            const rect = mapContainer.current?.getBoundingClientRect();
+            if (!rect) return null;
+            const point = mapRef.current?.project([homeBase.lng, homeBase.lat]);
+            if (!point) return null;
+            const svgX = (point.x / rect.width) * 1000;
+            const svgY = (point.y / rect.height) * 600;
+            return (
+              <g transform={`translate(${svgX} ${svgY})`} className="pointer-events-auto">
+                <circle r="20" fill="#D95D39" stroke="#FFFFFF" strokeWidth="3" opacity="0.9" />
+                <circle r="7" fill="#FFFFFF" opacity="0.9" />
+                <text
+                  x="0" y="28" textAnchor="middle" fill="#D95D39"
+                  fontFamily="Manrope, sans-serif" fontWeight="700" fontSize="8" letterSpacing="0.5"
+                >
+                  HOME
+                </text>
+              </g>
+            );
+          })()
         )}
 
         {/* Stops — clickable */}

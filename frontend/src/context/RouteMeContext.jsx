@@ -205,6 +205,9 @@ export function RouteMeProvider({ children }) {
         license: profile.license || NURSE.license,
         region: profile.region || NURSE.region,
         avatar: profile.avatar_url || NURSE.avatar,
+        homeBase: profile.home_base || NURSE.homeBase,
+        weeklySavedMinutes: profile.weekly_saved_minutes || NURSE.weeklySavedMinutes,
+        weeklySavedMiles: profile.weekly_saved_miles || NURSE.weeklySavedMiles,
       } : NURSE);
 
       // 3. Role-appropriate data loading
@@ -493,13 +496,13 @@ export function RouteMeProvider({ children }) {
           const orderedStops = ids.map((id) => clients.find((c) => c.id === id)).filter(Boolean);
           if (orderedStops.length >= 2) {
             // Always update routeResult so summary cards reflect the new order
-                    const metrics = computeRouteMetrics(orderedStops);
-                    setRouteResult(prev => {
-                      if (prev) return { ...prev, metrics };
-                      const now = new Date();
-                      const dow = now.getDay();
-                      const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-                      return { order: ids, metrics, validation: null, label: "Manual reorder", dayOfWeek: dayNames[dow], trafficMultiplier: 1.5, weather: "clear" };
+                    const metrics = computeRouteMetrics(orderedStops, nurse.homeBase);
+                              setRouteResult(prev => {
+                                if (prev) return { ...prev, metrics };
+                                const now = new Date();
+                                const dow = now.getDay();
+                                const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+                                return { order: ids, metrics, validation: null, label: "Manual reorder", dayOfWeek: dayNames[dow], trafficMultiplier: 1.5, weather: "clear" };
                     });
             setRouteKey(k => k + 1);
             fetchRoute(orderedStops).then((route) => {
@@ -516,7 +519,7 @@ export function RouteMeProvider({ children }) {
 
   const optimize = useCallback((mode) => {
             const optMode = mode || optimizationMode;
-            const result = optimizeRoute(schedule, optMode, savedRoutes);
+            const result = optimizeRoute(schedule, optMode, savedRoutes, nurse.homeBase);
             if (result.order?.length) {
               setScheduleIds(result.order);
             setOptimized(true);
@@ -541,6 +544,15 @@ export function RouteMeProvider({ children }) {
           }
         }, [schedule, optimizationMode, savedRoutes, pushAudit]);
 
+        /* ─── Home Base ──────────────────────────────────────── */
+        const updateNurseHomeBase = useCallback((homeBase) => {
+          setNurse(n => ({ ...n, homeBase }));
+          pushAudit(`Home base updated — ${homeBase.address}`, "write");
+          supabase.from('profiles').update({ home_base: homeBase }).eq('id', userIdRef.current).then().catch(err => {
+            console.error("supabase error [updateNurseHomeBase]:", err.message);
+          });
+        }, [pushAudit]);
+
         /* ─── Initial Mapbox route fetch ─────────────────────── */
                         const routeFetchedRef = useRef(false);
                         useEffect(() => {
@@ -548,7 +560,7 @@ export function RouteMeProvider({ children }) {
                             routeFetchedRef.current = true;
                             console.log("[RouteMe] Initial fetch for", schedule.length, "stops");
                             // Also set routeResult so summary cards show data immediately
-                            const initialMetrics = computeRouteMetrics(schedule);
+                            const initialMetrics = computeRouteMetrics(schedule, nurse.homeBase);
                             setRouteResult({
                               order: schedule.map(s => s.id),
                               metrics: initialMetrics,
@@ -578,8 +590,12 @@ export function RouteMeProvider({ children }) {
                           if (weatherLoading || weatherData) return;
                           setWeatherLoading(true);
                           try {
-                            const OPENWEATHER_KEY = process.env.REACT_APP_OPENWEATHER_KEY || "a037a7d5323bc5bad6c79d0e5e743483";
-            const res = await fetch(
+                            const OPENWEATHER_KEY = process.env.REACT_APP_OPENWEATHER_KEY;
+                                        if (!OPENWEATHER_KEY) {
+                                          setWeatherLoading(false);
+                                          return;
+                                        }
+                                        const res = await fetch(
                               `https://api.openweathermap.org/data/2.5/weather?lat=34.05&lon=-118.24&appid=${OPENWEATHER_KEY}&units=imperial`
                             );
                             if (!res.ok) throw new Error(`Weather API ${res.status}`);
@@ -692,14 +708,14 @@ export function RouteMeProvider({ children }) {
       setOptimized(true);
       const orderedStops = route.stops.map(id => clients.find(c => c.id === id)).filter(Boolean);
             if (orderedStops.length >= 2) {
-              const metrics = computeRouteMetrics(orderedStops);
-              setRouteResult(prev => {
-                if (prev) return { ...prev, metrics };
-                const now = new Date();
-                const dow = now.getDay();
-                const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-                return { order: route.stops, metrics, validation: null, label: "Loaded route", dayOfWeek: dayNames[dow], trafficMultiplier: 1.5, weather: "clear" };
-              });
+              const metrics = computeRouteMetrics(orderedStops, nurse.homeBase);
+                        setRouteResult(prev => {
+                          if (prev) return { ...prev, metrics };
+                          const now = new Date();
+                          const dow = now.getDay();
+                          const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+                          return { order: ids, metrics, validation: null, label: "Loaded route", dayOfWeek: dayNames[dow], trafficMultiplier: 1.5, weather: "clear" };
+                        });
         fetchRoute(orderedStops).then(r => {
           if (r) { setRouteGeoJson(r.routeGeoJson); setRouteDistance(r.distance); setRouteDuration(r.duration); }
         }).catch(() => {});
@@ -723,7 +739,7 @@ export function RouteMeProvider({ children }) {
                 // Recalculate route metrics after removal
                                 const remaining = newIds.map(sid => clients.find(c => c.id === sid)).filter(Boolean);
                                 if (remaining.length >= 2) {
-                                                                  const metrics = computeRouteMetrics(remaining);
+                                                                  const metrics = computeRouteMetrics(remaining, nurse.homeBase);
                                                                   setRouteResult(prev => {
                                                                     if (prev) return { ...prev, metrics };
                                                                     const now = new Date(); const dow = now.getDay(); const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -920,6 +936,8 @@ export function RouteMeProvider({ children }) {
     // Route management
     removeFromRoute, rescheduleClient, createRoute, clearRescheduled,
     rescheduledClients, getWeekStart,
+    // Home Base
+    updateNurseHomeBase,
     // Agency admin
     agencyAuthed, setAgencyAuthed, agency, nurses, liveActivity, agencyClients, complianceLog,
     inviteNurse, setNurseStatus, removeNurse, resetAgencyDemo, reassignClient,

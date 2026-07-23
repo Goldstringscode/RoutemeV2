@@ -16,7 +16,7 @@ const OPTIMIZATION_MODES = [
 ];
 
 export default function RouteView() {
-  const { schedule, optimize, optimized, openVoice, saveRoute, savedRoutes, loadRoute, reorder, routeResult, clients, scheduleIds, createRoute, removeFromRoute, rescheduleClient, rescheduledClients, optimizationMode, setOptimizationMode, routeDistance, routeDuration, weatherData, weatherLoading } = useRouteMe();
+  const { schedule, optimize, optimized, openVoice, saveRoute, savedRoutes, loadRoute, reorder, routeResult, clients, scheduleIds, createRoute, removeFromRoute, rescheduleClient, rescheduledClients, optimizationMode, setOptimizationMode, routeDistance, routeDuration, weatherData, weatherLoading, nurse } = useRouteMe();
     const [selected, setSelected] = useState(schedule[0]?.id);
     const [modalOpen, setModalOpen] = useState(false);
     const [builderOpen, setBuilderOpen] = useState(false);
@@ -167,6 +167,12 @@ export default function RouteView() {
           {weatherLoading && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-50 border border-stone-200 px-3 py-1.5 text-stone-400">
               <Loader className="h-3 w-3 animate-spin" /> Weather...
+            </span>
+          )}
+          {nurse?.homeBase && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 border border-orange-200 px-3 py-1.5 text-orange-800">
+              <MapPin className="h-3 w-3" />
+              From {nurse.homeBase.address?.split(",")[0] || "Home"}
             </span>
           )}
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E3ECE5] border border-emerald-200 px-3 py-1.5 text-emerald-800">
@@ -411,12 +417,13 @@ export default function RouteView() {
                     <button
                       key={m.id}
                       onClick={() => {
-                        if (isSaved) {
-                          setOptimizationMode(m.id);
-                        } else {
-                          applyOptimization(m.id);
-                        }
-                      }}
+                                                if (isSaved) {
+                                                  setOptimizationMode(m.id);
+                                                } else {
+                                                  setOptimizationMode(m.id);
+                                                  applyOptimization(m.id);
+                                                }
+                                              }}
                       data-testid={`opt-mode-${m.id}`}
                     className={`w-full text-left flex items-start gap-4 rounded-2xl border p-4 transition-all ${
                       isActive
