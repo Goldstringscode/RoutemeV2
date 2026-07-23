@@ -6,6 +6,7 @@ const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 const ROUTE_SOURCE = "route-source";
 const ROUTE_LAYER = "route-layer";
 const ROUTE_GLOW = "route-glow";
+const DEM_SOURCE = "mapbox-dem";
 
 /**
  * Stylized map: real Mapbox map with real route lines and SVG stop overlays.
@@ -95,17 +96,52 @@ export default function StylizedMap({ compact = false, onStopClick }) {
         });
 
         map.on("load", () => {
-              // ── 1. Sky atmosphere for cinematic backdrop ──
-              // No custom DEM source or setTerrain — those require a paid Mapbox token
-              // and cause the map to fail on free-tier tokens. streets-v12 has clean
-              // vector tiles with highways, city names, and parks. The sky atmosphere
-              // gives it a polished 3D look at 55° pitch.
-              if (!map.getLayer("sky")) {
-                try {
-                  map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } });
-                } catch (e) {}
-              }
-          // ── 2. Route layers ──
+          // ── 1. Add terrain DEM source + setTerrain ──
+          // The DEM tiles work with this token. setTerrain() triggers a style
+          // reload, so we use style.load (below) to re-add sources/layers that
+          // get wiped. The terrain itself survives the reload.
+          if (!map.getSource(DEM_SOURCE)) {
+            try {
+              map.addSource(DEM_SOURCE, {
+                type: "raster-dem",
+                url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+                tileSize: 512,
+                maxzoom: 14,
+              });
+              map.setTerrain({ source: DEM_SOURCE, exaggeration: 1.0 });
+              console.log("[StylizedMap] 3D terrain enabled");
+            } catch (e) {
+              console.warn("[StylizedMap] Terrain setup failed:", e?.message || e);
+            }
+          }
+
+          // ── 2. Sky atmosphere ──
+          if (!map.getLayer("sky")) {
+            try {
+              map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } });
+            } catch (e) {}
+          }
+
+          // ── 3. Hillshade layer (above terrain, below route) ──
+          if (!map.getLayer("hillshade") && map.getSource(DEM_SOURCE)) {
+            try {
+              map.addLayer({
+                id: "hillshade",
+                type: "hillshade",
+                source: DEM_SOURCE,
+                paint: {
+                  "hillshade-exaggeration": 0.8,
+                  "hillshade-shadow-color": "#2C3E50",
+                  "hillshade-highlight-color": "#FFFFFF",
+                },
+              });
+              console.log("[StylizedMap] Hillshade added");
+            } catch (e) {
+              console.warn("[StylizedMap] Hillshade failed:", e?.message || e);
+            }
+          }
+
+          // ── 4. Route layers ──
           if (!map.getSource(ROUTE_SOURCE)) {
             try {
               map.addSource(ROUTE_SOURCE, {
@@ -113,7 +149,6 @@ export default function StylizedMap({ compact = false, onStopClick }) {
                 data: { type: "FeatureCollection", features: [] },
               });
 
-              // Glow layer
               map.addLayer({
                 id: ROUTE_GLOW,
                 type: "line",
@@ -126,7 +161,6 @@ export default function StylizedMap({ compact = false, onStopClick }) {
                 },
               });
 
-              // Main route layer
               map.addLayer({
                 id: ROUTE_LAYER,
                 type: "line",
@@ -139,15 +173,61 @@ export default function StylizedMap({ compact = false, onStopClick }) {
                 },
               });
 
-              // Hide labels
               try { map.setLayoutProperty("country-label", "visibility", "none"); } catch {}
             } catch (e) {
               console.warn("Map layers setup failed:", e);
             }
           }
 
-          // Initial position projection
           updatePositions();
+        });
+
+        // style.load fires AFTER setTerrain() triggers a style reload.
+        // Re-add anything that got wiped (sky, hillshade, route layers).
+        map.on("style.load", () => {
+          console.log("[StylizedMap] style.load fired (re-adding layers)");
+
+          if (!map.getLayer("sky")) {
+            try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
+          }
+
+          if (!map.getLayer("hillshade") && map.getSource(DEM_SOURCE)) {
+            try {
+              map.addLayer({
+                id: "hillshade",
+                type: "hillshade",
+                source: DEM_SOURCE,
+                paint: {
+                  "hillshade-exaggeration": 0.8,
+                  "hillshade-shadow-color": "#2C3E50",
+                  "hillshade-highlight-color": "#FFFFFF",
+                },
+              });
+            } catch (e) {}
+          }
+
+          if (!map.getSource(ROUTE_SOURCE)) {
+            try {
+              map.addSource(ROUTE_SOURCE, {
+                type: "geojson",
+                data: { type: "FeatureCollection", features: [] },
+              });
+              map.addLayer({
+                id: ROUTE_GLOW,
+                type: "line",
+                source: ROUTE_SOURCE,
+                layout: { "line-join": "round", "line-cap": "round" },
+                paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 },
+              });
+              map.addLayer({
+                id: ROUTE_LAYER,
+                type: "line",
+                source: ROUTE_SOURCE,
+                layout: { "line-join": "round", "line-cap": "round" },
+                paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 },
+              });
+            } catch (e) {}
+          }
         });
 
     // Update positions on map move/zoom

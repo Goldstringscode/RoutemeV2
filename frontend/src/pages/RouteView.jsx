@@ -101,31 +101,56 @@ export default function RouteView() {
   const modeLabel = OPTIMIZATION_MODES.find(m => m.id === optimizationMode)?.label || "AI smart route";
 
   /* ─── Dynamic fuel & time saved ──────────────────────────── */
-  // Baseline: store the first-ever routeDistance as reference
-  const baselineDistRef = useRef(null);
-  if (routeDistance && !baselineDistRef.current) {
-    baselineDistRef.current = routeDistance;
+  // Baseline = the sum of individual legs if visited in original (unoptimized) order.
+  // This gives a stable reference point that doesn't depend on async Mapbox fetches.
+  const computeBaselineDist = () => {
+    const homeLat = nurse?.homeBase?.lat;
+    const homeLng = nurse?.homeBase?.lng;
+    let total = 0;
+    let prevLat = homeLat;
+    let prevLng = homeLng;
+    const origOrder = clients.filter(c => scheduleIds.includes(c.id));
+    // Use scheduleIds order (original seed order) not schedule (current order)
+    for (const id of scheduleIds) {
+      const c = clients.find(cl => cl.id === id);
+      if (!c) continue;
+      if (prevLat != null && prevLng != null) {
+        const R = 3958.8;
+        const toRad = d => d * Math.PI / 180;
+        const dLat = toRad((c.lat||0) - prevLat);
+        const dLng = toRad((c.lng||0) - prevLng);
+        const a = Math.sin(dLat/2)**2 + Math.cos(toRad(prevLat)) * Math.cos(toRad(c.lat||0)) * Math.sin(dLng/2)**2;
+        total += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      }
+      prevLat = c.lat;
+      prevLng = c.lng;
+    }
+    return total; // in miles
+  };
+
+  const baselineMilesRef = useRef(null);
+  if (!baselineMilesRef.current) {
+    baselineMilesRef.current = computeBaselineDist();
   }
 
-  const computeFuelSaved = (currentDist, result) => {
-    if (!currentDist || !baselineDistRef.current) return "--";
-    const baselineMiles = metersToMiles(baselineDistRef.current);
-    const currentMiles = metersToMiles(currentDist);
-    const pct = ((baselineMiles - currentMiles) / baselineMiles) * 100;
+  const computeFuelSaved = (currentDistMeters) => {
+    if (!currentDistMeters || !baselineMilesRef.current) return "--";
+    const currentMiles = currentDistMeters * 0.000621371;
+    const baseline = baselineMilesRef.current;
+    if (baseline < 0.1) return "--";
+    const pct = ((baseline - currentMiles) / baseline) * 100;
     if (Math.abs(pct) < 0.1) return "—";
     return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
   };
 
   const computeTimeSaved = (currentDur) => {
-    // Compare drive time vs total care time to show efficiency
     if (!currentDur) return "--";
-    const totalCare = schedule.reduce((s, c) => s + (c.duration || 30), 0);
-    const driveSec = currentDur;
-    const driveMin = driveSec / 60;
-    // "Time saved" = how much less driving vs care time
-    const raw = Math.round(totalCare - driveMin);
-    const val = Math.max(0, raw);
-    return `${val} min`;
+    // Time saved = baseline drive time estimate (haversine, 30mph, traffic 1.5x) minus actual
+    const baselineDriveMin = (baselineMilesRef.current / 30) * 60 * 1.5;
+    const currentDriveMin = currentDur / 60;
+    const saved = Math.round(baselineDriveMin - currentDriveMin);
+    if (saved <= 0) return "0 min";
+    return `${saved} min`;
   };
 
   return (
