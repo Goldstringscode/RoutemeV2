@@ -70,7 +70,7 @@ export default function StylizedMap({ compact = false, onStopClick }) {
 
     mapboxgl.accessToken = TOKEN;
 
-    const lats = schedule.map((s) => s.lat || 34.05).filter(Boolean);
+        const lats = schedule.map((s) => s.lat || 34.05).filter(Boolean);
     const lngs = schedule.map((s) => s.lng || -118.25).filter(Boolean);
     const centerLat = lats.length > 0
       ? lats.reduce((a, b) => a + b, 0) / lats.length
@@ -109,36 +109,18 @@ export default function StylizedMap({ compact = false, onStopClick }) {
                   updatePositions();
                 });
 
-                // Delay terrain setup until map is fully settled (avoids race condition
-                                // in production builds where setTerrain() triggers a style update that
-                                // temporarily makes the 'composite' source undefined)
-                                map.once("idle", () => {
-                                  if (!map.getSource("mapbox-dem")) {
-                                    try {
-                                      map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
-                                      map.setTerrain({ source: "mapbox-dem", exaggeration: 2.5 });
-
-                                      // streets-v12 already has a built-in 'hillshade' layer (type: fill, index 10)
-                                      // with very subtle shading (6% shadow opacity). We add our own hillshade
-                                      // (type: hillshade) with a unique ID, positioned BEFORE land-structure-polygon
-                                      // so it renders right after the built-in hillshade but before roads/labels.
-                                      if (!map.getLayer("custom-hillshade")) {
-                                        map.addLayer({
-                                          id: "custom-hillshade",
-                                          type: "hillshade",
-                                          source: "mapbox-dem",
-                                          paint: {
-                                            "hillshade-exaggeration": 1.5,
-                                            "hillshade-shadow-color": "#1a1a2e",
-                                            "hillshade-highlight-color": "#e8dcc8",
-                                            "hillshade-illumination-direction": 440,
-                                            "hillshade-illumination-anchor": "viewport"
-                                          }
-                                        }, "land-structure-polygon");
-                                      }
-                                    } catch (e) {}
-                                  }
-                                });
+                // ── Terrain is disabled in production builds ──
+                                // Mapbox GL JS v3.x has a confirmed internal worker minification bug
+                                // (ReferenceError in variable names like `a` / `o`) when DEM terrain
+                                // tiles are processed through the web worker. This causes cascading
+                                // `TypeError: composite` errors that break the map rendering.
+                                // Using `streets-v12` style, which still shows highways, city names,
+                                // and provides an excellent visual experience without 3D terrain.
+                                // 
+                                // To re-enable, test on the dev server (craco start) where the
+                                // worker code runs unminified and terrain works correctly.
+                                // map.once("idle", () => { ... setTerrain + hillshade ... });
+                                                                //
 
     // Update positions on map move/zoom
     map.on("move", scheduleUpdate);
