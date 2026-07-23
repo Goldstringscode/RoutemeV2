@@ -84,7 +84,7 @@ export function computeRouteMetrics(stops) {
   const weather = WEATHER_BY_DOW[dow] || { visibility: 1.0, wind: 0.95 };
   const weatherFactor = (weather.visibility || 1.0) * (weather.wind || 0.95);
 
-  // Start from "home base" (first stop)
+  let currentHour = 8; // Start at 8 AM
   for (let i = 0; i < stops.length; i++) {
     const s = stops[i];
     const duration = s.duration || 30;
@@ -101,11 +101,11 @@ export function computeRouteMetrics(stops) {
       // Drive time: 30 mph average * traffic multiplier * weather
       const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
       totalDriveMinutes += driveMin;
+      currentHour += driveMin / 60 + duration / 60;
 
       // Check window violation: arrival time vs requested window
-      const arrivalHour = 8 + totalDriveMinutes / 60; // start at 8 AM
       const windowHour = windowToHour(s.window);
-      if (windowHour < arrivalHour - 1) {
+      if (windowHour < currentHour - 1) {
         windowViolations++;
       }
     }
@@ -131,19 +131,18 @@ function optimizeAI(stops, dow) {
 
   const priorityRank = { high: 0, medium: 1, low: 2 };
   const traffic = TRAFFIC_BY_DOW[dow] || 1.5;
-  const weather = WEATHER_BY_DOW[dow] || {};
 
   // Score each stop: lower = earlier in route
-  const scored = stops.map((s, i) => {
+  const scored = stops.map((s) => {
     const p = priorityRank[s.priority] ?? 1;
     const w = windowToHour(s.window);
-    // Distance from "origin" (first stop or home base)
+    // Distance from LA center
     const fromHome = haversine(
       s.lat || 0, s.lng || 0,
-      34.0522, -118.2437 // LA center
+      34.0522, -118.2437
     );
-    // Score: priority (0-2) * 200 + window hour (0-24) * 10 + distance * 3
-    const score = p * 200 + w * 10 + fromHome * 3;
+    // Updated weights: priority high, time window moderate, distance moderate
+    const score = p * 200 + w * 5 + fromHome * 2;
     return { ...s, _score: score };
   });
 
@@ -151,47 +150,116 @@ function optimizeAI(stops, dow) {
   return scored.map((s) => s.id);
 }
 
-/* ─── Strategy: Fastest (time-window driven) ───────────── */
-// Sort by earliest time window, then by distance to minimize gaps
+/* ─── Strategy: Fastest (time-window + traffic-aware) ──── */
+// Builds a route that respects time windows while minimizing drive time.
+// Accounts for traffic multiplier to estimate realistic drive times.
 function optimizeFastest(stops) {
   if (stops.length < 2) return stops.map((s) => s.id);
 
-  return [...stops]
-    .sort((a, b) => {
-      const wA = windowToHour(a.window);
-      const wB = windowToHour(b.window);
-      const wDiff = wA - wB;
-      if (wDiff !== 0) return wDiff;
-      return (a.duration || 30) - (b.duration || 30);
-    })
-    .map((s) => s.id);
-}
+  const dow = new Date().getDay();
+  const traffic = TRAFFIC_BY_DOW[dow] || 1.5;
+  const weather = WEATHER_BY_DOW[dow] || { visibility: 1.0, wind: 0.95 };
+  const weatherFactor = (weather.visibility || 1.0) * (weather.wind || 0.95);
 
-/* ─── Strategy: Least mileage (nearest-neighbor TSP) ──── */
-function optimizeLeastMileage(stops) {
-  if (stops.length < 2) return stops.map((s) => s.id);
+  // Start from the earliest time window
+  const sorted = [...stops].sort((a, b) => windowToHour(a.window) - windowToHour(b.window));
+  const ordered = [sorted[0]];
+  const remaining = sorted.slice(1);
 
-  const ordered = [stops[0]];
-  const remaining = stops.slice(1);
+  // Greedy: at each step, pick the next stop that minimizes
+  // (drive time from current location + time pressure to meet its window)
+  let currentHour = windowToHour(ordered[0].window);
 
   while (remaining.length > 0) {
     const last = ordered[ordered.length - 1];
-    let closest = 0;
-    let minDist = Infinity;
+    let bestIdx = 0;
+    let bestScore = Infinity;
+
     for (let i = 0; i < remaining.length; i++) {
-      const d = haversine(
+      const s = remaining[i];
+      const dist = haversine(
         last.lat || 0, last.lng || 0,
-        remaining[i].lat || 0, remaining[i].lng || 0
+        s.lat || 0, s.lng || 0
       );
-      if (d < minDist) {
-        minDist = d;
-        closest = i;
+      const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
+      const arrivalHour = currentHour + (last.duration || 30) / 60 + driveMin / 60;
+      const windowHour = windowToHour(s.window);
+
+      // Score: how late we'd arrive (penalty) + drive time
+      // If we arrive before the window opens, we wait (no penalty)
+      // If we arrive after the window closes, heavy penalty
+      const lateness = Math.max(0, arrivalHour - (windowHour + 1)); // 1h window assumed
+      const windowMiss = windowHour < arrivalHour - 1 ? 50 : 0;
+      const score = driveMin + lateness * 30 + windowMiss;
+
+      if (score < bestScore) {
+        bestScore = score;
+        bestIdx = i;
       }
     }
-    ordered.push(remaining.splice(closest, 1)[0]);
+
+    const chosen = remaining[bestIdx];
+    const dist = haversine(
+      last.lat || 0, last.lng || 0,
+      chosen.lat || 0, chosen.lng || 0
+    );
+    const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
+    currentHour += (last.duration || 30) / 60 + driveMin / 60;
+
+    ordered.push(chosen);
+    remaining.splice(bestIdx, 1);
   }
 
   return ordered.map((s) => s.id);
+}
+
+/* ─── Strategy: Least mileage (best-start TSP) ─────────── */
+// Tries EVERY stop as the starting point, runs nearest-neighbor TSP,
+// and picks the ordering with the shortest total driving distance.
+function optimizeLeastMileage(stops) {
+  if (stops.length < 2) return stops.map((s) => s.id);
+
+  let bestOrder = null;
+  let bestDist = Infinity;
+
+  // Try each stop as the starting point
+  for (let startIdx = 0; startIdx < stops.length; startIdx++) {
+    const ordered = [stops[startIdx]];
+    const remaining = stops.filter((_, i) => i !== startIdx);
+
+    while (remaining.length > 0) {
+      const last = ordered[ordered.length - 1];
+      let closest = 0;
+      let minDist = Infinity;
+      for (let i = 0; i < remaining.length; i++) {
+        const d = haversine(
+          last.lat || 0, last.lng || 0,
+          remaining[i].lat || 0, remaining[i].lng || 0
+        );
+        if (d < minDist) {
+          minDist = d;
+          closest = i;
+        }
+      }
+      ordered.push(remaining.splice(closest, 1)[0]);
+    }
+
+    // Compute total distance for this ordering
+    let totalDist = 0;
+    for (let i = 1; i < ordered.length; i++) {
+      totalDist += haversine(
+        ordered[i - 1].lat || 0, ordered[i - 1].lng || 0,
+        ordered[i].lat || 0, ordered[i].lng || 0
+      );
+    }
+
+    if (totalDist < bestDist) {
+      bestDist = totalDist;
+      bestOrder = ordered.map((s) => s.id);
+    }
+  }
+
+  return bestOrder || stops.map((s) => s.id);
 }
 
 /* ─── Strategy: Custom (priority-first) ────────────────── */
@@ -201,6 +269,9 @@ function optimizeCustom(stops) {
     .sort((a, b) => {
       const p = priorityRank[a.priority] - priorityRank[b.priority];
       if (p !== 0) return p;
+      // Within same priority, order by time window then duration
+      const w = windowToHour(a.window) - windowToHour(b.window);
+      if (w !== 0) return w;
       return (a.duration || 30) - (b.duration || 30);
     })
     .map((s) => s.id);
@@ -256,7 +327,6 @@ function validateRoute(stops, orderIds, mode, dow) {
     let score;
     switch (mode) {
       case "ai":
-        // AI mode: balance distance, time, and window compliance
         score = alt.totalDriveMiles * 0.4 + alt.totalDriveMinutes * 0.3 + alt.windowViolations * 50;
         break;
       case "fastest":
@@ -337,12 +407,12 @@ export function optimizeRoute(stops, mode = "ai", savedRoutes = []) {
         break;
       case "fastest":
         order = optimizeFastest(stops);
-        strategyLabel = `Fastest route by time windows (${dayNames[dow]} traffic ${traffic.toFixed(2)}×)`;
+        strategyLabel = `Fastest route (traffic-aware, ${dayNames[dow]} traffic ${traffic.toFixed(2)}×)`;
         break;
       case "shortest":
       case "mileage":
         order = optimizeLeastMileage(stops);
-        strategyLabel = `Least mileage (nearest-neighbor TSP, ${dayNames[dow]})`;
+        strategyLabel = `Least mileage (best-start TSP, ${dayNames[dow]})`;
         break;
       case "custom":
         order = optimizeCustom(stops);

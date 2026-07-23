@@ -18,7 +18,8 @@ export default function StylizedMap({ compact = false, onStopClick }) {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const [svgPositions, setSvgPositions] = useState([]);
-  const updateTimer = useRef(null);
+    const updateTimer = useRef(null);
+    const mapLoaded = useRef(false);
 
   // Project lat/lng to SVG pixel coordinates
   const updatePositions = useCallback(() => {
@@ -85,7 +86,7 @@ export default function StylizedMap({ compact = false, onStopClick }) {
 
     const map = new mapboxgl.Map({
       container: mapContainer.current,
-      style: "mapbox://styles/mapbox/light-v11",
+      style: "mapbox://styles/mapbox/streets-v12",
       center: [centerLng, centerLat],
       zoom: compact ? 9.5 : 9,
       pitch: compact ? 0 : 45,
@@ -95,6 +96,10 @@ export default function StylizedMap({ compact = false, onStopClick }) {
     });
 
     map.on("load", () => {
+          // Guard: setTerrain triggers style reloads which fire "load" again
+          if (mapLoaded.current) return;
+          mapLoaded.current = true;
+
           // ── 1. Terrain ──
           let hasTerrain = false;
           try {
@@ -112,24 +117,28 @@ export default function StylizedMap({ compact = false, onStopClick }) {
           }
 
           if (hasTerrain) {
-            // Add hillshade for visible terrain relief
-            try {
-              map.addLayer({
-                id: "hillshade",
-                type: "hillshade",
-                source: DEM_SOURCE,
-                paint: {
-                  "hillshade-exaggeration": 0.6,
-                  "hillshade-shadow-color": "#2C3E50",
-                  "hillshade-highlight-color": "#FFFFFF",
-                },
-              });
-            } catch (e) {
-              console.warn("[StylizedMap] Hillshade layer failed:", e);
-            }
-            // Sky atmosphere so terrain is visible against a sky backdrop
-            try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
-          }
+                  // Add hillshade for visible terrain relief (only if not already added)
+                  if (!map.getLayer("hillshade")) {
+                    try {
+                      map.addLayer({
+                        id: "hillshade",
+                        type: "hillshade",
+                        source: DEM_SOURCE,
+                        paint: {
+                          "hillshade-exaggeration": 0.6,
+                          "hillshade-shadow-color": "#2C3E50",
+                          "hillshade-highlight-color": "#FFFFFF",
+                        },
+                      });
+                    } catch (e) {
+                      console.warn("[StylizedMap] Hillshade layer failed:", e);
+                    }
+                  }
+                  // Sky atmosphere so terrain is visible against a sky backdrop
+                  if (!map.getLayer("sky")) {
+                    try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
+                  }
+                }
 
       // ── 2. Route layers ──
       try {
@@ -181,10 +190,11 @@ export default function StylizedMap({ compact = false, onStopClick }) {
     mapRef.current = map;
 
     return () => {
-      if (updateTimer.current) clearTimeout(updateTimer.current);
-      map.remove();
-      mapRef.current = null;
-    };
+          if (updateTimer.current) clearTimeout(updateTimer.current);
+          map.remove();
+          mapRef.current = null;
+          mapLoaded.current = false;
+        };
   }, [compact]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update positions when schedule changes

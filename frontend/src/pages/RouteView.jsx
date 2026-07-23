@@ -5,6 +5,7 @@ import { Sparkles, Clock, MapPin, Stethoscope, Phone, ChevronRight, Fuel, Route,
 import RouteBuilderModal from "@/components/RouteBuilderModal";
 import RemoveFromRouteModal from "@/components/RemoveFromRouteModal";
 import { formatTimeWindow } from "@/lib/utils";
+import { metersToMiles, secondsToShort } from "@/lib/directions";
 
 const OPTIMIZATION_MODES = [
   { id: "ai", label: "AI smart route", icon: Brain, desc: "Balances priority, traffic, time windows, and distance using a weighted heuristic model. Considers day-of-week traffic patterns & weather." },
@@ -15,7 +16,7 @@ const OPTIMIZATION_MODES = [
 ];
 
 export default function RouteView() {
-  const { schedule, optimize, optimized, openVoice, saveRoute, savedRoutes, loadRoute, reorder, routeResult, clients, scheduleIds, createRoute, removeFromRoute, rescheduleClient, rescheduledClients, optimizationMode, setOptimizationMode } = useRouteMe();
+  const { schedule, optimize, optimized, openVoice, saveRoute, savedRoutes, loadRoute, reorder, routeResult, clients, scheduleIds, createRoute, removeFromRoute, rescheduleClient, rescheduledClients, optimizationMode, setOptimizationMode, routeDistance, routeDuration, weatherData, weatherLoading } = useRouteMe();
     const [selected, setSelected] = useState(schedule[0]?.id);
     const [modalOpen, setModalOpen] = useState(false);
     const [builderOpen, setBuilderOpen] = useState(false);
@@ -146,16 +147,31 @@ export default function RouteView() {
         </div>
       </div>
 
-      {/* ── Driving conditions chip ── */}
+      {/* ── Driving conditions + Weather chip ── */}
       {routeResult && (
         <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F9F8F6] border border-stone-200 px-3 py-1.5">
             <Info className="h-3 w-3 text-stone-400" />
-            {routeResult.dayOfWeek} · {routeResult.weather} · traffic {routeResult.trafficMultiplier.toFixed(2)}×
+            {routeResult.dayOfWeek} · traffic {routeResult.trafficMultiplier.toFixed(2)}×
           </span>
+          {weatherData && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 border border-sky-200 px-3 py-1.5 text-sky-800">
+              <img
+                src={`https://openweathermap.org/img/wn/${weatherData.icon}.png`}
+                alt={weatherData.condition}
+                className="h-4 w-4"
+              />
+              {weatherData.temp}°F · {weatherData.condition} · {weatherData.city}
+            </span>
+          )}
+          {weatherLoading && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-50 border border-stone-200 px-3 py-1.5 text-stone-400">
+              <Loader className="h-3 w-3 animate-spin" /> Weather...
+            </span>
+          )}
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E3ECE5] border border-emerald-200 px-3 py-1.5 text-emerald-800">
             <CheckCircle className="h-3 w-3" />
-            {routeResult.metrics?.totalDriveMiles} mi · {routeResult.metrics?.totalDriveMinutes} min drive
+            {routeDistance ? `${metersToMiles(routeDistance)} mi · ${secondsToShort(routeDuration)}` : `${routeResult.metrics?.totalDriveMiles} mi · ${routeResult.metrics?.totalDriveMinutes} min drive`}
           </span>
           {routeResult.validation?.isOptimal && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E3ECE5] border border-emerald-200 px-3 py-1.5 text-emerald-800">
@@ -177,12 +193,12 @@ export default function RouteView() {
         <div className="lg:col-span-8 space-y-4">
           <StylizedMap onStopClick={setSelected} />
 
-          {/* Route summary strip */}
+          {/* Route summary strip — uses Mapbox real route data */}
           <div className="grid grid-cols-4 gap-3">
-                      <SumCard icon={Route} label="Distance" value={routeResult?.metrics ? `${routeResult.metrics.totalDriveMiles} mi` : "--"} tone="ink" />
-                      <SumCard icon={Clock} label="Drive time" value={routeResult?.metrics ? `${Math.floor(routeResult.metrics.totalDriveMinutes / 60)}h ${routeResult.metrics.totalDriveMinutes % 60}m` : "--"} tone="ink" />
-                      <SumCard icon={Fuel} label="Fuel saved" value={routeResult?.metrics?.totalDriveMiles > 30 ? "+8.4%" : routeResult ? "+4.2%" : "--"} tone="terra" />
-                      <SumCard icon={Sparkles} label="Time saved" value={routeResult?.metrics ? `${Math.round(routeResult.metrics.totalDriveMinutes * 0.15)} min` : "--"} tone="sage" />
+            <SumCard icon={Route} label="Distance" value={routeDistance ? `${metersToMiles(routeDistance)} mi` : "--"} tone="ink" />
+            <SumCard icon={Clock} label="Drive time" value={routeDuration ? secondsToShort(routeDuration) : "--"} tone="ink" />
+            <SumCard icon={Fuel} label="Fuel saved" value={routeDistance && routeDistance > 160934 ? "+8.4%" : routeDistance ? "+4.2%" : "--"} tone="terra" />
+            <SumCard icon={Sparkles} label="Time saved" value={routeDuration ? `${Math.round((routeDuration / 60) * 0.15)} min` : "--"} tone="sage" />
           </div>
         </div>
 

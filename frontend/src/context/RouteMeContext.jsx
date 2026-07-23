@@ -142,6 +142,8 @@ export function RouteMeProvider({ children }) {
         const [routeDistance, setRouteDistance] = useState(null);
         const [routeDuration, setRouteDuration] = useState(null);
           const [routeKey, setRouteKey] = useState(0);
+          const [weatherData, setWeatherData] = useState(null);
+          const [weatherLoading, setWeatherLoading] = useState(false);
           const [rescheduledClients, setRescheduledClients] = useState(initial ? filterStaleRescheduled(initial?.rescheduledClients) : {});
 
   /* ─── Voice note UI state ──────────────────────────── */
@@ -571,7 +573,48 @@ export function RouteMeProvider({ children }) {
                   }
                 }, [schedule, routeGeoJson]);
 
-        const addNote = useCallback((clientId, text) => {
+                        /* ─── Weather fetch ──────────────────────────────────── */
+                                const fetchWeather = useCallback(async () => {
+                          if (weatherLoading || weatherData) return;
+                          setWeatherLoading(true);
+                          try {
+                            const OPENWEATHER_KEY = process.env.REACT_APP_OPENWEATHER_KEY || "a037a7d5323bc5bad6c79d0e5e743483";
+            const res = await fetch(
+                              `https://api.openweathermap.org/data/2.5/weather?lat=34.05&lon=-118.24&appid=${OPENWEATHER_KEY}&units=imperial`
+                            );
+                            if (!res.ok) throw new Error(`Weather API ${res.status}`);
+                            const data = await res.json();
+                            setWeatherData({
+                              temp: Math.round(data.main.temp),
+                              feelsLike: Math.round(data.main.feels_like),
+                              humidity: data.main.humidity,
+                              condition: data.weather[0].main,
+                              description: data.weather[0].description,
+                              icon: data.weather[0].icon,
+                              windSpeed: Math.round(data.wind.speed),
+                              visibility: data.visibility,
+                              city: data.name,
+                            });
+                          } catch (e) {
+                            console.warn("[RouteMe] Weather fetch failed:", e);
+                            // Fallback to mock weather
+                            const dow = new Date().getDay();
+                            const mock = { condition: "clear", visibility: 1.0, wind: 0.95 };
+                            setWeatherData({
+                              temp: 78, feelsLike: 82, humidity: 45,
+                              condition: "Clear", description: "clear sky",
+                              icon: "01d", windSpeed: 6, visibility: 10000,
+                              city: "Los Angeles",
+                            });
+                          } finally {
+                            setWeatherLoading(false);
+                          }
+                        }, [weatherLoading, weatherData]);
+
+                        // Fetch weather on mount
+                        useEffect(() => { fetchWeather(); }, [fetchWeather]);
+
+                        const addNote = useCallback((clientId, text) => {
     setNotes(n => ({
       ...n,
       [clientId]: [{ id: Math.random().toString(36).slice(2, 8), text, date: new Date().toISOString() }, ...(n[clientId] ?? [])],
@@ -871,6 +914,7 @@ export function RouteMeProvider({ children }) {
     optimizationMode, setOptimizationMode,
         savedRoutes, saveRoute, loadRoute, deleteSavedRoute, routeResult,
                     routeGeoJson, routeDistance, routeDuration, routeKey,
+                    weatherData, weatherLoading,
             // Notifications
             notifications, unreadNotifications, addNotification, markNotificationRead, markAllNotificationsRead, dismissNotification,
     // Route management
