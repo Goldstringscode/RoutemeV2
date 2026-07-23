@@ -6,10 +6,12 @@ const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 const ROUTE_SOURCE = "route-source";
 const ROUTE_LAYER = "route-layer";
 const ROUTE_GLOW = "route-glow";
+const DEM_SOURCE = "mapbox-dem";
 
 /**
  * Stylized map: real Mapbox map with real route lines and SVG stop overlays.
  * Stop positions are derived from actual client lat/lng via map.project().
+ * 3D terrain for elevation context.
  */
 export default function StylizedMap({ compact = false, onStopClick }) {
   const { schedule, routeGeoJson, routeDistance, routeDuration } = useRouteMe();
@@ -86,13 +88,28 @@ export default function StylizedMap({ compact = false, onStopClick }) {
       style: "mapbox://styles/mapbox/light-v11",
       center: [centerLng, centerLat],
       zoom: compact ? 9.5 : 9,
+      pitch: compact ? 0 : 45,
       interactive: !compact,
       attributionControl: false,
       logoPosition: "bottom-right",
     });
 
     map.on("load", () => {
-      // Add route source and layers
+      // ── 1. Terrain ──
+      try {
+        map.addSource(DEM_SOURCE, {
+          type: "raster-dem",
+          url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+          tileSize: 512,
+          maxzoom: 14,
+        });
+        map.setTerrain({ source: DEM_SOURCE, exaggeration: 1.0 });
+        console.log("[StylizedMap] 3D terrain enabled");
+      } catch (e) {
+        console.warn("[StylizedMap] Terrain unavailable:", e);
+      }
+
+      // ── 2. Route layers ──
       try {
         map.addSource(ROUTE_SOURCE, {
           type: "geojson",
