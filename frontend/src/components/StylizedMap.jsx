@@ -85,107 +85,87 @@ export default function StylizedMap({ compact = false, onStopClick }) {
       : -118.2437;
 
     const map = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: "mapbox://styles/mapbox/outdoors-v12",
-      center: [centerLng, centerLat],
-      zoom: compact ? 9.5 : 9,
-      pitch: compact ? 0 : 45,
-      interactive: !compact,
-      attributionControl: false,
-      logoPosition: "bottom-right",
-    });
+          container: mapContainer.current,
+          style: "mapbox://styles/mapbox/outdoors-v12",
+          center: [centerLng, centerLat],
+          zoom: compact ? 9.5 : 9,
+          pitch: compact ? 0 : 55,
+          interactive: !compact,
+          attributionControl: false,
+          logoPosition: "bottom-right",
+        });
 
-    map.on("load", () => {
-      // ── 1. DEM source & terrain (idempotent — only adds if missing) ──
-      // outdoors-v12 already has terrain support; this activates it.
-      // If the source already exists (e.g. after style reload), we skip adding.
-      let hasTerrain = !!map.getSource(DEM_SOURCE);
-      if (!hasTerrain) {
-        try {
-          map.addSource(DEM_SOURCE, {
-            type: "raster-dem",
-            url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-            tileSize: 512,
-            maxzoom: 14,
-          });
-          map.setTerrain({ source: DEM_SOURCE, exaggeration: 1.2 });
-          hasTerrain = true;
-          console.log("[StylizedMap] 3D terrain enabled");
-        } catch (e) {
-          console.warn("[StylizedMap] Terrain unavailable:", e);
-        }
-      }
+        map.on("load", () => {
+          // ── 1. Built-in terrain from outdoors-v12 ──
+          // outdoors-v12 has native hillshade and terrain shading.
+          // We try setTerrain for 3D elevation, but it's a paid-tier feature;
+          // if it fails, the style still looks great with hillshade.
+          if (!map.getSource(DEM_SOURCE)) {
+            try {
+              map.addSource(DEM_SOURCE, {
+                type: "raster-dem",
+                url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+                tileSize: 512,
+                maxzoom: 14,
+              });
+              map.setTerrain({ source: DEM_SOURCE, exaggeration: 1.0 });
+              console.log("[StylizedMap] 3D terrain enabled");
+            } catch (e) {
+              console.warn("[StylizedMap] 3D terrain unavailable (free tier?):", e?.message || e);
+            }
+          }
 
-      // ── 2. Hillshade (re-safe after style reloads) ──
-      if (hasTerrain && !map.getLayer("hillshade")) {
-        try {
-          map.addLayer({
-            id: "hillshade",
-            type: "hillshade",
-            source: DEM_SOURCE,
-            paint: {
-              "hillshade-exaggeration": 0.6,
-              "hillshade-shadow-color": "#2C3E50",
-              "hillshade-highlight-color": "#FFFFFF",
-            },
-          });
-          console.log("[StylizedMap] Hillshade layer added");
-        } catch (e) {
-          console.warn("[StylizedMap] Hillshade layer failed:", e);
-        }
-      }
+          // ── 2. Sky atmosphere ──
+          if (!map.getLayer("sky")) {
+            try {
+              map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } });
+            } catch (e) {}
+          }
 
-      // ── 3. Sky atmosphere ──
-      if (hasTerrain && !map.getLayer("sky")) {
-        try {
-          map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } });
-        } catch (e) {}
-      }
+          // ── 3. Route layers ──
+          if (!map.getSource(ROUTE_SOURCE)) {
+            try {
+              map.addSource(ROUTE_SOURCE, {
+                type: "geojson",
+                data: { type: "FeatureCollection", features: [] },
+              });
 
-      // ── 4. Route layers (idempotent) ──
-      if (!map.getSource(ROUTE_SOURCE)) {
-        try {
-          map.addSource(ROUTE_SOURCE, {
-            type: "geojson",
-            data: { type: "FeatureCollection", features: [] },
-          });
+              // Glow layer
+              map.addLayer({
+                id: ROUTE_GLOW,
+                type: "line",
+                source: ROUTE_SOURCE,
+                layout: { "line-join": "round", "line-cap": "round" },
+                paint: {
+                  "line-color": "#D95D39",
+                  "line-opacity": 0.2,
+                  "line-width": 12,
+                },
+              });
 
-          // Glow layer
-          map.addLayer({
-            id: ROUTE_GLOW,
-            type: "line",
-            source: ROUTE_SOURCE,
-            layout: { "line-join": "round", "line-cap": "round" },
-            paint: {
-              "line-color": "#D95D39",
-              "line-opacity": 0.2,
-              "line-width": 12,
-            },
-          });
+              // Main route layer
+              map.addLayer({
+                id: ROUTE_LAYER,
+                type: "line",
+                source: ROUTE_SOURCE,
+                layout: { "line-join": "round", "line-cap": "round" },
+                paint: {
+                  "line-color": "#D95D39",
+                  "line-width": 4,
+                  "line-opacity": 0.85,
+                },
+              });
 
-          // Main route layer
-          map.addLayer({
-            id: ROUTE_LAYER,
-            type: "line",
-            source: ROUTE_SOURCE,
-            layout: { "line-join": "round", "line-cap": "round" },
-            paint: {
-              "line-color": "#D95D39",
-              "line-width": 4,
-              "line-opacity": 0.85,
-            },
-          });
+              // Hide labels
+              try { map.setLayoutProperty("country-label", "visibility", "none"); } catch {}
+            } catch (e) {
+              console.warn("Map layers setup failed:", e);
+            }
+          }
 
-          // Hide labels
-          try { map.setLayoutProperty("country-label", "visibility", "none"); } catch {}
-        } catch (e) {
-          console.warn("Map layers setup failed:", e);
-        }
-      }
-
-      // Initial position projection
-      updatePositions();
-    });
+          // Initial position projection
+          updatePositions();
+        });
 
     // Update positions on map move/zoom
     map.on("move", scheduleUpdate);
