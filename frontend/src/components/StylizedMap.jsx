@@ -110,17 +110,35 @@ export default function StylizedMap({ compact = false, onStopClick }) {
                 });
 
                 // Delay terrain setup until map is fully settled (avoids race condition
-                // in production builds where setTerrain() triggers a style update that
-                // temporarily makes the 'composite' source undefined)
-                map.once("idle", () => {
-                  if (!map.getSource("mapbox-dem")) {
-                    try {
-                      map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
-                      map.setTerrain({ source: "mapbox-dem", exaggeration: 2.5 });
-                      map.addLayer({ id: "hillshade", type: "hillshade", source: "mapbox-dem", paint: { "hillshade-exaggeration": 1.2, "hillshade-shadow-color": "#1a1a2e", "hillshade-highlight-color": "#e8dcc8" } });
-                    } catch (e) {}
-                  }
-                });
+                                // in production builds where setTerrain() triggers a style update that
+                                // temporarily makes the 'composite' source undefined)
+                                map.once("idle", () => {
+                                  if (!map.getSource("mapbox-dem")) {
+                                    try {
+                                      map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
+                                      map.setTerrain({ source: "mapbox-dem", exaggeration: 2.5 });
+
+                                      // streets-v12 already has a built-in 'hillshade' layer (type: fill, index 10)
+                                      // with very subtle shading (6% shadow opacity). We add our own hillshade
+                                      // (type: hillshade) with a unique ID, positioned BEFORE land-structure-polygon
+                                      // so it renders right after the built-in hillshade but before roads/labels.
+                                      if (!map.getLayer("custom-hillshade")) {
+                                        map.addLayer({
+                                          id: "custom-hillshade",
+                                          type: "hillshade",
+                                          source: "mapbox-dem",
+                                          paint: {
+                                            "hillshade-exaggeration": 1.5,
+                                            "hillshade-shadow-color": "#1a1a2e",
+                                            "hillshade-highlight-color": "#e8dcc8",
+                                            "hillshade-illumination-direction": 440,
+                                            "hillshade-illumination-anchor": "viewport"
+                                          }
+                                        }, "land-structure-polygon");
+                                      }
+                                    } catch (e) {}
+                                  }
+                                });
 
     // Update positions on map move/zoom
     map.on("move", scheduleUpdate);
