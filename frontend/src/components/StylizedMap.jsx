@@ -6,7 +6,6 @@ const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 const ROUTE_SOURCE = "route-source";
 const ROUTE_LAYER = "route-layer";
 const ROUTE_GLOW = "route-glow";
-const DEM_SOURCE = "mapbox-dem";
 
 /**
  * Stylized map: real Mapbox map with real route lines and SVG stop overlays.
@@ -93,51 +92,17 @@ export default function StylizedMap({ compact = false, onStopClick }) {
             });
 
         map.on("load", () => {
-          // ── 1. Route layers ──
-          if (!map.getSource(ROUTE_SOURCE)) {
-            try {
-              map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-              map.addLayer({ id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 } });
-              map.addLayer({ id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 } });
-            } catch (e) {}
-          }
+                  // ── Route layers ──
+                  if (!map.getSource(ROUTE_SOURCE)) {
+                    try {
+                      map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+                      map.addLayer({ id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 } });
+                      map.addLayer({ id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 } });
+                    } catch (e) {}
+                  }
 
-          // ── 2. Sky atmosphere ──
-          if (!map.getLayer("sky")) {
-            try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
-          }
-
-          // Terrain (DEM source + setTerrain + hillshade) is handled in style.load below.
-          // We keep it separate because setTerrain() in the load handler triggers a
-          // cascade failure in minified production builds (Terser bug with mapbox-gl v3.26).
-
-          updatePositions();
-        });
-
-        // style.load: add DEM source, enable terrain, add hillshade
-        map.on("style.load", () => {
-          if (!map.getSource("mapbox-dem")) {
-                      try {
-                        map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
-                        map.setTerrain({ source: "mapbox-dem", exaggeration: 2.5 });
-                      } catch (e) {}
-                    }
-                    if (!map.getLayer("hillshade") && map.getSource("mapbox-dem")) {
-                      try {
-                        map.addLayer({ id: "hillshade", type: "hillshade", source: "mapbox-dem", paint: { "hillshade-exaggeration": 1.2, "hillshade-shadow-color": "#1a1a2e", "hillshade-highlight-color": "#e8dcc8" } });
-                      } catch (e) {}
-                    }
-          if (!map.getLayer("sky")) {
-            try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
-          }
-          if (!map.getSource(ROUTE_SOURCE)) {
-            try {
-              map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-              map.addLayer({ id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 } });
-              map.addLayer({ id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 } });
-            } catch (e) {}
-          }
-        });
+                  updatePositions();
+                });
 
     // Update positions on map move/zoom
     map.on("move", scheduleUpdate);
