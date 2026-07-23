@@ -6,7 +6,6 @@ const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 const ROUTE_SOURCE = "route-source";
 const ROUTE_LAYER = "route-layer";
 const ROUTE_GLOW = "route-glow";
-const DEM_SOURCE = "mapbox-dem";
 
 /**
  * Stylized map: real Mapbox map with real route lines and SVG stop overlays.
@@ -86,7 +85,7 @@ export default function StylizedMap({ compact = false, onStopClick }) {
 
     const map = new mapboxgl.Map({
           container: mapContainer.current,
-          style: "mapbox://styles/mapbox/outdoors-v12",
+          style: "mapbox://styles/mapbox/streets-v12",
           center: [centerLng, centerLat],
           zoom: compact ? 9.5 : 9,
           pitch: compact ? 0 : 55,
@@ -96,33 +95,17 @@ export default function StylizedMap({ compact = false, onStopClick }) {
         });
 
         map.on("load", () => {
-          // ── 1. Built-in terrain from outdoors-v12 ──
-          // outdoors-v12 has native hillshade and terrain shading.
-          // We try setTerrain for 3D elevation, but it's a paid-tier feature;
-          // if it fails, the style still looks great with hillshade.
-          if (!map.getSource(DEM_SOURCE)) {
-            try {
-              map.addSource(DEM_SOURCE, {
-                type: "raster-dem",
-                url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-                tileSize: 512,
-                maxzoom: 14,
-              });
-              map.setTerrain({ source: DEM_SOURCE, exaggeration: 1.0 });
-              console.log("[StylizedMap] 3D terrain enabled");
-            } catch (e) {
-              console.warn("[StylizedMap] 3D terrain unavailable (free tier?):", e?.message || e);
-            }
-          }
-
-          // ── 2. Sky atmosphere ──
-          if (!map.getLayer("sky")) {
-            try {
-              map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } });
-            } catch (e) {}
-          }
-
-          // ── 3. Route layers ──
+              // ── 1. Sky atmosphere for cinematic backdrop ──
+              // No custom DEM source or setTerrain — those require a paid Mapbox token
+              // and cause the map to fail on free-tier tokens. streets-v12 has clean
+              // vector tiles with highways, city names, and parks. The sky atmosphere
+              // gives it a polished 3D look at 55° pitch.
+              if (!map.getLayer("sky")) {
+                try {
+                  map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } });
+                } catch (e) {}
+              }
+          // ── 2. Route layers ──
           if (!map.getSource(ROUTE_SOURCE)) {
             try {
               map.addSource(ROUTE_SOURCE, {

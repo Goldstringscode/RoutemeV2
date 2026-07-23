@@ -9,10 +9,10 @@ export const NURSE = {
   weeklySavedMinutes: 214,
   weeklySavedMiles: 38.4,
   homeBase: {
-    lat: 34.0522,
-    lng: -118.2437,
-    address: "742 S Broadway, Los Angeles, CA 90014",
-  },
+      lat: 33.7726,
+      lng: -117.5928,
+      address: "Dos Lagos, Corona, CA 92883",
+    },
 };
 
 export const CLIENTS_SEED = [
