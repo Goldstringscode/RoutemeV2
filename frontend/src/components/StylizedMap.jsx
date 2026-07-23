@@ -95,19 +95,41 @@ export default function StylizedMap({ compact = false, onStopClick }) {
     });
 
     map.on("load", () => {
-      // ── 1. Terrain ──
-      try {
-        map.addSource(DEM_SOURCE, {
-          type: "raster-dem",
-          url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-          tileSize: 512,
-          maxzoom: 14,
-        });
-        map.setTerrain({ source: DEM_SOURCE, exaggeration: 1.0 });
-        console.log("[StylizedMap] 3D terrain enabled");
-      } catch (e) {
-        console.warn("[StylizedMap] Terrain unavailable:", e);
-      }
+          // ── 1. Terrain ──
+          let hasTerrain = false;
+          try {
+            map.addSource(DEM_SOURCE, {
+              type: "raster-dem",
+              url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+              tileSize: 512,
+              maxzoom: 14,
+            });
+            map.setTerrain({ source: DEM_SOURCE, exaggeration: 1.0 });
+            hasTerrain = true;
+            console.log("[StylizedMap] 3D terrain enabled");
+          } catch (e) {
+            console.warn("[StylizedMap] Terrain unavailable:", e);
+          }
+
+          if (hasTerrain) {
+            // Add hillshade for visible terrain relief
+            try {
+              map.addLayer({
+                id: "hillshade",
+                type: "hillshade",
+                source: DEM_SOURCE,
+                paint: {
+                  "hillshade-exaggeration": 0.6,
+                  "hillshade-shadow-color": "#2C3E50",
+                  "hillshade-highlight-color": "#FFFFFF",
+                },
+              });
+            } catch (e) {
+              console.warn("[StylizedMap] Hillshade layer failed:", e);
+            }
+            // Sky atmosphere so terrain is visible against a sky backdrop
+            try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
+          }
 
       // ── 2. Route layers ──
       try {
