@@ -85,176 +85,69 @@ export default function StylizedMap({ compact = false, onStopClick }) {
       : -118.2437;
 
     const map = new mapboxgl.Map({
-          container: mapContainer.current,
-          style: "mapbox://styles/mapbox/streets-v12",
-          center: [centerLng, centerLat],
-          zoom: compact ? 9.5 : 9,
-          pitch: compact ? 0 : 50,
-          interactive: !compact,
-          attributionControl: false,
-          logoPosition: "bottom-right",
+              container: mapContainer.current,
+              style: "mapbox://styles/mapbox/outdoors-v12",
+              center: [centerLng, centerLat],
+              zoom: compact ? 9.5 : 9,
+              pitch: compact ? 0 : 55,
+              interactive: !compact,
+              attributionControl: false,
+              logoPosition: "bottom-right",
+            });
+
+        map.on("load", () => {
+          // ── 1. Route layers ──
+          if (!map.getSource(ROUTE_SOURCE)) {
+            try {
+              map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+              map.addLayer({ id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 } });
+              map.addLayer({ id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 } });
+            } catch (e) {}
+          }
+
+          // ── 2. Sky atmosphere ──
+          if (!map.getLayer("sky")) {
+            try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
+          }
+
+          // ── 3. DEM source + 3D terrain (outdoors-v12 + raster DEM = dramatic terrain) ──
+          if (!map.getSource("mapbox-dem")) {
+            try {
+              map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
+              map.setTerrain({ source: "mapbox-dem", exaggeration: 2.5 });
+            } catch (e) {}
+          }
+
+          // ── 4. Hillshade with dramatic shading ──
+          if (!map.getLayer("hillshade") && map.getSource("mapbox-dem")) {
+            try {
+              map.addLayer({ id: "hillshade", type: "hillshade", source: "mapbox-dem", paint: { "hillshade-exaggeration": 1.2, "hillshade-shadow-color": "#1a1a2e", "hillshade-highlight-color": "#e8dcc8" } });
+            } catch (e) {}
+          }
+
+          updatePositions();
         });
 
-    let layersAdded = false;
-
-    map.on("load", () => {
-      // ── 1. Route layers ──
-      if (!map.getSource(ROUTE_SOURCE)) {
-        try {
-          map.addSource(ROUTE_SOURCE, {
-            type: "geojson",
-            data: { type: "FeatureCollection", features: [] },
-          });
-
-          map.addLayer({
-            id: ROUTE_GLOW,
-            type: "line",
-            source: ROUTE_SOURCE,
-            layout: { "line-join": "round", "line-cap": "round" },
-            paint: {
-              "line-color": "#D95D39",
-              "line-opacity": 0.2,
-              "line-width": 12,
-            },
-          });
-
-          map.addLayer({
-            id: ROUTE_LAYER,
-            type: "line",
-            source: ROUTE_SOURCE,
-            layout: { "line-join": "round", "line-cap": "round" },
-            paint: {
-              "line-color": "#D95D39",
-              "line-width": 4,
-              "line-opacity": 0.85,
-            },
-          });
-        } catch (e) {
-          console.warn("Map layers setup failed:", e);
-        }
-      }
-
-      // ── 2. Sky atmosphere ──
-      if (!map.getLayer("sky")) {
-        try {
-          map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } });
-        } catch (e) {}
-      }
-
-      // ── 3. Terrain DEM source + setTerrain ──
-      // We do this early, before adding hillshade.
-      if (!map.getSource(DEM_SOURCE)) {
-        try {
-          map.addSource(DEM_SOURCE, {
-            type: "raster-dem",
-            url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-            tileSize: 512,
-            maxzoom: 14,
-          });
-          map.setTerrain({ source: DEM_SOURCE, exaggeration: 1.3 });
-          console.log("[StylizedMap] 3D terrain enabled");
-        } catch (e) {
-          console.warn("[StylizedMap] Terrain setup failed:", e?.message || e);
-        }
-      }
-
-      // ── 4. Hillshade layer ──
-      if (!map.getLayer("hillshade") && map.getSource(DEM_SOURCE)) {
-        try {
-          map.addLayer({
-            id: "hillshade",
-            type: "hillshade",
-            source: DEM_SOURCE,
-            paint: {
-              "hillshade-exaggeration": 0.6,
-              "hillshade-shadow-color": "#2C3E50",
-              "hillshade-highlight-color": "#F5F0E8",
-            },
-          }, "road-label");
-          console.log("[StylizedMap] Hillshade added");
-        } catch (e) {
-          // Try without placement reference
-          try {
-            map.addLayer({
-              id: "hillshade",
-              type: "hillshade",
-              source: DEM_SOURCE,
-              paint: {
-                "hillshade-exaggeration": 0.6,
-                "hillshade-shadow-color": "#2C3E50",
-                "hillshade-highlight-color": "#F5F0E8",
-              },
-            });
-          } catch (e2) {
-            console.warn("Hillshade failed:", e2);
+        // style.load catches any style reloads (e.g. from setTerrain) and re-adds wiped layers
+        map.on("style.load", () => {
+          if (!map.getSource("mapbox-dem")) {
+            try { map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 }); } catch (e) {}
+            try { map.setTerrain({ source: "mapbox-dem", exaggeration: 2.5 }); } catch (e) {}
           }
-        }
-      }
-
-      layersAdded = true;
-      updatePositions();
-    });
-
-    // If setTerrain triggers a style reload, re-add sky + hillshade + route layers
-    map.on("style.load", () => {
-      if (!layersAdded) return; // First style.load is handled by 'load' event above
-
-      // Re-add sky if wiped
-      if (!map.getLayer("sky")) {
-        try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
-      }
-
-      // Re-add DEM source + hillshade if wiped
-      if (!map.getSource(DEM_SOURCE)) {
-        try {
-          map.addSource(DEM_SOURCE, {
-            type: "raster-dem",
-            url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-            tileSize: 512,
-            maxzoom: 14,
-          });
-        } catch (e) {}
-      }
-
-      if (!map.getLayer("hillshade") && map.getSource(DEM_SOURCE)) {
-        try {
-          map.addLayer({
-            id: "hillshade",
-            type: "hillshade",
-            source: DEM_SOURCE,
-            paint: {
-              "hillshade-exaggeration": 0.6,
-              "hillshade-shadow-color": "#2C3E50",
-              "hillshade-highlight-color": "#F5F0E8",
-            },
-          });
-        } catch (e) {}
-      }
-
-      // Re-add route layers if wiped
-      if (!map.getSource(ROUTE_SOURCE)) {
-        try {
-          map.addSource(ROUTE_SOURCE, {
-            type: "geojson",
-            data: { type: "FeatureCollection", features: [] },
-          });
-          map.addLayer({
-            id: ROUTE_GLOW,
-            type: "line",
-            source: ROUTE_SOURCE,
-            layout: { "line-join": "round", "line-cap": "round" },
-            paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 },
-          });
-          map.addLayer({
-            id: ROUTE_LAYER,
-            type: "line",
-            source: ROUTE_SOURCE,
-            layout: { "line-join": "round", "line-cap": "round" },
-            paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 },
-          });
-        } catch (e) {}
-      }
-    });
+          if (!map.getLayer("sky")) {
+            try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
+          }
+          if (!map.getLayer("hillshade") && map.getSource("mapbox-dem")) {
+            try { map.addLayer({ id: "hillshade", type: "hillshade", source: "mapbox-dem", paint: { "hillshade-exaggeration": 1.2, "hillshade-shadow-color": "#1a1a2e", "hillshade-highlight-color": "#e8dcc8" } }); } catch (e) {}
+          }
+          if (!map.getSource(ROUTE_SOURCE)) {
+            try {
+              map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+              map.addLayer({ id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 } });
+              map.addLayer({ id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 } });
+            } catch (e) {}
+          }
+        });
 
     // Update positions on map move/zoom
     map.on("move", scheduleUpdate);
