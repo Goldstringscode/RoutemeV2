@@ -6,7 +6,6 @@ const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 const ROUTE_SOURCE = "route-source";
 const ROUTE_LAYER = "route-layer";
 const ROUTE_GLOW = "route-glow";
-const DEM_SOURCE = "mapbox-dem";
 
 /** Project a pixel point to SVG viewBox coords (1000×600, xMidYMid slice) */
 function pixelToSvg(px, py, cw, ch) {
@@ -99,47 +98,25 @@ export default function StylizedMap({ compact = false, onStopClick }) {
     });
 
     map.on("load", () => {
-      // ── 1. DEM source + 3D terrain (subtle, no hillshade layer) ──
-      // No hillshade layer — streets-v12 already has clear roads and labels.
-      // Terrain adds 3D elevation without washing out the base map.
-      let hasTerrain = false;
-      try {
-        map.addSource(DEM_SOURCE, {
-          type: "raster-dem",
-          url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-          tileSize: 512,
-          maxzoom: 14,
-        });
-        map.setTerrain({ source: DEM_SOURCE, exaggeration: 0.6 });
-        hasTerrain = true;
-        console.log("[StylizedMap] 3D terrain enabled (exaggeration 0.6)");
-      } catch (e) {
-        console.warn("[StylizedMap] DEM terrain unavailable:", e);
-      }
-      if (hasTerrain) {
-        try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
-        if (!compact) map.easeTo({ pitch: 20, duration: 1000 });
-      }
-
-      // ── 2. Route layers (on top of everything) ──
-      try {
-        map.addSource(ROUTE_SOURCE, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        });
-        map.addLayer({
-          id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE,
-          layout: { "line-join": "round", "line-cap": "round" },
-          paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 },
-        });
-        map.addLayer({
-          id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE,
-          layout: { "line-join": "round", "line-cap": "round" },
-          paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 },
-        });
-      } catch (e) {
-        console.warn("Map layers setup failed:", e);
-      }
+          // ── 1. Route layers ──
+          try {
+            map.addSource(ROUTE_SOURCE, {
+              type: "geojson",
+              data: { type: "FeatureCollection", features: [] },
+            });
+            map.addLayer({
+              id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE,
+              layout: { "line-join": "round", "line-cap": "round" },
+              paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 },
+            });
+            map.addLayer({
+              id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE,
+              layout: { "line-join": "round", "line-cap": "round" },
+              paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 },
+            });
+          } catch (e) {
+            console.warn("Map layers setup failed:", e);
+          }
 
       // Project stops after map loads
       projectRef.current();
