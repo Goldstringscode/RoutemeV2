@@ -187,7 +187,7 @@ export default function StylizedMap({ compact = false, onStopClick }) {
               (b, coord) => b.extend(coord),
               new mapboxgl.LngLatBounds(routeGeoJson.coordinates[0], routeGeoJson.coordinates[0])
             );
-            map.fitBounds(bounds, { padding: 80, maxZoom: 11 });
+            map.fitBounds(bounds, { padding: 80, maxZoom: 11, pitch: map.getPitch() });
           } catch {}
         }
       } else {
