@@ -26,7 +26,7 @@ export default function RouteView() {
     optimizationMode, setOptimizationMode, routeDistance, routeDuration, routeGeoJson,
     weatherData, weatherLoading, nurse, resetRouteOrder, navPreference,
     routeActive, startRoute, endRoute, visitedIds, markVisited,
-    builderOpen, setBuilderOpen, setBuilderTab,
+    builderOpen, setBuilderOpen, builderTab, setBuilderTab,
   } = useRouteMe();
 
   const [selected, setSelected] = useState(schedule[0]?.id);
