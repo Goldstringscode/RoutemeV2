@@ -256,6 +256,91 @@ function optimizeLeastMileage(stops, homeBase) {
   return bestOrder || stops.map((s) => s.id);
 }
 
+/* ─── Strategy: Fuel efficient (minimizes fuel consumption) ── */
+// Weights: distance × 0.7 + traffic × 0.2 + time-window × 0.1
+function optimizeFuelEfficient(stops, homeBase) {
+  if (stops.length < 2) return stops.map((s) => s.id);
+
+  const remaining = [...stops];
+  const ordered = [];
+  let currentLat = homeBase?.lat || 34.0522;
+  let currentLng = homeBase?.lng || -118.2437;
+
+  while (remaining.length > 0) {
+    let bestIdx = 0;
+    let bestScore = Infinity;
+
+    for (let i = 0; i < remaining.length; i++) {
+      const s = remaining[i];
+      const dist = haversine(currentLat, currentLng, s.lat || 0, s.lng || 0);
+      const windowHour = windowToHour(s.window);
+      // Fuel score: distance heavily weighted, slight penalty for tight windows
+      const windowPenalty = windowHour < 9 || windowHour > 16 ? 0.5 : 0;
+      const score = dist * 0.7 + (dist * windowPenalty) * 0.3;
+      if (score < bestScore) { bestScore = score; bestIdx = i; }
+    }
+
+    const chosen = remaining[bestIdx];
+    currentLat = chosen.lat;
+    currentLng = chosen.lng;
+    ordered.push(chosen);
+    remaining.splice(bestIdx, 1);
+  }
+
+  return ordered.map((s) => s.id);
+}
+
+/* ─── Strategy: Traffic avoidance (avoids peak-hour congestion) ── */
+// Penalizes stops that would put the nurse on the road during peak commute times
+function optimizeTrafficAvoidance(stops, homeBase) {
+  if (stops.length < 2) return stops.map((s) => s.id);
+
+  const dow = new Date().getDay();
+  const traffic = TRAFFIC_BY_DOW[dow] || 1.5;
+  const weather = WEATHER_BY_DOW[dow] || { visibility: 1.0, wind: 0.95 };
+  const weatherFactor = (weather.visibility || 1.0) * (weather.wind || 0.95);
+
+  const remaining = [...stops];
+  const ordered = [];
+  let currentLat = homeBase?.lat || 34.0522;
+  let currentLng = homeBase?.lng || -118.2437;
+  let currentHour = 8;
+
+  while (remaining.length > 0) {
+    let bestIdx = 0;
+    let bestScore = Infinity;
+
+    for (let i = 0; i < remaining.length; i++) {
+      const s = remaining[i];
+      const dist = haversine(currentLat, currentLng, s.lat || 0, s.lng || 0);
+      const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
+      const arrivalHour = currentHour + driveMin / 60;
+      const windowHour = windowToHour(s.window);
+
+      // Traffic penalty: peak hours (7-9 AM, 4-7 PM) add heavy penalty
+      const isPeakAM = arrivalHour >= 7 && arrivalHour <= 9;
+      const isPeakPM = arrivalHour >= 16 && arrivalHour <= 19;
+      const trafficPenalty = isPeakAM || isPeakPM ? 40 : 0;
+
+      const lateness = Math.max(0, arrivalHour - (windowHour + 1));
+      const score = driveMin + lateness * 15 + trafficPenalty;
+
+      if (score < bestScore) { bestScore = score; bestIdx = i; }
+    }
+
+    const chosen = remaining[bestIdx];
+    const dist = haversine(currentLat, currentLng, chosen.lat || 0, chosen.lng || 0);
+    const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
+    currentHour += driveMin / 60 + (chosen.duration || 30) / 60;
+    currentLat = chosen.lat;
+    currentLng = chosen.lng;
+    ordered.push(chosen);
+    remaining.splice(bestIdx, 1);
+  }
+
+  return ordered.map((s) => s.id);
+}
+
 /* ─── Strategy: Custom (priority-first) ────────────────── */
 function optimizeCustom(stops) {
   const priorityRank = { high: 0, medium: 1, low: 2 };
@@ -319,6 +404,12 @@ function validateRoute(stops, orderIds, mode, dow, homeBase) {
       case "mileage":
         score = alt.totalDriveMiles + alt.windowViolations * 10;
         break;
+      case "fuel-efficient":
+        score = alt.totalDriveMiles * 0.8 + alt.totalDriveMinutes * 0.2 + alt.windowViolations * 20;
+        break;
+      case "traffic-avoidance":
+        score = alt.totalDriveMinutes * 0.6 + alt.totalDriveMiles * 0.2 + alt.windowViolations * 40;
+        break;
       case "custom":
         score = alt.totalDriveMinutes + alt.windowViolations * 60;
         break;
@@ -342,6 +433,12 @@ function validateRoute(stops, orderIds, mode, dow, homeBase) {
     case "shortest":
     case "mileage":
       currentScore = currentMetrics.totalDriveMiles + currentMetrics.windowViolations * 10;
+      break;
+    case "fuel-efficient":
+      currentScore = currentMetrics.totalDriveMiles * 0.8 + currentMetrics.totalDriveMinutes * 0.2 + currentMetrics.windowViolations * 20;
+      break;
+    case "traffic-avoidance":
+      currentScore = currentMetrics.totalDriveMinutes * 0.6 + currentMetrics.totalDriveMiles * 0.2 + currentMetrics.windowViolations * 40;
       break;
     case "custom":
       currentScore = currentMetrics.totalDriveMinutes + currentMetrics.windowViolations * 60;
@@ -393,6 +490,14 @@ export function optimizeRoute(stops, mode = "ai", savedRoutes = [], homeBase = n
       case "mileage":
         order = optimizeLeastMileage(stops, homeBase);
         strategyLabel = `Least mileage (best-start TSP from home, ${dayNames[dow]})`;
+        break;
+      case "fuel-efficient":
+        order = optimizeFuelEfficient(stops, homeBase);
+        strategyLabel = `Fuel efficient (distance-optimized, ${dayNames[dow]})`;
+        break;
+      case "traffic-avoidance":
+        order = optimizeTrafficAvoidance(stops, homeBase);
+        strategyLabel = `Traffic avoidance (avoids peak congestion, ${dayNames[dow]})`;
         break;
       case "custom":
         order = optimizeCustom(stops);

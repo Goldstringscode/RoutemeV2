@@ -296,15 +296,15 @@ export default function StylizedMap({ compact = false, onStopClick }) {
             const svgY = (point.y / rect.height) * 600;
             return (
               <g transform={`translate(${svgX} ${svgY})`} className="pointer-events-auto">
-                <circle r="20" fill="#D95D39" stroke="#FFFFFF" strokeWidth="3" opacity="0.9" />
-                <circle r="7" fill="#FFFFFF" opacity="0.9" />
-                <text
-                  x="0" y="28" textAnchor="middle" fill="#D95D39"
-                  fontFamily="Manrope, sans-serif" fontWeight="700" fontSize="8" letterSpacing="0.5"
-                >
-                  HOME
-                </text>
-              </g>
+                  <circle r="20" fill="#4F46E5" stroke="#FFFFFF" strokeWidth="3" opacity="0.9" />
+                  <circle r="7" fill="#FFFFFF" opacity="0.9" />
+                  <text
+                    x="0" y="28" textAnchor="middle" fill="#4F46E5"
+                    fontFamily="Manrope, sans-serif" fontWeight="700" fontSize="8" letterSpacing="0.5"
+                  >
+                    HOME
+                  </text>
+                </g>
             );
           })()
         )}

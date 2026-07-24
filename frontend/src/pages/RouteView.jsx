@@ -1,16 +1,19 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import StylizedMap from "@/components/StylizedMap";
 import { useRouteMe } from "@/context/RouteMeContext";
-import { Sparkles, Clock, MapPin, Stethoscope, Phone, ChevronRight, Fuel, Route, GripVertical, Lock, Unlock, Brain, Zap, Compass, SlidersHorizontal, Loader, CheckCircle, X, Info, ChevronDown, Map as MapIcon, ArrowUpDown, Plus, Trash2 } from "lucide-react";
+import { Sparkles, Clock, MapPin, Stethoscope, Phone, ChevronRight, Fuel, Route, GripVertical, Lock, Unlock, Brain, Zap, Compass, SlidersHorizontal, Loader, CheckCircle, X, Info, ChevronDown, Map as MapIcon, ArrowUpDown, Plus, Trash2, Leaf, ShieldAlert } from "lucide-react";
 import RouteBuilderModal from "@/components/RouteBuilderModal";
 import RemoveFromRouteModal from "@/components/RemoveFromRouteModal";
 import { formatTimeWindow } from "@/lib/utils";
 import { metersToMiles, secondsToShort } from "@/lib/directions";
+import { logRouteState, logBaselineChange } from "@/lib/routeDebugger";
 
 const OPTIMIZATION_MODES = [
   { id: "ai", label: "AI smart route", icon: Brain, desc: "Balances priority, traffic, time windows, and distance using a weighted heuristic model. Considers day-of-week traffic patterns & weather." },
   { id: "fastest", label: "Fastest", icon: Zap, desc: "Prioritizes earliest time windows first to minimize total drive time. Best when you need to finish the route quickly." },
   { id: "mileage", label: "Least mileage", icon: Compass, desc: "Nearest-neighbor TSP solver. Finds the shortest total driving distance between stops. Best for fuel efficiency." },
+  { id: "fuel-efficient", label: "Fuel efficient", icon: Leaf, desc: "Minimizes fuel consumption by heavily weighting distance over speed. Avoids unnecessary detours and long hauls between stops." },
+  { id: "traffic-avoidance", label: "Traffic avoidance", icon: ShieldAlert, desc: "Routes around peak-hour congestion by penalizing arrivals during 7-9 AM and 4-7 PM commute windows." },
   { id: "custom", label: "Custom", icon: SlidersHorizontal, desc: "Priority-first ordering: high-priority patients first, then by shortest duration. Best for clinical urgency." },
   { id: "saved", label: "Load existing route", icon: Loader, desc: "Load a previously saved route order. Use when today's conditions match a known good pattern." },
 ];
@@ -101,44 +104,55 @@ export default function RouteView() {
   const modeLabel = OPTIMIZATION_MODES.find(m => m.id === optimizationMode)?.label || "AI smart route";
 
   /* ─── Dynamic fuel & time saved ──────────────────────────── */
-  // Baseline = the Mapbox driving distance of the route when the page first loads.
-  // We store it in a ref (set during render, not in an effect) so the first
-  // render immediately shows the correct comparison. After optimization, the
-  // new Mapbox route distance is compared against this baseline.
   const baselineRef = useRef(null);
   // Set baseline during render (synchronous) — only on first real data
   if (routeDistance && routeDuration && !baselineRef.current) {
     baselineRef.current = { distance: routeDistance, duration: routeDuration };
+    logRouteState({
+      routeDistance, routeDuration, baseline: baselineRef.current,
+      optimized, mode: optimizationMode, routeGeoJson,
+    });
   }
 
   // Reset baseline when user manually reorders (optimized goes to false)
-  // so the next optimization compares against the new manual order
   const prevOptimizedRef = useRef(optimized);
   useEffect(() => {
     if (prevOptimizedRef.current === true && !optimized && routeDistance) {
-      // User toggled drag reorder — capture current distance as new baseline
-      baselineRef.current = { distance: routeDistance, duration: routeDuration };
+      const prev = baselineRef.current;
+      const next = { distance: routeDistance, duration: routeDuration };
+      baselineRef.current = next;
+      logBaselineChange("reset after reorder", prev, next);
     }
     prevOptimizedRef.current = optimized;
   }, [optimized, routeDistance, routeDuration]);
 
+  // Log route state whenever distance/duration/mode changes
+  useEffect(() => {
+    if (routeDistance && routeDuration && baselineRef.current) {
+      logRouteState({
+        routeDistance, routeDuration, baseline: baselineRef.current,
+        optimized, mode: optimizationMode, routeGeoJson,
+      });
+    }
+  }, [routeDistance, routeDuration, optimizationMode, optimized]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const computeFuelSaved = () => {
     const b = baselineRef.current;
     if (!b?.distance || !routeDistance) return "—";
-    if (b.distance === routeDistance) return "0%";
-    const pct = ((b.distance - routeDistance) / b.distance) * 100;
-    console.log("[FuelSaved] baseline:", b.distance, "current:", routeDistance, "pct:", pct.toFixed(2) + "%");
-    if (Math.abs(pct) < 0.1) return "0%";
-    return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
+    const diffMeters = b.distance - routeDistance;
+    const diffMiles = diffMeters * 0.000621371;
+    if (Math.abs(diffMiles) < 0.05) return "0 mi";
+    const sign = diffMiles > 0 ? "+" : "";
+    return `${sign}${diffMiles.toFixed(1)} mi`;
   };
 
   const computeTimeSaved = () => {
     const b = baselineRef.current;
     if (!b?.duration || !routeDuration) return "—";
     const savedSec = b.duration - routeDuration;
-    if (savedSec <= 0) return "0 min";
-    const mins = Math.round(savedSec / 60);
-    return `${mins} min`;
+    const savedMin = Math.round(savedSec / 60);
+    if (Math.abs(savedMin) < 1) return "< 1 min";
+    return savedMin > 0 ? `${savedMin} min` : `${Math.abs(savedMin)} min`;
   };
 
   return (
