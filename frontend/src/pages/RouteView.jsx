@@ -56,7 +56,7 @@ export default function RouteView() {
     setTimeout(() => setJustSaved(false), 2000);
   };
 
-  /* ─── Drag & Drop ────────────────────────────────────── */
+  /* ─── Drag & Drop (mouse + touch) ──────────────────────── */
   const handleDragStart = useCallback((e, idx) => {
     dragItem.current = idx;
     setDragIdx(idx);
@@ -80,6 +80,7 @@ export default function RouteView() {
     setDragIdx(null);
     setDragOverIdx(null);
     dragItem.current = null;
+    touchActiveRef.current = false;
   }, []);
 
   const handleDrop = useCallback((e, dropIdx) => {
@@ -100,6 +101,59 @@ export default function RouteView() {
     setDragOverIdx(null);
     dragItem.current = null;
   }, [schedule, reorder]);
+
+  // ── Touch drag support (mobile) ──
+  const touchActiveRef = useRef(false);
+  const touchStartY = useRef(0);
+  const touchItemIdx = useRef(null);
+
+  const handleTouchStart = useCallback((e, idx) => {
+    touchActiveRef.current = true;
+    touchItemIdx.current = idx;
+    dragItem.current = idx;
+    touchStartY.current = e.touches[0].clientY;
+    setDragIdx(idx);
+  }, []);
+
+  const handleTouchMove = useCallback((e) => {
+    if (!touchActiveRef.current) return;
+    e.preventDefault();
+
+    const touchY = e.touches[0].clientY;
+    const listEl = e.currentTarget.closest('ol');
+    if (!listEl) return;
+
+    const items = listEl.querySelectorAll('li');
+    let dropIdx = touchItemIdx.current;
+    for (let i = 0; i < items.length; i++) {
+      const rect = items[i].getBoundingClientRect();
+      if (touchY >= rect.top && touchY <= rect.bottom) {
+        dropIdx = i;
+        break;
+      }
+    }
+    setDragOverIdx(dropIdx);
+  }, []);
+
+  const handleTouchEnd = useCallback((e) => {
+    if (!touchActiveRef.current) return;
+    touchActiveRef.current = false;
+
+    const fromIdx = dragItem.current;
+    const toIdx = dragOverIdx;
+
+    setDragIdx(null);
+    setDragOverIdx(null);
+    dragItem.current = null;
+    touchItemIdx.current = null;
+
+    if (fromIdx === null || toIdx === null || fromIdx === toIdx) return;
+
+    const ids = schedule.map(s => s.id);
+    const [moved] = ids.splice(fromIdx, 1);
+    ids.splice(toIdx, 0, moved);
+    reorder(ids);
+  }, [schedule, reorder, dragOverIdx]);
 
   const modeLabel = OPTIMIZATION_MODES.find(m => m.id === optimizationMode)?.label || "AI smart route";
 
@@ -133,6 +187,10 @@ export default function RouteView() {
         routeDistance, routeDuration, baseline: baselineRef.current,
         optimized, mode: optimizationMode, routeGeoJson,
       });
+      // Detailed drive time audit
+      const rawMin = (routeDuration / 60).toFixed(1);
+      const display = secondsToShort(routeDuration);
+      console.log(`[DriveTime] Raw: ${routeDuration}s (${rawMin} min) → Display: ${display}`);
     }
   }, [routeDistance, routeDuration, optimizationMode, optimized]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -310,6 +368,9 @@ export default function RouteView() {
                     onDragOver={(e) => handleDragOver(e, idx)}
                     onDragEnd={handleDragEnd}
                     onDrop={(e) => handleDrop(e, idx)}
+                    onTouchStart={(e) => dragEnabled && handleTouchStart(e, idx)}
+                    onTouchMove={(e) => dragEnabled && handleTouchMove(e)}
+                    onTouchEnd={(e) => dragEnabled && handleTouchEnd(e)}
                   >
                     {/* Drop indicator line */}
                     {isOver && dragEnabled && (
