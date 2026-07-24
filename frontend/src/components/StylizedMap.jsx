@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import mapboxgl from "mapbox-gl";
 import { useRouteMe } from "@/context/RouteMeContext";
-import terrainStyle from "@/assets/terrain-style.json";
 
 const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 const ROUTE_SOURCE = "route-source";
@@ -81,37 +80,64 @@ export default function StylizedMap({ compact = false, onStopClick }) {
       : -118.2437;
 
     const map = new mapboxgl.Map({
-                  container: mapContainer.current,
-                  style: terrainStyle,
-                  center: [centerLng, centerLat],
-                  zoom: compact ? 9.5 : 9,
-                  pitch: compact ? 0 : 55,
-                  interactive: !compact,
-                  attributionControl: false,
-                  logoPosition: "bottom-right",
-                });
+      container: mapContainer.current,
+      style: "mapbox://styles/mapbox/streets-v11",
+      center: [centerLng, centerLat],
+      zoom: compact ? 9.5 : 9,
+      pitch: compact ? 0 : 55,
+      interactive: !compact,
+      attributionControl: false,
+      logoPosition: "bottom-right",
+    });
 
-        map.on("load", () => {
-                  // ── Route layers ──
-                  if (!map.getSource(ROUTE_SOURCE)) {
-                    try {
-                      map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-                      map.addLayer({ id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 } });
-                      map.addLayer({ id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 } });
-                    } catch (e) {}
-                  }
+    // ── Terrain: add 3D elevation + hillshade ──
+    map.on("load", () => {
+      try {
+        if (!map.getSource("mapbox-dem")) {
+          map.addSource("mapbox-dem", {
+            type: "raster-dem",
+            url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+            tileSize: 512,
+            maxzoom: 14,
+          });
+        }
+        if (typeof map.setTerrain === "function") {
+          map.setTerrain({ source: "mapbox-dem", exaggeration: 1.5 });
+        }
+        if (!map.getLayer("rm-hillshade")) {
+          map.addLayer({
+            id: "rm-hillshade",
+            type: "hillshade",
+            source: "mapbox-dem",
+            paint: {
+              "hillshade-exaggeration": 0.6,
+              "hillshade-shadow-color": "#1a1a2e",
+              "hillshade-highlight-color": "#e8dcc8",
+              "hillshade-illumination-anchor": "viewport",
+            },
+          }, "land");
+        }
+        console.log("[Terrain] 3D elevation active ✅");
+      } catch (e) {
+        console.warn("[Terrain] setup failed:", e);
+      }
 
-                  // ── Sky atmosphere ──
-                  if (!map.getLayer("sky")) {
-                    try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
-                  }
+      // ── Route layers ──
+      if (!map.getSource(ROUTE_SOURCE)) {
+        try {
+          map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+          map.addLayer({ id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 } });
+          map.addLayer({ id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 } });
+        } catch (e) {}
+      }
 
-                  updatePositions();
+      // ── Sky atmosphere ──
+      if (!map.getLayer("sky")) {
+        try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
+      }
 
-                  // ── Terrain setup ──
-                                    // Terrain is baked into the custom style JSON (src/assets/terrain-style.json)
-                                    console.log("[Terrain] Terrain baked into style, no programmatic setup needed");
-                                  });
+      updatePositions();
+    });
 
     // Update positions on map move/zoom
     map.on("move", scheduleUpdate);

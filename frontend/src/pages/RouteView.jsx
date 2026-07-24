@@ -127,6 +127,7 @@ export default function RouteView() {
     if (!b?.distance || !routeDistance) return "—";
     if (b.distance === routeDistance) return "0%";
     const pct = ((b.distance - routeDistance) / b.distance) * 100;
+    console.log("[FuelSaved] baseline:", b.distance, "current:", routeDistance, "pct:", pct.toFixed(2) + "%");
     if (Math.abs(pct) < 0.1) return "0%";
     return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
   };
