@@ -19,7 +19,7 @@ const OPTIMIZATION_MODES = [
 ];
 
 export default function RouteView() {
-  const { schedule, optimize, optimized, openVoice, saveRoute, savedRoutes, loadRoute, reorder, routeResult, clients, scheduleIds, createRoute, removeFromRoute, rescheduleClient, rescheduledClients, optimizationMode, setOptimizationMode, routeDistance, routeDuration, weatherData, weatherLoading, nurse } = useRouteMe();
+  const { schedule, optimize, optimized, openVoice, saveRoute, savedRoutes, loadRoute, reorder, routeResult, clients, scheduleIds, createRoute, removeFromRoute, rescheduleClient, rescheduledClients, optimizationMode, setOptimizationMode, routeDistance, routeDuration, routeGeoJson, weatherData, weatherLoading, nurse } = useRouteMe();
     const [selected, setSelected] = useState(schedule[0]?.id);
     const [modalOpen, setModalOpen] = useState(false);
     const [builderOpen, setBuilderOpen] = useState(false);
