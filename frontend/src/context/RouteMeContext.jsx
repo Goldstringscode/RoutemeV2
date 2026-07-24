@@ -111,6 +111,11 @@ const loadState = () => {
 
 export function RouteMeProvider({ children }) {
   const initial = loadState();
+  // Merge saved clients with seed data to fill missing fields (lat/lng, etc.)
+  const mergedClients = initial?.clients ? initial.clients.map(saved => {
+    const seed = CLIENTS_SEED.find(c => c.id === saved.id);
+    return seed ? { ...seed, ...saved } : saved;
+  }) : null;
   const lastUserId = useRef(null);
   const userIdRef = useRef(null);
 
@@ -123,7 +128,7 @@ export function RouteMeProvider({ children }) {
 
   /* ─── Nurse-app state ──────────────────────────────── */
   const [authed, setAuthed] = useState(initial?.authed ?? false);
-  const [clients, setClients] = useState(initial?.clients ?? CLIENTS_SEED);
+  const [clients, setClients] = useState(mergedClients ?? CLIENTS_SEED);
   const initialScheduleIds = initial?.scheduleIds ?? CLIENTS_SEED.map((c) => c.id);
   const [scheduleIds, setScheduleIds] = useState(initialScheduleIds);
   const originalOrderRef = useRef(initialScheduleIds);
@@ -529,9 +534,19 @@ export function RouteMeProvider({ children }) {
             setRouteResult(result);
             pushAudit(`Route re-optimized (${optMode})`, "route");
             const orderedStops = result.order.map((id) => schedule.find((s) => s.id === id)).filter(Boolean);
-            if (orderedStops.length >= 2) {
-              console.log("[RouteMe] Optimize: fetching Mapbox route for", orderedStops.length, "stops");
-              fetchRoute(orderedStops, nurse.homeBase).then((route) => {
+                        if (orderedStops.length >= 2) {
+                          // Validate all stops have coordinates
+                          const badStops = orderedStops.filter(s => s.lat == null || s.lng == null);
+                          if (badStops.length > 0) {
+                            console.warn("[RouteMe] Stops missing coordinates:", badStops.map(s => s.id).join(","));
+                          }
+                          const validStops = orderedStops.filter(s => s.lat != null && s.lng != null);
+                          if (validStops.length < 2) {
+                            console.warn("[RouteMe] Not enough valid stops to fetch route");
+                            return;
+                          }
+                          console.log("[RouteMe] Optimize: fetching Mapbox route for", validStops.length, "stops");
+                          fetchRoute(validStops, nurse.homeBase).then((route) => {
                 if (route) {
                   console.log("[RouteMe] Route fetched:", metersToMiles(route.distance), "mi,", secondsToShort(route.duration));
                   setRouteGeoJson(route.routeGeoJson);
@@ -574,11 +589,11 @@ export function RouteMeProvider({ children }) {
                               weather: "clear",
                             });
                             fetchRoute(schedule, nurse.homeBase).then((route) => {
-                      if (route) {
-                        console.log("[RouteMe] Initial route:", metersToMiles(route.distance), "mi,", secondsToShort(route.duration));
-                        setRouteGeoJson(route.routeGeoJson);
-                        setRouteDistance(route.distance);
-                        setRouteDuration(route.duration);
+                                                  if (route) {
+                                                    console.log("[RouteMe] Initial route:", metersToMiles(route.distance), "mi,", secondsToShort(route.duration));
+                                                    setRouteGeoJson(route.routeGeoJson);
+                                                    setRouteDistance(route.distance);
+                                                    setRouteDuration(route.duration);
                       } else {
                         console.warn("[RouteMe] Initial fetchRoute returned null");
                       }

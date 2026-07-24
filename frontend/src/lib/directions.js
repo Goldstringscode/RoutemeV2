@@ -14,17 +14,25 @@ export async function fetchRoute(waypoints, homeBase) {
     return null;
   }
 
-  // Build coordinate string: start from homeBase if provided
-  let coords;
-  if (homeBase && homeBase.lat != null && homeBase.lng != null) {
-    coords = `${homeBase.lng},${homeBase.lat};${waypoints.map((p) => `${p.lng},${p.lat}`).join(";")}`;
-  } else {
-    coords = waypoints.map((p) => `${p.lng},${p.lat}`).join(";");
-  }
-
   if (waypoints.length < 1 && !homeBase) return null;
   // Need at least 2 points for a route (homeBase + 1 stop, or 2+ stops)
   if (waypoints.length < 2 && !homeBase) return null;
+
+  // Filter out stops without valid coordinates
+  const validWaypoints = waypoints.filter(p => p.lat != null && p.lng != null);
+  if (validWaypoints.length < 1 && !homeBase) return null;
+  if (validWaypoints.length < 2 && !homeBase) return null;
+  if (validWaypoints.length !== waypoints.length) {
+    console.warn(`[fetchRoute] Filtered ${waypoints.length - validWaypoints.length} stops with missing coordinates`);
+  }
+
+  // Build coordinate string: start from homeBase if provided
+  let coords;
+  if (homeBase && homeBase.lat != null && homeBase.lng != null) {
+    coords = `${homeBase.lng},${homeBase.lat};${validWaypoints.map((p) => `${p.lng},${p.lat}`).join(";")}`;
+  } else {
+    coords = validWaypoints.map((p) => `${p.lng},${p.lat}`).join(";");
+  }
 
   const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coords}?access_token=${TOKEN}&geometries=geojson&steps=true&overview=full&language=en`;
 
