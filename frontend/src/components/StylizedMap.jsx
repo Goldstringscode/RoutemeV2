@@ -90,57 +90,67 @@ export default function StylizedMap({ compact = false, onStopClick }) {
       logoPosition: "bottom-right",
     });
 
-    // ── Terrain: add 3D elevation + hillshade ──
-    map.on("load", () => {
-      try {
-        if (!map.getSource("mapbox-dem")) {
-          map.addSource("mapbox-dem", {
-            type: "raster-dem",
-            url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-            tileSize: 512,
-            maxzoom: 14,
-          });
-        }
-        if (typeof map.setTerrain === "function") {
-          map.setTerrain({ source: "mapbox-dem", exaggeration: 1.5 });
-        }
-        if (!map.getLayer("rm-hillshade")) {
-                  const firstLayerId = map.getStyle().layers?.[0]?.id;
-                  map.addLayer({
-                    id: "rm-hillshade",
-                    type: "hillshade",
-                    source: "mapbox-dem",
-                    paint: {
-                      "hillshade-exaggeration": 0.6,
-                      "hillshade-shadow-color": "#1a1a2e",
-                      "hillshade-highlight-color": "#e8dcc8",
-                      "hillshade-illumination-anchor": "viewport",
-                    },
-                  }, firstLayerId);
-                }
-        console.log("[Terrain] 3D elevation active ✅");
-      } catch (e) {
-        console.warn("[Terrain] setup failed:", e);
-      }
+    // ── Terrain: add 3D elevation + hillshade after DEM tiles load ──
+        let terrainEnabled = false;
+        map.on("load", () => {
+                  // Add DEM source
+                  if (!map.getSource("mapbox-dem")) {
+                    map.addSource("mapbox-dem", {
+                      type: "raster-dem",
+                      url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+                      tileSize: 512,
+                      maxzoom: 14,
+                    });
+                  }
 
-      // ── Route layers ──
-      if (!map.getSource(ROUTE_SOURCE)) {
-        try {
-          map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-          map.addLayer({ id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 } });
-          map.addLayer({ id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 } });
-        } catch (e) {}
-      }
+                  // ── Route layers ──
+                  if (!map.getSource(ROUTE_SOURCE)) {
+                    try {
+                      map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+                      map.addLayer({ id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 } });
+                      map.addLayer({ id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 } });
+                    } catch (e) {}
+                  }
 
-      // ── Sky atmosphere ──
-      if (!map.getLayer("sky")) {
-        try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
-      }
+                  // ── Sky atmosphere ──
+                  if (!map.getLayer("sky")) {
+                    try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
+                  }
 
-      updatePositions();
-    });
+                  updatePositions();
+                });
 
-    // Update positions on map move/zoom
+        // Wait for DEM tiles to load, THEN enable terrain
+        map.on("sourcedata", (e) => {
+          if (e.sourceId === "mapbox-dem" && e.isSourceLoaded && !terrainEnabled) {
+            terrainEnabled = true;
+            try {
+              if (typeof map.setTerrain === "function") {
+                map.setTerrain({ source: "mapbox-dem", exaggeration: 1.5 });
+              }
+              // Add hillshade at the very bottom
+              if (!map.getLayer("rm-hillshade")) {
+                const firstLayerId = map.getStyle().layers?.[0]?.id;
+                map.addLayer({
+                  id: "rm-hillshade",
+                  type: "hillshade",
+                  source: "mapbox-dem",
+                  paint: {
+                    "hillshade-exaggeration": 0.6,
+                    "hillshade-shadow-color": "#1a1a2e",
+                    "hillshade-highlight-color": "#e8dcc8",
+                    "hillshade-illumination-anchor": "viewport",
+                  },
+                }, firstLayerId);
+              }
+              console.log("[Terrain] 3D elevation active ✅");
+            } catch (e) {
+              console.warn("[Terrain] setup failed:", e);
+            }
+          }
+        });
+
+      // Update positions on map move/zoom
     map.on("move", scheduleUpdate);
     map.on("resize", scheduleUpdate);
 
