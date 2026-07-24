@@ -131,10 +131,101 @@ export function computeRouteMetrics(stops, homeBase) {
   };
 }
 
-/* ─── Greedy nearest-neighbor helper ───────────────────── */
-// Shared logic: starts from homeBase, then iteratively picks the stop with
-// the lowest score among remaining candidates. Each strategy supplies its own
-// scoring function.
+/* ─── Greedy nearest-neighbor from a given starting point ── */
+function nearestNeighborFrom(stops, startIdx, homeBase, scoreFn) {
+  if (stops.length < 2) return stops.map((s) => s.id);
+
+  const ordered = [stops[startIdx]];
+  const remaining = stops.filter((_, i) => i !== startIdx);
+
+  let currentLat = stops[startIdx].lat || 0;
+  let currentLng = stops[startIdx].lng || 0;
+  let currentHour = 8 + (stops[startIdx].duration || 30) / 60;
+
+  // Add drive time from home base to first stop
+  const homeDist = haversine(
+    homeBase?.lat || 34.0522, homeBase?.lng || -118.2437,
+    stops[startIdx].lat || 0, stops[startIdx].lng || 0
+  );
+  const dow = new Date().getDay();
+  const traffic = TRAFFIC_BY_DOW[dow] || 1.5;
+  const weather = WEATHER_BY_DOW[dow] || { visibility: 1.0, wind: 0.95 };
+  const weatherFactor = (weather.visibility || 1.0) * (weather.wind || 0.95);
+  const homeDriveMin = (homeDist / 30) * 60 * traffic * weatherFactor;
+  currentHour += homeDriveMin / 60;
+
+  while (remaining.length > 0) {
+    let bestIdx = 0;
+    let bestScore = Infinity;
+
+    for (let i = 0; i < remaining.length; i++) {
+      const s = remaining[i];
+      const dist = haversine(currentLat, currentLng, s.lat || 0, s.lng || 0);
+      const score = scoreFn(s, dist, currentHour);
+      if (score < bestScore) {
+        bestScore = score;
+        bestIdx = i;
+      }
+    }
+
+    const chosen = remaining[bestIdx];
+    const dist = haversine(currentLat, currentLng, chosen.lat || 0, chosen.lng || 0);
+    const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
+    currentHour += driveMin / 60 + (chosen.duration || 30) / 60;
+    currentLat = chosen.lat;
+    currentLng = chosen.lng;
+
+    ordered.push(chosen);
+    remaining.splice(bestIdx, 1);
+  }
+
+  return ordered.map((s) => s.id);
+}
+
+/* ─── Multi-start nearest-neighbor ─────────────────────── */
+// Tries every stop as the first stop from home base, then uses
+// nearest-neighbor for the rest. Scores each full ordering with
+// the strategy's per-stop scoring and returns the best one.
+function multiStartNN(stops, homeBase, perStopScoreFn) {
+  if (stops.length < 2) return stops.map((s) => s.id);
+
+  const dow = new Date().getDay();
+  const traffic = TRAFFIC_BY_DOW[dow] || 1.5;
+  const weather = WEATHER_BY_DOW[dow] || { visibility: 1.0, wind: 0.95 };
+  const weatherFactor = (weather.visibility || 1.0) * (weather.wind || 0.95);
+
+  let bestOrder = null;
+  let bestTotal = Infinity;
+
+  for (let startIdx = 0; startIdx < stops.length; startIdx++) {
+    const order = nearestNeighborFrom(stops, startIdx, homeBase, perStopScoreFn);
+    const orderedStops = order.map((id) => stops.find((s) => s.id === id)).filter(Boolean);
+
+    // Compute total score for this ordering by summing per-stop scores
+    let totalScore = 0;
+    let prevLat = homeBase?.lat || 34.0522;
+    let prevLng = homeBase?.lng || -118.2437;
+    let currentHour = 8;
+
+    for (const s of orderedStops) {
+      const dist = haversine(prevLat, prevLng, s.lat || 0, s.lng || 0);
+      totalScore += perStopScoreFn(s, dist, currentHour);
+      const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
+      currentHour += driveMin / 60 + (s.duration || 30) / 60;
+      prevLat = s.lat;
+      prevLng = s.lng;
+    }
+
+    if (totalScore < bestTotal) {
+      bestTotal = totalScore;
+      bestOrder = order;
+    }
+  }
+
+  return bestOrder || stops.map((s) => s.id);
+}
+
+/* ─── Legacy single-start nearest-neighbor (kept for back-compat) ── */
 function nearestNeighbor(stops, homeBase, scoreFn) {
   if (stops.length < 2) return stops.map((s) => s.id);
 
@@ -193,7 +284,7 @@ function optimizeAI(stops, dow, homeBase) {
   const weather = WEATHER_BY_DOW[dow] || { visibility: 1.0, wind: 0.95 };
   const weatherFactor = (weather.visibility || 1.0) * (weather.wind || 0.95);
 
-  return nearestNeighbor(stops, homeBase, (s, dist, currentHour) => {
+  return multiStartNN(stops, homeBase, (s, dist, currentHour) => {
     const p = PRIORITY_RANK[s.priority] ?? 1;
     const windowHour = windowToHour(s.window);
     const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
@@ -225,7 +316,7 @@ function optimizeFastest(stops, homeBase) {
   const weather = WEATHER_BY_DOW[dow] || { visibility: 1.0, wind: 0.95 };
   const weatherFactor = (weather.visibility || 1.0) * (weather.wind || 0.95);
 
-  return nearestNeighbor(stops, homeBase, (s, dist, currentHour) => {
+  return multiStartNN(stops, homeBase, (s, dist, currentHour) => {
     const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
     const windowHour = windowToHour(s.window);
     const lateness = Math.max(0, currentHour - (windowHour + 1));
@@ -295,7 +386,7 @@ function optimizeFuelEfficient(stops, homeBase) {
   const dow = new Date().getDay();
   const weather = WEATHER_BY_DOW[dow] || { visibility: 1.0, wind: 0.95 };
 
-  return nearestNeighbor(stops, homeBase, (s, dist, currentHour) => {
+  return multiStartNN(stops, homeBase, (s, dist, currentHour) => {
     const windowHour = windowToHour(s.window);
     const lateness = Math.max(0, currentHour - (windowHour + 1));
     // Distance dominates (0.8); time-window lateness contributes (0.2)
@@ -312,7 +403,7 @@ function optimizeTrafficAvoidance(stops, homeBase) {
   const weather = WEATHER_BY_DOW[dow] || { visibility: 1.0, wind: 0.95 };
   const weatherFactor = (weather.visibility || 1.0) * (weather.wind || 0.95);
 
-  return nearestNeighbor(stops, homeBase, (s, dist, currentHour) => {
+  return multiStartNN(stops, homeBase, (s, dist, currentHour) => {
     const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
     const windowHour = windowToHour(s.window);
 
