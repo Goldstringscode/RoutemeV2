@@ -4,7 +4,7 @@ import { useRouteMe } from "@/context/RouteMeContext";
 import { Switch } from "@/components/ui/switch";
 
 export default function Profile() {
-  const { nurse, audit, clients, notes, updateNurseHomeBase } = useRouteMe();
+  const { nurse, audit, clients, notes, updateNurseHomeBase, navPreference, setNavPreference } = useRouteMe();
   const totalNotes = Object.values(notes).reduce((s, arr) => s + arr.length, 0);
   const [editingHome, setEditingHome] = useState(false);
   const [homeAddress, setHomeAddress] = useState(nurse.homeBase?.address || "");
@@ -163,33 +163,63 @@ export default function Profile() {
         <p className="text-sm text-stone-500 mb-5">Tweak how RouteMe behaves on the road.</p>
 
         <div className="divide-y divide-stone-200">
-          <Pref
-            icon={Bell}
-            title="Break reminders"
-            desc="Suggest breaks based on route length and time driven."
-            defaultOn
-            testId="pref-breaks"
-          />
-          <Pref
-            icon={Volume2}
-            title="Voice cues between stops"
-            desc="Read next client name and care flags aloud."
-            testId="pref-voice"
-          />
-          <Pref
-            icon={MapPin}
-            title="Fuel-efficient routing"
-            desc="Prefer routes with fewer idles and shorter mileage."
-            defaultOn
-            testId="pref-fuel"
-          />
-          <Pref
-            icon={HeartPulse}
-            title="Family visibility alerts"
-            desc="Send opt-in ETAs to family contacts (mocked)."
-            testId="pref-family"
-          />
-        </div>
+                  <Pref
+                    icon={Bell}
+                    title="Break reminders"
+                    desc="Suggest breaks based on route length and time driven."
+                    defaultOn
+                    testId="pref-breaks"
+                  />
+                  <Pref
+                    icon={Volume2}
+                    title="Voice cues between stops"
+                    desc="Read next client name and care flags aloud."
+                    testId="pref-voice"
+                  />
+                  <Pref
+                    icon={MapPin}
+                    title="Fuel-efficient routing"
+                    desc="Prefer routes with fewer idles and shorter mileage."
+                    defaultOn
+                    testId="pref-fuel"
+                  />
+                  <Pref
+                    icon={HeartPulse}
+                    title="Family visibility alerts"
+                    desc="Send opt-in ETAs to family contacts (mocked)."
+                    testId="pref-family"
+                  />
+                </div>
+
+                {/* Navigation preference */}
+                <div className="mt-6 pt-6 border-t border-stone-200">
+                  <div className="flex items-start gap-4">
+                    <div className="h-10 w-10 rounded-xl bg-[#F9F8F6] border border-stone-200 flex items-center justify-center">
+                      <Map className="h-4 w-4 text-stone-700" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold">Default navigation app</p>
+                      <p className="text-sm text-stone-500 mt-0.5">
+                        Choose which map app to use when opening directions for a client stop.
+                      </p>
+                      <div className="flex items-center gap-3 mt-3">
+                        {["google", "apple", "both"].map((opt) => (
+                          <button
+                            key={opt}
+                            onClick={() => setNavPreference(opt)}
+                            className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${
+                              navPreference === opt
+                                ? "bg-[#D95D39] text-white border-[#D95D39]"
+                                : "bg-white text-stone-700 border-stone-200 hover:border-stone-300"
+                            }`}
+                          >
+                            {opt === "google" ? "Google Maps" : opt === "apple" ? "Apple Maps" : "Both"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
       </div>
 
       {/* Compliance card */}

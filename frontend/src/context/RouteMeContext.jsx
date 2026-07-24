@@ -144,6 +144,7 @@ export function RouteMeProvider({ children }) {
   ]);
   const unreadNotifications = notifications.filter(n => !n.read).length;
   const [optimizationMode, setOptimizationMode] = useState("ai");
+  const [navPreference, setNavPreference] = useState("google"); // "google" | "apple" | "both"
     const [routeResult, setRouteResult] = useState(null);
         const [routeGeoJson, setRouteGeoJson] = useState(null);
         const [routeDistance, setRouteDistance] = useState(null);
@@ -953,7 +954,7 @@ export function RouteMeProvider({ children }) {
     nurse, clients, setClients, schedule, scheduleIds, reorder, optimize, optimized,
     notes, addNote, audit, pushAudit, addClient, updateClient, removeClient,
     voiceOpen, setVoiceOpen, voiceTarget, setVoiceTarget, openVoice, noteViewMode, setNoteViewMode,
-    optimizationMode, setOptimizationMode, resetRouteOrder,
+    optimizationMode, setOptimizationMode, resetRouteOrder, navPreference, setNavPreference,
         savedRoutes, saveRoute, loadRoute, deleteSavedRoute, routeResult,
                     routeGeoJson, routeDistance, routeDuration, routeKey,
                     weatherData, weatherLoading,

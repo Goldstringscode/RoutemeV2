@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
+import { Link } from "react-router-dom";
 import StylizedMap from "@/components/StylizedMap";
 import { useRouteMe } from "@/context/RouteMeContext";
-import { Sparkles, Clock, MapPin, Stethoscope, Phone, ChevronRight, Fuel, Route, GripVertical, Lock, Unlock, Brain, Zap, Compass, SlidersHorizontal, Loader, CheckCircle, X, Info, ChevronDown, Map as MapIcon, ArrowUpDown, Plus, Trash2, Leaf, ShieldAlert } from "lucide-react";
+import { Sparkles, Clock, MapPin, Stethoscope, Phone, ChevronRight, Fuel, Route, GripVertical, Lock, Unlock, Brain, Zap, Compass, SlidersHorizontal, Loader, CheckCircle, X, Info, ChevronDown, Map as MapIcon, ArrowUpDown, Plus, Trash2, Leaf, ShieldAlert, Navigation } from "lucide-react";
 import RouteBuilderModal from "@/components/RouteBuilderModal";
 import RemoveFromRouteModal from "@/components/RemoveFromRouteModal";
 import { formatTimeWindow } from "@/lib/utils";
-import { metersToMiles, secondsToShort } from "@/lib/directions";
+import { metersToMiles, secondsToShort, googleMapsUrl, appleMapsUrl } from "@/lib/directions";
 import { logRouteState, logBaselineChange } from "@/lib/routeDebugger";
 
 const OPTIMIZATION_MODES = [
@@ -19,7 +20,7 @@ const OPTIMIZATION_MODES = [
 ];
 
 export default function RouteView() {
-  const { schedule, optimize, optimized, openVoice, saveRoute, savedRoutes, loadRoute, reorder, routeResult, clients, scheduleIds, createRoute, removeFromRoute, rescheduleClient, rescheduledClients, optimizationMode, setOptimizationMode, routeDistance, routeDuration, routeGeoJson, weatherData, weatherLoading, nurse, resetRouteOrder } = useRouteMe();
+  const { schedule, optimize, optimized, openVoice, saveRoute, savedRoutes, loadRoute, reorder, routeResult, clients, scheduleIds, createRoute, removeFromRoute, rescheduleClient, rescheduledClients, optimizationMode, setOptimizationMode, routeDistance, routeDuration, routeGeoJson, weatherData, weatherLoading, nurse, resetRouteOrder, navPreference } = useRouteMe();
     const [selected, setSelected] = useState(schedule[0]?.id);
     const [modalOpen, setModalOpen] = useState(false);
     const [builderOpen, setBuilderOpen] = useState(false);
@@ -488,7 +489,12 @@ export default function RouteView() {
               <p className="text-xs uppercase tracking-[0.22em] text-stone-500 font-semibold">
                 Selected stop
               </p>
-              <h3 className="font-display text-3xl mt-1">{active.fullName}</h3>
+              <Link
+                to={`/app/clients/${active.id}`}
+                className="font-display text-3xl mt-1 block hover:text-[#D95D39] transition-colors"
+              >
+                {active.fullName}
+              </Link>
               <p className="text-sm text-stone-600 mt-1">{active.condition}</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {active.flags?.map((f) => (
@@ -522,6 +528,27 @@ export default function RouteView() {
               >
                 <Stethoscope className="h-4 w-4" /> Visit note
               </button>
+              {/* Navigation buttons */}
+              {active.lat && active.lng && (navPreference === "google" || navPreference === "both") && (
+                <a
+                  href={googleMapsUrl(active.lat, active.lng, active.address)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full border border-blue-300 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50 transition-colors"
+                >
+                  <Navigation className="h-4 w-4" /> Google Maps
+                </a>
+              )}
+              {active.lat && active.lng && (navPreference === "apple" || navPreference === "both") && (
+                <a
+                  href={appleMapsUrl(active.lat, active.lng)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full border border-stone-300 px-4 py-2.5 text-sm font-semibold text-stone-800 hover:bg-stone-50 transition-colors"
+                >
+                  <Navigation className="h-4 w-4" /> Apple Maps
+                </a>
+              )}
             </div>
           </div>
         </div>

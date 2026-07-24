@@ -1,446 +1,242 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { X, Check, Plus, Search, Users, ArrowRight, Clock, MapPin, Loader, UserPlus } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import React, { useState } from "react";
+import { X, Plus, Search, UserPlus } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 
-const DAYS = [
-  { index: 0, label: "Monday", short: "Mon" },
-  { index: 1, label: "Tuesday", short: "Tue" },
-  { index: 2, label: "Wednesday", short: "Wed" },
-  { index: 3, label: "Thursday", short: "Thu" },
-  { index: 4, label: "Friday", short: "Fri" },
-  { index: 5, label: "Saturday", short: "Sat" },
-  { index: 6, label: "Sunday", short: "Sun" },
-];
+export default function RouteBuilderModal({ open, onClose }) {
+  const { clients, scheduleIds, addClient, createRoute } = useRouteMe();
 
-export default function RouteBuilderModal({ open, onClose, clients, scheduleIds, onScheduleIds, onReschedule, rescheduledClients }) {
-  const { addClient } = useRouteMe();
-  const [selected, setSelected] = useState(new Set());
-  const [tab, setTab] = useState("add"); // "add" | "rescheduled"
+  // Tabs: "new" | "existing"
+  const [tab, setTab] = useState("new");
+
+  // New client form
+  const [form, setForm] = useState({
+    fullName: "",
+    address: "",
+    lat: "",
+    lng: "",
+    window: "",
+    duration: 30,
+    priority: "medium",
+    phone: "",
+    condition: "",
+  });
+
+  // Existing client search
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [newClient, setNewClient] = useState({ fullName: "", condition: "", address: "", phone: "" });
-
-  // Simulate data loading when modal opens
-  useEffect(() => {
-    if (open) {
-      setLoading(true);
-      setSelected(new Set());
-      setSearch("");
-      setTab("add");
-      setCreateOpen(false);
-      setNewClient({ fullName: "", condition: "", address: "", phone: "" });
-      const t = setTimeout(() => setLoading(false), 350);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
-
-  // Clients not currently on the route
-  const available = useMemo(() => {
-    const onRoute = new Set(scheduleIds || []);
-    return clients.filter(c => !onRoute.has(c.id));
-  }, [clients, scheduleIds]);
-
-  // Rescheduled clients (with their data)
-  const rescheduledList = useMemo(() => {
-    const ids = Object.keys(rescheduledClients || {});
-    return ids.map(id => {
-      const client = clients.find(c => c.id === id);
-      const info = rescheduledClients[id];
-      return { ...client, rescheduledDay: info?.day, weekStart: info?.weekStart };
-    }).filter(c => c && c.fullName);
-  }, [rescheduledClients, clients]);
-
-  const filtered = useMemo(() => {
-    if (!search.trim()) return available;
-    const q = search.toLowerCase();
-    return available.filter(c =>
-      c.fullName?.toLowerCase().includes(q) ||
-      c.condition?.toLowerCase().includes(q) ||
-      c.address?.toLowerCase().includes(q)
-    );
-  }, [available, search]);
-
-  const toggleClient = (id) => {
-    const next = new Set(selected);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelected(next);
-  };
-
-  const toggleAll = () => {
-    if (selected.size === filtered.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(filtered.map(c => c.id)));
-    }
-  };
-
-  const addToRoute = () => {
-    if (selected.size === 0) return;
-    const newIds = [...(scheduleIds || []), ...selected];
-    onScheduleIds(newIds);
-    setSelected(new Set());
-    onClose();
-  };
-
-  // Quick-create a new client and auto-select them for the route
-  const handleCreateClient = useCallback((e) => {
-    e.preventDefault();
-    if (!newClient.fullName.trim()) return;
-    const initials = newClient.fullName
-      .split(" ").map(s => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
-    addClient({
-      ...newClient,
-      initials: initials + ".",
-      priority: "medium",
-      duration: 30,
-      window: "09:00 – 09:45",
-      flags: [],
-      lastVisit: "New client",
-      dob: "",
-    });
-    setNewClient({ fullName: "", condition: "", address: "", phone: "" });
-    setCreateOpen(false);
-    setSearch(newClient.fullName.split(" ")[0]);
-  }, [newClient, addClient]);
 
   if (!open) return null;
 
+  const handleAddNew = (e) => {
+    e.preventDefault();
+    if (!form.fullName.trim()) return;
+    addClient({
+      fullName: form.fullName.trim(),
+      address: form.address.trim(),
+      lat: parseFloat(form.lat) || undefined,
+      lng: parseFloat(form.lng) || undefined,
+      window: form.window,
+      duration: parseInt(form.duration, 10) || 30,
+      priority: form.priority,
+      phone: form.phone,
+      condition: form.condition,
+    });
+    setForm({ fullName: "", address: "", lat: "", lng: "", window: "", duration: 30, priority: "medium", phone: "", condition: "" });
+    onClose();
+  };
+
+  const handleAddExisting = (clientId) => {
+    createRoute([...scheduleIds, clientId]);
+    onClose();
+  };
+
+  // Clients not already on the route
+  const availableClients = clients.filter((c) => !scheduleIds.includes(c.id));
+  const filteredClients = search
+    ? availableClients.filter((c) =>
+        c.fullName?.toLowerCase().includes(search.toLowerCase())
+      )
+    : availableClients;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Modal */}
       <div className="relative w-full max-w-lg rounded-3xl border border-stone-200 bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-stone-100">
           <div>
-            <h2 className="font-display text-2xl">Create route</h2>
-            <p className="text-xs text-stone-500 mt-1">
-              Select clients to add to today&apos;s route
-            </p>
+            <h2 className="font-display text-2xl">Add to route</h2>
+            <p className="text-xs text-stone-500 mt-1">Add a new client or pick an existing one.</p>
           </div>
-          <button
-            onClick={onClose}
-            className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-stone-100 transition-colors"
-          >
+          <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-stone-100">
             <X className="h-4 w-4 text-stone-500" />
           </button>
         </div>
 
-        {/* Tab bar */}
-        <div className="flex border-b border-stone-100 px-6 pt-3 gap-1">
+        {/* Tabs */}
+        <div className="flex border-b border-stone-100 px-6">
           <button
-            onClick={() => setTab("add")}
-            className={`pb-3 px-3 text-xs font-semibold uppercase tracking-widest border-b-2 transition-colors ${
-              tab === "add"
-                ? "border-stone-900 text-stone-900"
-                : "border-transparent text-stone-400 hover:text-stone-600"
+            onClick={() => setTab("new")}
+            className={`pb-3 px-1 text-sm font-semibold border-b-2 transition-colors ${
+              tab === "new"
+                ? "border-[#D95D39] text-[#D95D39]"
+                : "border-transparent text-stone-500 hover:text-stone-700"
             }`}
           >
-            <Plus className="h-3 w-3 inline mr-1.5" />
-            Add clients
-            {!loading && available.length > 0 && (
-              <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500">
-                {available.length}
-              </span>
-            )}
+            New client
           </button>
           <button
-            onClick={() => setTab("rescheduled")}
-            className={`pb-3 px-3 text-xs font-semibold uppercase tracking-widest border-b-2 transition-colors ${
-              tab === "rescheduled"
-                ? "border-stone-900 text-stone-900"
-                : "border-transparent text-stone-400 hover:text-stone-600"
+            onClick={() => setTab("existing")}
+            className={`pb-3 px-1 text-sm font-semibold border-b-2 ml-6 transition-colors ${
+              tab === "existing"
+                ? "border-[#D95D39] text-[#D95D39]"
+                : "border-transparent text-stone-500 hover:text-stone-700"
             }`}
           >
-            <Clock className="h-3 w-3 inline mr-1.5" />
-            Rescheduled
-            {!loading && rescheduledList.length > 0 && (
-              <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                {rescheduledList.length}
-              </span>
-            )}
+            Add existing client
           </button>
         </div>
 
-        {/* Tab content */}
-        <div className="px-6 py-4 max-h-[50vh] overflow-y-auto">
-          {loading ? (
-            <div className="space-y-3 py-2">
-              {/* Skeleton: search bar */}
-              <Skeleton className="h-10 w-full rounded-xl" />
-              {/* Skeleton: select-all toggle */}
-              <Skeleton className="h-9 w-full rounded-xl" />
-              {/* Skeleton: client items */}
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex items-center gap-3 p-3">
-                  <Skeleton className="h-5 w-5 rounded shrink-0" />
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-3 w-12 rounded-full" />
-                    </div>
-                    <Skeleton className="h-3 w-24" />
-                    <Skeleton className="h-3 w-40" />
-                  </div>
-                  <Skeleton className="h-3 w-8" />
-                </div>
-              ))}
+        {/* Tab: New client form */}
+        {tab === "new" && (
+          <form onSubmit={handleAddNew} className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+            <div>
+              <label className="block text-xs font-semibold text-stone-600 mb-1">Full name *</label>
+              <input
+                type="text"
+                value={form.fullName}
+                onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
+                placeholder="e.g. Jane Doe"
+                required
+                className="w-full rounded-xl border border-stone-200 bg-[#F9F8F6] px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D95D39]/30"
+              />
             </div>
-          ) : (
-            <>{(tab === "add") ? (
-              <>
-              {/* Search */}
-              <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-stone-600 mb-1">Address</label>
                 <input
                   type="text"
-                  placeholder="Search clients by name, condition, or address..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full h-10 rounded-xl border border-stone-200 bg-white pl-10 pr-4 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100"
+                  value={form.address}
+                  onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                  placeholder="123 Main St"
+                  className="w-full rounded-xl border border-stone-200 bg-[#F9F8F6] px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D95D39]/30"
                 />
               </div>
-
-              {filtered.length === 0 ? (
-                <div className="text-center py-6">
-                  <Users className="h-10 w-10 text-stone-300 mx-auto" />
-                  <p className="mt-3 text-sm text-stone-500 font-semibold">
-                    {search ? "No clients match your search" : "All clients are on the route"}
-                  </p>
-                  <p className="text-xs text-stone-400 mt-1">
-                    {search ? "Try a different search term" : "The route is full — remove some to add more"}
-                  </p>
-                  {/* Quick-create button when search yields nothing */}
-                  {search && !createOpen && (
-                    <button
-                      onClick={() => setCreateOpen(true)}
-                      className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-5 py-2.5 text-sm font-semibold transition-colors"
-                    >
-                      <UserPlus className="h-4 w-4" /> Create &ldquo;{search}&rdquo;
-                    </button>
-                  )}
-                  {/* Mini create-client form */}
-                  {createOpen && (
-                    <form onSubmit={handleCreateClient} className="mt-4 text-left max-w-sm mx-auto space-y-2.5">
-                      <p className="text-xs uppercase tracking-widest text-stone-500 font-semibold mb-1">Quick-add client</p>
-                      <input
-                        value={newClient.fullName}
-                        onChange={(e) => setNewClient(n => ({ ...n, fullName: e.target.value }))}
-                        placeholder="Full name *"
-                        required
-                        className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100"
-                      />
-                      <input
-                        value={newClient.condition}
-                        onChange={(e) => setNewClient(n => ({ ...n, condition: e.target.value }))}
-                        placeholder="Condition (e.g. Diabetes)"
-                        className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100"
-                      />
-                      <input
-                        value={newClient.address}
-                        onChange={(e) => setNewClient(n => ({ ...n, address: e.target.value }))}
-                        placeholder="Address"
-                        className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100"
-                      />
-                      <input
-                        value={newClient.phone}
-                        onChange={(e) => setNewClient(n => ({ ...n, phone: e.target.value }))}
-                        placeholder="Phone"
-                        className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100"
-                      />
-                      <div className="flex items-center gap-2 pt-1">
-                        <button
-                          type="submit"
-                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 text-white h-10 text-sm font-semibold transition-colors"
-                        >
-                          <Plus className="h-4 w-4" /> Add &amp; select
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setCreateOpen(false)}
-                          className="rounded-full border border-stone-300 h-10 px-4 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  )}
-                </div>
-              ) : (
-                <>
-                  {/* Select all toggle */}
-                  {filtered.length > 1 && (
-                    <button
-                      onClick={toggleAll}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-stone-50 text-xs font-semibold text-stone-600 mb-1"
-                    >
-                      <span className={`h-4 w-4 rounded border-2 flex items-center justify-center ${
-                        selected.size === filtered.length
-                          ? "bg-stone-900 border-stone-900 text-white"
-                          : "border-stone-300"
-                      }`}>
-                        {selected.size === filtered.length && <Check className="h-3 w-3" />}
-                      </span>
-                      {selected.size === filtered.length ? "Deselect all" : `Select all ${filtered.length}`}
-                    </button>
-                  )}
-
-                  {/* Client list */}
-                  <div className="space-y-1">
-                    {filtered.map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => toggleClient(c.id)}
-                        className={`w-full text-left flex items-center gap-3 rounded-2xl border p-3 transition-all ${
-                          selected.has(c.id)
-                            ? "bg-[#F7E5DD] border-[#D95D39]/40 ring-1 ring-[#D95D39]/20"
-                            : "bg-white border-stone-200 hover:border-stone-300 hover:bg-stone-50"
-                        }`}
-                      >
-                        <span className={`h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 ${
-                          selected.has(c.id)
-                            ? "bg-[#D95D39] border-[#D95D39] text-white"
-                            : "border-stone-300"
-                        }`}>
-                          {selected.has(c.id) && <Check className="h-3 w-3" />}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-semibold text-sm truncate">{c.fullName}</p>
-                            <span className={`text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-full font-semibold ${
-                              c.priority === "high"
-                                ? "bg-[#F7E5DD] text-[#D95D39]"
-                                : c.priority === "low"
-                                  ? "bg-stone-100 text-stone-500"
-                                  : "bg-[#E3ECE5] text-emerald-800"
-                            }`}>
-                              {c.priority}
-                            </span>
-                          </div>
-                          <p className="text-xs text-stone-500 mt-0.5 truncate">{c.condition}</p>
-                          <p className="text-[11px] text-stone-400 mt-0.5 flex items-center gap-1">
-                            <MapPin className="h-3 w-3" /> {c.address}
-                          </p>
-                        </div>
-                        <span className="text-[10px] font-semibold text-stone-400">{c.duration}m</span>
-                      </button>
-                    ))}
-                  </div>
-                  {/* New client quick-create at bottom of list */}
-                  {!createOpen ? (
-                    <button
-                      onClick={() => { setCreateOpen(true); setSearch(""); }}
-                      className="w-full mt-2 flex items-center justify-center gap-2 rounded-2xl border border-dashed border-stone-300 p-3 text-sm font-semibold text-stone-500 hover:border-stone-500 hover:text-stone-700 hover:bg-stone-50 transition-all"
-                    >
-                      <UserPlus className="h-4 w-4" /> New client
-                    </button>
-                  ) : (
-                    <form onSubmit={handleCreateClient} className="mt-3 space-y-2.5 border-t border-stone-200 pt-3">
-                      <p className="text-xs uppercase tracking-widest text-stone-500 font-semibold">Quick-add client</p>
-                      <input value={newClient.fullName} onChange={(e) => setNewClient(n => ({ ...n, fullName: e.target.value }))} placeholder="Full name *" required className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100" />
-                      <input value={newClient.condition} onChange={(e) => setNewClient(n => ({ ...n, condition: e.target.value }))} placeholder="Condition" className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100" />
-                      <input value={newClient.address} onChange={(e) => setNewClient(n => ({ ...n, address: e.target.value }))} placeholder="Address" className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100" />
-                      <input value={newClient.phone} onChange={(e) => setNewClient(n => ({ ...n, phone: e.target.value }))} placeholder="Phone" className="w-full h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100" />
-                      <div className="flex items-center gap-2 pt-1">
-                        <button type="submit" className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 text-white h-10 text-sm font-semibold transition-colors"><Plus className="h-4 w-4" /> Add &amp; select</button>
-                        <button type="button" onClick={() => setCreateOpen(false)} className="rounded-full border border-stone-300 h-10 px-4 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors">Cancel</button>
-                      </div>
-                    </form>
-                  )}
-                </>
-              )}
-              </>
-            ) : (
-              /* Rescheduled tab */
-              <>
-                {rescheduledList.length === 0 ? (
-                  <div className="text-center py-10">
-                    <Clock className="h-10 w-10 text-stone-300 mx-auto" />
-                    <p className="mt-3 text-sm text-stone-500 font-semibold">No rescheduled clients</p>
-                    <p className="text-xs text-stone-400 mt-1">
-                      When you move a client to another day, they&apos;ll appear here
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {rescheduledList.map((c) => (
-                    <div
-                      key={c.id}
-                      className="rounded-2xl border border-amber-200 bg-amber-50/50 p-3"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-sm truncate">{c.fullName}</p>
-                          <p className="text-xs text-stone-500 mt-0.5">{c.condition}</p>
-                        </div>
-                        <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                          → {c.rescheduledDay}
-                        </span>
-                      </div>
-                      <div className="mt-2 flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            onReschedule(c.id, null); // clear reschedule
-                            // Add back to route
-                            const newIds = [...(scheduleIds || []), c.id];
-                            onScheduleIds(newIds);
-                          }}
-                          className="text-xs font-semibold text-[#D95D39] hover:underline underline-offset-2"
-                        >
-                          Add back to today
-                        </button>
-                        {c.weekStart && (
-                          <span className="text-[10px] text-stone-400">
-                            Week of {c.weekStart}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-            </>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-stone-100 bg-[#F9F8F6] flex items-center justify-between">
-          {loading ? (
-            <div className="flex items-center justify-between w-full">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-10 w-28 rounded-full" />
+              <div>
+                <label className="block text-xs font-semibold text-stone-600 mb-1">Time window</label>
+                <input
+                  type="text"
+                  value={form.window}
+                  onChange={(e) => setForm((f) => ({ ...f, window: e.target.value }))}
+                  placeholder="08:00 – 09:30"
+                  className="w-full rounded-xl border border-stone-200 bg-[#F9F8F6] px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D95D39]/30"
+                />
+              </div>
             </div>
-          ) : (
-            <>
-              <span className="text-xs text-stone-500">
-                {tab === "add"
-                  ? `${scheduleIds.length || 0} on route · ${selected.size} selected`
-                  : `${rescheduledList.length} rescheduled`}
-              </span>
-              {tab === "add" && (
-                <button
-                  onClick={addToRoute}
-                  disabled={selected.size === 0}
-                  className={`inline-flex items-center gap-2 rounded-full h-10 px-5 text-sm font-semibold transition-colors ${
-                    selected.size > 0
-                      ? "bg-stone-900 hover:bg-stone-800 text-white"
-                      : "bg-stone-200 text-stone-400 cursor-not-allowed"
-                  }`}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-stone-600 mb-1">Latitude</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={form.lat}
+                  onChange={(e) => setForm((f) => ({ ...f, lat: e.target.value }))}
+                  placeholder="34.05"
+                  className="w-full rounded-xl border border-stone-200 bg-[#F9F8F6] px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D95D39]/30 font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-stone-600 mb-1">Longitude</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={form.lng}
+                  onChange={(e) => setForm((f) => ({ ...f, lng: e.target.value }))}
+                  placeholder="-118.24"
+                  className="w-full rounded-xl border border-stone-200 bg-[#F9F8F6] px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D95D39]/30 font-mono"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-stone-600 mb-1">Duration (min)</label>
+                <input
+                  type="number"
+                  value={form.duration}
+                  onChange={(e) => setForm((f) => ({ ...f, duration: e.target.value }))}
+                  className="w-full rounded-xl border border-stone-200 bg-[#F9F8F6] px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D95D39]/30"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-stone-600 mb-1">Priority</label>
+                <select
+                  value={form.priority}
+                  onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
+                  className="w-full rounded-xl border border-stone-200 bg-[#F9F8F6] px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D95D39]/30"
                 >
-                  Add {selected.size > 0 ? `${selected.size} client${selected.size > 1 ? "s" : ""}` : ""}
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-              )}
-            </>
-          )}
-        </div>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-stone-600 mb-1">Condition</label>
+              <input
+                type="text"
+                value={form.condition}
+                onChange={(e) => setForm((f) => ({ ...f, condition: e.target.value }))}
+                placeholder="e.g. Post-op care"
+                className="w-full rounded-xl border border-stone-200 bg-[#F9F8F6] px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D95D39]/30"
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-full rounded-xl bg-[#D95D39] text-white py-3 text-sm font-semibold hover:bg-[#C05030] transition-colors"
+            >
+              <Plus className="h-4 w-4 inline mr-1" /> Add to route
+            </button>
+          </form>
+        )}
+
+        {/* Tab: Add existing client */}
+        {tab === "existing" && (
+          <div className="p-6 max-h-[60vh] overflow-y-auto">
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search clients..."
+                className="w-full rounded-xl border border-stone-200 bg-[#F9F8F6] pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D95D39]/30"
+              />
+            </div>
+            {filteredClients.length === 0 ? (
+              <div className="text-center py-8">
+                <UserPlus className="h-8 w-8 mx-auto text-stone-300" />
+                <p className="text-sm text-stone-500 mt-2">
+                  {search ? "No matching clients found." : "All clients are already on the route."}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {filteredClients.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => handleAddExisting(c.id)}
+                    className="w-full text-left flex items-center justify-between rounded-xl border border-stone-200 p-3 hover:bg-stone-50 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">{c.fullName}</p>
+                      <p className="text-xs text-stone-500 truncate">{c.address || "—"}</p>
+                    </div>
+                    <Plus className="h-4 w-4 text-[#D95D39] shrink-0 ml-2" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
