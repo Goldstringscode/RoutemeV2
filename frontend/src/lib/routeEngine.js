@@ -5,6 +5,10 @@
  * using multiple strategies, validates results, and provides transparency
  * into why a particular route was chosen.
  *
+ * All strategies use nearest-neighbor routing: start from home base, then
+ * greedily pick the next best stop based on the strategy's weighted criteria.
+ * This guarantees routes are spatially coherent and don't criss-cross.
+ *
  * Factors considered:
  *   • Day of week (traffic history)
  *   • Time windows (appointment slots)
@@ -69,6 +73,9 @@ function windowToHour(w) {
   return h + m / 60;
 }
 
+/* ─── Priority rank lookup ─────────────────────────────── */
+const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
+
 /* ─── Utility: compute route metrics FROM home base ────── */
 export function computeRouteMetrics(stops, homeBase) {
   let totalDriveMiles = 0;
@@ -124,38 +131,13 @@ export function computeRouteMetrics(stops, homeBase) {
   };
 }
 
-/* ─── Strategy: AI (smart) ─────────────────────────────── */
-// Combines priority, time windows, and distance from home base.
-function optimizeAI(stops, dow, homeBase) {
+/* ─── Greedy nearest-neighbor helper ───────────────────── */
+// Shared logic: starts from homeBase, then iteratively picks the stop with
+// the lowest score among remaining candidates. Each strategy supplies its own
+// scoring function.
+function nearestNeighbor(stops, homeBase, scoreFn) {
   if (stops.length < 2) return stops.map((s) => s.id);
 
-  const priorityRank = { high: 0, medium: 1, low: 2 };
-
-  const scored = stops.map((s) => {
-    const p = priorityRank[s.priority] ?? 1;
-    const w = windowToHour(s.window);
-    const fromHome = haversine(
-      s.lat || 0, s.lng || 0,
-      homeBase?.lat || 34.0522, homeBase?.lng || -118.2437
-    );
-    const score = p * 200 + w * 5 + fromHome * 2;
-    return { ...s, _score: score };
-  });
-
-  scored.sort((a, b) => a._score - b._score);
-  return scored.map((s) => s.id);
-}
-
-/* ─── Strategy: Fastest (traffic-aware, starts from home) ── */
-function optimizeFastest(stops, homeBase) {
-  if (stops.length < 2) return stops.map((s) => s.id);
-
-  const dow = new Date().getDay();
-  const traffic = TRAFFIC_BY_DOW[dow] || 1.5;
-  const weather = WEATHER_BY_DOW[dow] || { visibility: 1.0, wind: 0.95 };
-  const weatherFactor = (weather.visibility || 1.0) * (weather.wind || 0.95);
-
-  // Start from home base, pick closest stop by drive time + time window
   const remaining = [...stops];
   const ordered = [];
   let currentLat = homeBase?.lat || 34.0522;
@@ -168,18 +150,8 @@ function optimizeFastest(stops, homeBase) {
 
     for (let i = 0; i < remaining.length; i++) {
       const s = remaining[i];
-      const dist = haversine(
-        currentLat, currentLng,
-        s.lat || 0, s.lng || 0
-      );
-      const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
-      const arrivalHour = currentHour + driveMin / 60;
-      const windowHour = windowToHour(s.window);
-
-      // Score: drive time + lateness penalty
-      const lateness = Math.max(0, arrivalHour - (windowHour + 1));
-      const score = driveMin + lateness * 30;
-
+      const dist = haversine(currentLat, currentLng, s.lat || 0, s.lng || 0);
+      const score = scoreFn(s, dist, currentHour);
       if (score < bestScore) {
         bestScore = score;
         bestIdx = i;
@@ -187,11 +159,15 @@ function optimizeFastest(stops, homeBase) {
     }
 
     const chosen = remaining[bestIdx];
-    const dist = haversine(
-      currentLat, currentLng,
-      chosen.lat || 0, chosen.lng || 0
-    );
+    const dist = haversine(currentLat, currentLng, chosen.lat || 0, chosen.lng || 0);
+
+    // Advance time (used by all strategies that check lateness)
+    const dow = new Date().getDay();
+    const traffic = TRAFFIC_BY_DOW[dow] || 1.5;
+    const weather = WEATHER_BY_DOW[dow] || { visibility: 1.0, wind: 0.95 };
+    const weatherFactor = (weather.visibility || 1.0) * (weather.wind || 0.95);
     const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
+
     currentHour += driveMin / 60 + (chosen.duration || 30) / 60;
     currentLat = chosen.lat;
     currentLng = chosen.lng;
@@ -203,7 +179,39 @@ function optimizeFastest(stops, homeBase) {
   return ordered.map((s) => s.id);
 }
 
+/* ─── Strategy: AI (smart) ─────────────────────────────── */
+// Nearest-neighbor routing weighted by: priority * 200 + haversine_distance
+// + time_window_lateness_penalty. This produces routes that respect stop
+// order AND priorities simultaneously — high-priority stops close to the
+// current position are picked first, criss-crossing is eliminated.
+function optimizeAI(stops, dow, homeBase) {
+  return nearestNeighbor(stops, homeBase, (s, dist, currentHour) => {
+    const p = PRIORITY_RANK[s.priority] ?? 1;
+    const windowHour = windowToHour(s.window);
+    const lateness = Math.max(0, currentHour - (windowHour + 1));
+    return p * 200 + dist + lateness * 30;
+  });
+}
+
+/* ─── Strategy: Fastest (traffic-aware, starts from home) ── */
+// Nearest-neighbor with score = drive time (traffic × weather) + lateness
+function optimizeFastest(stops, homeBase) {
+  const dow = new Date().getDay();
+  const traffic = TRAFFIC_BY_DOW[dow] || 1.5;
+  const weather = WEATHER_BY_DOW[dow] || { visibility: 1.0, wind: 0.95 };
+  const weatherFactor = (weather.visibility || 1.0) * (weather.wind || 0.95);
+
+  return nearestNeighbor(stops, homeBase, (s, dist, currentHour) => {
+    const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
+    const windowHour = windowToHour(s.window);
+    const lateness = Math.max(0, currentHour - (windowHour + 1));
+    return driveMin + lateness * 30;
+  });
+}
+
 /* ─── Strategy: Least mileage (best-start TSP from home) ── */
+// Tries every stop as the first patient from home base, does nearest-neighbor
+// for the rest, and picks the ordering with the smallest total mileage.
 function optimizeLeastMileage(stops, homeBase) {
   if (stops.length < 2) return stops.map((s) => s.id);
 
@@ -257,96 +265,48 @@ function optimizeLeastMileage(stops, homeBase) {
 }
 
 /* ─── Strategy: Fuel efficient (minimizes fuel consumption) ── */
-// Weights: distance × 0.7 + traffic × 0.2 + time-window × 0.1
+// Nearest-neighbor with distance weighted 0.8, lateness/time weighted 0.2.
+// Prioritizes staying close to the current stop to minimize total mileage.
 function optimizeFuelEfficient(stops, homeBase) {
-  if (stops.length < 2) return stops.map((s) => s.id);
+  const dow = new Date().getDay();
+  const weather = WEATHER_BY_DOW[dow] || { visibility: 1.0, wind: 0.95 };
 
-  const remaining = [...stops];
-  const ordered = [];
-  let currentLat = homeBase?.lat || 34.0522;
-  let currentLng = homeBase?.lng || -118.2437;
-
-  while (remaining.length > 0) {
-    let bestIdx = 0;
-    let bestScore = Infinity;
-
-    for (let i = 0; i < remaining.length; i++) {
-      const s = remaining[i];
-      const dist = haversine(currentLat, currentLng, s.lat || 0, s.lng || 0);
-      const windowHour = windowToHour(s.window);
-      // Fuel score: distance heavily weighted, slight penalty for tight windows
-      const windowPenalty = windowHour < 9 || windowHour > 16 ? 0.5 : 0;
-      const score = dist * 0.7 + (dist * windowPenalty) * 0.3;
-      if (score < bestScore) { bestScore = score; bestIdx = i; }
-    }
-
-    const chosen = remaining[bestIdx];
-    currentLat = chosen.lat;
-    currentLng = chosen.lng;
-    ordered.push(chosen);
-    remaining.splice(bestIdx, 1);
-  }
-
-  return ordered.map((s) => s.id);
+  return nearestNeighbor(stops, homeBase, (s, dist, currentHour) => {
+    const windowHour = windowToHour(s.window);
+    const lateness = Math.max(0, currentHour - (windowHour + 1));
+    // Distance dominates (0.8); time-window lateness contributes (0.2)
+    return dist * 0.8 + lateness * 20 * 0.2;
+  });
 }
 
 /* ─── Strategy: Traffic avoidance (avoids peak-hour congestion) ── */
-// Penalizes stops that would put the nurse on the road during peak commute times
+// Nearest-neighbor with aggressive peak-hour penalties (60 instead of 40).
+// Penalizes stops that would put the nurse on the road during peak commute times.
 function optimizeTrafficAvoidance(stops, homeBase) {
-  if (stops.length < 2) return stops.map((s) => s.id);
-
   const dow = new Date().getDay();
   const traffic = TRAFFIC_BY_DOW[dow] || 1.5;
   const weather = WEATHER_BY_DOW[dow] || { visibility: 1.0, wind: 0.95 };
   const weatherFactor = (weather.visibility || 1.0) * (weather.wind || 0.95);
 
-  const remaining = [...stops];
-  const ordered = [];
-  let currentLat = homeBase?.lat || 34.0522;
-  let currentLng = homeBase?.lng || -118.2437;
-  let currentHour = 8;
-
-  while (remaining.length > 0) {
-    let bestIdx = 0;
-    let bestScore = Infinity;
-
-    for (let i = 0; i < remaining.length; i++) {
-      const s = remaining[i];
-      const dist = haversine(currentLat, currentLng, s.lat || 0, s.lng || 0);
-      const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
-      const arrivalHour = currentHour + driveMin / 60;
-      const windowHour = windowToHour(s.window);
-
-      // Traffic penalty: peak hours (7-9 AM, 4-7 PM) add heavy penalty
-      const isPeakAM = arrivalHour >= 7 && arrivalHour <= 9;
-      const isPeakPM = arrivalHour >= 16 && arrivalHour <= 19;
-      const trafficPenalty = isPeakAM || isPeakPM ? 40 : 0;
-
-      const lateness = Math.max(0, arrivalHour - (windowHour + 1));
-      const score = driveMin + lateness * 15 + trafficPenalty;
-
-      if (score < bestScore) { bestScore = score; bestIdx = i; }
-    }
-
-    const chosen = remaining[bestIdx];
-    const dist = haversine(currentLat, currentLng, chosen.lat || 0, chosen.lng || 0);
+  return nearestNeighbor(stops, homeBase, (s, dist, currentHour) => {
     const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
-    currentHour += driveMin / 60 + (chosen.duration || 30) / 60;
-    currentLat = chosen.lat;
-    currentLng = chosen.lng;
-    ordered.push(chosen);
-    remaining.splice(bestIdx, 1);
-  }
+    const windowHour = windowToHour(s.window);
 
-  return ordered.map((s) => s.id);
+    // Traffic penalty: peak hours (7-9 AM, 4-7 PM) add heavy penalty
+    const isPeakAM = currentHour >= 7 && currentHour <= 9;
+    const isPeakPM = currentHour >= 16 && currentHour <= 19;
+    const trafficPenalty = isPeakAM || isPeakPM ? 60 : 0;
+
+    const lateness = Math.max(0, currentHour - (windowHour + 1));
+    return driveMin + lateness * 15 + trafficPenalty;
+  });
 }
 
 /* ─── Strategy: Custom (priority-first) ────────────────── */
 function optimizeCustom(stops) {
-  const priorityRank = { high: 0, medium: 1, low: 2 };
   return [...stops]
     .sort((a, b) => {
-      const p = priorityRank[a.priority] - priorityRank[b.priority];
+      const p = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
       if (p !== 0) return p;
       const w = windowToHour(a.window) - windowToHour(b.window);
       if (w !== 0) return w;

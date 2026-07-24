@@ -17,33 +17,45 @@ export default function StylizedMap({ compact = false, onStopClick }) {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const [svgPositions, setSvgPositions] = useState([]);
-    const updateTimer = useRef(null);
+    const [homePos, setHomePos] = useState(null);
+      const updateTimer = useRef(null);
 
-  // Project lat/lng to SVG pixel coordinates
-  const updatePositions = useCallback(() => {
-    const map = mapRef.current;
-    if (!map || !schedule.length) return;
+    // Project lat/lng to SVG pixel coordinates
+    const updatePositions = useCallback(() => {
+      const map = mapRef.current;
+      if (!map || !schedule.length) return;
 
-    const rect = mapContainer.current?.getBoundingClientRect();
-    if (!rect) return;
+      const rect = mapContainer.current?.getBoundingClientRect();
+      if (!rect) return;
 
-    const positions = schedule.map((c, idx) => {
-      if (c.lat && c.lng) {
-        const point = map.project([c.lng, c.lat]);
-        const svgX = (point.x / rect.width) * 1000;
-        const svgY = (point.y / rect.height) * 600;
-        return { x: svgX, y: svgY, id: c.id, label: String(idx + 1), name: c.fullName };
+      const positions = schedule.map((c, idx) => {
+        if (c.lat && c.lng) {
+          const point = map.project([c.lng, c.lat]);
+          const svgX = (point.x / rect.width) * 1000;
+          const svgY = (point.y / rect.height) * 600;
+          return { x: svgX, y: svgY, id: c.id, label: String(idx + 1), name: c.fullName };
+        }
+        return {
+          x: 150 + ((idx * 120) % 700),
+          y: 260 + ((idx * 47) % 200),
+          id: c.id,
+          label: String(idx + 1),
+          name: c.fullName,
+        };
+      });
+      setSvgPositions(positions);
+
+      // Home base position
+      if (homeBase?.lat && homeBase?.lng) {
+        const hp = map.project([homeBase.lng, homeBase.lat]);
+        setHomePos({
+          x: (hp.x / rect.width) * 1000,
+          y: (hp.y / rect.height) * 600,
+        });
+      } else {
+        setHomePos(null);
       }
-      return {
-        x: 150 + ((idx * 120) % 700),
-        y: 260 + ((idx * 47) % 200),
-        id: c.id,
-        label: String(idx + 1),
-        name: c.fullName,
-      };
-    });
-    setSvgPositions(positions);
-  }, [schedule]);
+    }, [schedule, homeBase]);
 
   // Debounced position update
   const scheduleUpdate = useCallback(() => {
@@ -182,7 +194,7 @@ export default function StylizedMap({ compact = false, onStopClick }) {
     if (mapRef.current) {
       setTimeout(updatePositions, 100);
     }
-  }, [schedule, updatePositions]);
+  }, [schedule, homeBase, updatePositions]);
 
   // Update route data when routeGeoJson changes
   useEffect(() => {
@@ -285,29 +297,19 @@ export default function StylizedMap({ compact = false, onStopClick }) {
           </>
         )}
 
-        {/* Home base marker — always visible when homeBase is set */}
-        {homeBase && (
-          (() => {
-            const rect = mapContainer.current?.getBoundingClientRect();
-            if (!rect) return null;
-            const point = mapRef.current?.project([homeBase.lng, homeBase.lat]);
-            if (!point) return null;
-            const svgX = (point.x / rect.width) * 1000;
-            const svgY = (point.y / rect.height) * 600;
-            return (
-              <g transform={`translate(${svgX} ${svgY})`} className="pointer-events-auto">
-                  <circle r="20" fill="#4F46E5" stroke="#FFFFFF" strokeWidth="3" opacity="0.9" />
-                  <circle r="7" fill="#FFFFFF" opacity="0.9" />
-                  <text
-                    x="0" y="28" textAnchor="middle" fill="#4F46E5"
-                    fontFamily="Manrope, sans-serif" fontWeight="700" fontSize="8" letterSpacing="0.5"
-                  >
-                    HOME
-                  </text>
-                </g>
-            );
-          })()
-        )}
+        {/* Home base marker — calculated in updatePositions, always visible */}
+                {homePos && (
+                  <g transform={`translate(${homePos.x} ${homePos.y})`} className="pointer-events-auto">
+                    <circle r="20" fill="#4F46E5" stroke="#FFFFFF" strokeWidth="3" opacity="0.9" />
+                    <circle r="7" fill="#FFFFFF" opacity="0.9" />
+                    <text
+                      x="0" y="28" textAnchor="middle" fill="#4F46E5"
+                      fontFamily="Manrope, sans-serif" fontWeight="700" fontSize="8" letterSpacing="0.5"
+                    >
+                      HOME
+                    </text>
+                  </g>
+                )}
 
         {/* Stops — clickable */}
         {svgPositions.map((s) => (

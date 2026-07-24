@@ -19,7 +19,7 @@ const OPTIMIZATION_MODES = [
 ];
 
 export default function RouteView() {
-  const { schedule, optimize, optimized, openVoice, saveRoute, savedRoutes, loadRoute, reorder, routeResult, clients, scheduleIds, createRoute, removeFromRoute, rescheduleClient, rescheduledClients, optimizationMode, setOptimizationMode, routeDistance, routeDuration, routeGeoJson, weatherData, weatherLoading, nurse } = useRouteMe();
+  const { schedule, optimize, optimized, openVoice, saveRoute, savedRoutes, loadRoute, reorder, routeResult, clients, scheduleIds, createRoute, removeFromRoute, rescheduleClient, rescheduledClients, optimizationMode, setOptimizationMode, routeDistance, routeDuration, routeGeoJson, weatherData, weatherLoading, nurse, resetRouteOrder } = useRouteMe();
     const [selected, setSelected] = useState(schedule[0]?.id);
     const [modalOpen, setModalOpen] = useState(false);
     const [builderOpen, setBuilderOpen] = useState(false);
@@ -198,6 +198,15 @@ export default function RouteView() {
           >
             <Plus className="h-4 w-4" />
             Create route
+          </button>
+          <button
+            onClick={resetRouteOrder}
+            data-testid="reset-route-btn"
+            className="inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold transition-colors border border-stone-300 text-stone-600 hover:bg-stone-50 shadow-sm"
+            title="Reset to original order"
+          >
+            <ArrowUpDown className="h-4 w-4" />
+            Reset
           </button>
         </div>
       </div>

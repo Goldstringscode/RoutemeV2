@@ -124,7 +124,9 @@ export function RouteMeProvider({ children }) {
   /* ─── Nurse-app state ──────────────────────────────── */
   const [authed, setAuthed] = useState(initial?.authed ?? false);
   const [clients, setClients] = useState(initial?.clients ?? CLIENTS_SEED);
-  const [scheduleIds, setScheduleIds] = useState(initial?.scheduleIds ?? CLIENTS_SEED.map((c) => c.id));
+  const initialScheduleIds = initial?.scheduleIds ?? CLIENTS_SEED.map((c) => c.id);
+  const [scheduleIds, setScheduleIds] = useState(initialScheduleIds);
+  const originalOrderRef = useRef(initialScheduleIds);
   const [notes, setNotes] = useState(initial?.notes ?? {});
   const [audit, setAudit] = useState(initial?.audit ?? AUDIT_LOG);
   const [optimized, setOptimized] = useState(initial?.optimized ?? true);
@@ -221,9 +223,10 @@ export function RouteMeProvider({ children }) {
         const { data: schedData } = await supabase
           .from('schedules').select('*').eq('nurse_id', userId).eq('visit_date', today).order('sort_order', { ascending: true });
         if (schedData?.length) {
-          setScheduleIds(schedData.map(s => s.client_id));
-          setOptimized(true);
-        }
+                  setScheduleIds(schedData.map(s => s.client_id));
+                  originalOrderRef.current = schedData.map(s => s.client_id);
+                  setOptimized(true);
+                }
 
         const { data: noteData } = await supabase
           .from('visit_notes').select('*').eq('nurse_id', userId).order('created_at', { ascending: false });
@@ -649,7 +652,15 @@ export function RouteMeProvider({ children }) {
     setVoiceOpen(true);
   }, []);
 
-  /* ─── Notification helpers ──────────────────────────── */
+  const resetRouteOrder = useCallback(() => {
+    setScheduleIds([...originalOrderRef.current]);
+    setOptimized(false);
+    setRouteResult(null);
+    setRouteGeoJson(null);
+    setRouteDistance(null);
+    setRouteDuration(null);
+    pushAudit("Route reset to original order", "route");
+  }, [pushAudit]);
     const addNotification = useCallback((title, body, type = 'route') => {
       const n = {
         id: 'notif_' + Math.random().toString(36).slice(2, 10),
@@ -927,7 +938,7 @@ export function RouteMeProvider({ children }) {
     nurse, clients, setClients, schedule, scheduleIds, reorder, optimize, optimized,
     notes, addNote, audit, pushAudit, addClient, updateClient, removeClient,
     voiceOpen, setVoiceOpen, voiceTarget, setVoiceTarget, openVoice, noteViewMode, setNoteViewMode,
-    optimizationMode, setOptimizationMode,
+    optimizationMode, setOptimizationMode, resetRouteOrder,
         savedRoutes, saveRoute, loadRoute, deleteSavedRoute, routeResult,
                     routeGeoJson, routeDistance, routeDuration, routeKey,
                     weatherData, weatherLoading,
