@@ -106,6 +106,18 @@ export default function RouteView() {
   const touchActiveRef = useRef(false);
   const touchStartY = useRef(0);
   const touchItemIdx = useRef(null);
+  const touchListRef = useRef(null);
+
+  // Prevent page scroll while touch-dragging — requires non-passive listener
+  useEffect(() => {
+    const preventScroll = (e) => {
+      if (touchActiveRef.current) {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener('touchmove', preventScroll, { passive: false });
+    return () => document.removeEventListener('touchmove', preventScroll);
+  }, []);
 
   const handleTouchStart = useCallback((e, idx) => {
     touchActiveRef.current = true;
@@ -117,10 +129,8 @@ export default function RouteView() {
 
   const handleTouchMove = useCallback((e) => {
     if (!touchActiveRef.current) return;
-    e.preventDefault();
-
     const touchY = e.touches[0].clientY;
-    const listEl = e.currentTarget.closest('ol');
+    const listEl = touchListRef.current;
     if (!listEl) return;
 
     const items = listEl.querySelectorAll('li');
@@ -135,7 +145,7 @@ export default function RouteView() {
     setDragOverIdx(dropIdx);
   }, []);
 
-  const handleTouchEnd = useCallback((e) => {
+  const handleTouchEnd = useCallback(() => {
     if (!touchActiveRef.current) return;
     touchActiveRef.current = false;
 
@@ -350,7 +360,7 @@ export default function RouteView() {
                                 {dragEnabled ? "Drag to reorder" : "Change order"}
               </button>
             </div>
-            <ol className="mt-4 relative">
+            <ol ref={touchListRef} className="mt-4 relative">
               <span className="absolute left-[19px] top-4 bottom-4 w-px bg-stone-200" />
               {schedule.map((c, idx) => {
                 const isActive = c.id === selected;
@@ -443,15 +453,27 @@ export default function RouteView() {
               </span>
             </div>
 
-            {/* Validation info */}
-            {routeResult?.validation && !routeResult.validation.isOptimal && (
+            {/* Validation info — with "Use this route" button */}
+            {routeResult?.validation && !routeResult.validation.isOptimal && routeResult.validation.bestAlt && (
               <div className="mt-3 rounded-xl bg-[#F7E5DD] border border-[#F0D2C4] p-3">
                 <p className="text-[10px] uppercase tracking-widest text-[#D95D39] font-semibold flex items-center gap-1">
                   <Info className="h-3 w-3" /> Route insight
                 </p>
                 <p className="text-xs text-stone-700 mt-1">
-                  A better route was found that reduces {routeResult.validation.improvement > 10 ? "distance" : "drive time"} by ~{routeResult.validation.improvement} points. Try a different optimization mode.
+                  A better route was found that reduces {routeResult.validation.improvement > 10 ? "distance" : "drive time"} by ~{routeResult.validation.improvement} points
+                  {routeResult.validation.bestAlt.totalDriveMiles && (
+                    <> ({routeResult.validation.bestAlt.totalDriveMiles} mi) </>
+                  )}.
                 </p>
+                <button
+                  onClick={() => {
+                    const altOrder = routeResult.validation.bestAlt.order;
+                    if (altOrder) reorder(altOrder);
+                  }}
+                  className="mt-2 w-full text-xs font-semibold rounded-full py-2 px-4 bg-[#D95D39] text-white hover:bg-[#C05030] transition-colors"
+                >
+                  Use this route instead
+                </button>
               </div>
             )}
           </div>

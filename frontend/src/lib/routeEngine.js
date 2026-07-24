@@ -180,17 +180,41 @@ function nearestNeighbor(stops, homeBase, scoreFn) {
 }
 
 /* ─── Strategy: AI (smart) ─────────────────────────────── */
-// Nearest-neighbor routing weighted by: priority * 200 + haversine_distance
-// + time_window_lateness_penalty. This produces routes that respect stop
-// order AND priorities simultaneously — high-priority stops close to the
-// current position are picked first, criss-crossing is eliminated.
+// Nearest-neighbor routing that factors in ALL signals:
+//   • Priority (clinical urgency) — high priority stops go earlier
+//   • Time windows — arrival should be within the patient's preferred window
+//   • Traffic (day-of-week) — heavy traffic days add drive-time penalty
+//   • Weather — visibility/wind affect drive time
+//   • Proximity — distance between consecutive stops
+//   • Window tightness — stops with narrow windows get priority
+// Score = driveTime * 0.3 + distance * 0.2 + lateness * 20 + priority * 50 + tightWindowBonus
 function optimizeAI(stops, dow, homeBase) {
+  const traffic = TRAFFIC_BY_DOW[dow] || 1.5;
+  const weather = WEATHER_BY_DOW[dow] || { visibility: 1.0, wind: 0.95 };
+  const weatherFactor = (weather.visibility || 1.0) * (weather.wind || 0.95);
+
   return nearestNeighbor(stops, homeBase, (s, dist, currentHour) => {
     const p = PRIORITY_RANK[s.priority] ?? 1;
     const windowHour = windowToHour(s.window);
+    const driveMin = (dist / 30) * 60 * traffic * weatherFactor;
     const lateness = Math.max(0, currentHour - (windowHour + 1));
-    return p * 200 + dist + lateness * 30;
+
+    // Tight window bonus: stops with windows under 2h get priority
+    const windowSpan = s.window ? parseWindowSpan(s.window) : 4;
+    const tightBonus = windowSpan < 2 ? -20 : 0;
+
+    return driveMin * 0.3 + dist * 0.2 + lateness * 20 + p * 50 + tightBonus;
   });
+}
+
+// Parse window span in hours (e.g. "08:00 – 09:30" → 1.5)
+function parseWindowSpan(w) {
+  if (!w) return 4;
+  const parts = w.split(/[–-]+/).map(s => s.trim());
+  if (parts.length < 2) return 4;
+  const start = windowToHour(parts[0]);
+  const end = windowToHour(parts[1]);
+  return Math.max(0, end - start);
 }
 
 /* ─── Strategy: Fastest (traffic-aware, starts from home) ── */
