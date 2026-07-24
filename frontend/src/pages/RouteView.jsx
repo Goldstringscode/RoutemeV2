@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import StylizedMap from "@/components/StylizedMap";
 import { useRouteMe } from "@/context/RouteMeContext";
-import { Sparkles, Clock, MapPin, Stethoscope, Phone, ChevronRight, Fuel, Route, GripVertical, Lock, Unlock, Brain, Zap, Compass, SlidersHorizontal, Loader, CheckCircle, X, Info, ChevronDown, Map as MapIcon, ArrowUpDown, Plus, Trash2, Leaf, ShieldAlert, Navigation } from "lucide-react";
+import { Sparkles, Clock, MapPin, Stethoscope, Phone, ChevronRight, Fuel, Route, GripVertical, Lock, Unlock, Brain, Zap, Compass, SlidersHorizontal, Loader, CheckCircle, X, Info, ChevronDown, Map as MapIcon, ArrowUpDown, Plus, Trash2, Leaf, ShieldAlert, Navigation, PlayCircle, StopCircle, Flag } from "lucide-react";
 import RouteBuilderModal from "@/components/RouteBuilderModal";
 import RemoveFromRouteModal from "@/components/RemoveFromRouteModal";
 import { formatTimeWindow } from "@/lib/utils";
@@ -20,13 +20,20 @@ const OPTIMIZATION_MODES = [
 ];
 
 export default function RouteView() {
-  const { schedule, optimize, optimized, openVoice, saveRoute, savedRoutes, loadRoute, reorder, routeResult, clients, scheduleIds, createRoute, removeFromRoute, rescheduleClient, rescheduledClients, optimizationMode, setOptimizationMode, routeDistance, routeDuration, routeGeoJson, weatherData, weatherLoading, nurse, resetRouteOrder, navPreference } = useRouteMe();
-    const [selected, setSelected] = useState(schedule[0]?.id);
-    const [modalOpen, setModalOpen] = useState(false);
-    const [builderOpen, setBuilderOpen] = useState(false);
-    const [removeModalOpen, setRemoveModalOpen] = useState(false);
-    const [clientToRemove, setClientToRemove] = useState(null);
-    const [dragEnabled, setDragEnabled] = useState(false);
+  const {
+    schedule, optimize, optimized, openVoice, saveRoute, savedRoutes, loadRoute, reorder, routeResult,
+    clients, scheduleIds, createRoute, removeFromRoute, rescheduleClient, rescheduledClients,
+    optimizationMode, setOptimizationMode, routeDistance, routeDuration, routeGeoJson,
+    weatherData, weatherLoading, nurse, resetRouteOrder, navPreference,
+    routeActive, startRoute, endRoute, visitedIds, markVisited,
+    builderOpen, setBuilderOpen, setBuilderTab,
+  } = useRouteMe();
+
+  const [selected, setSelected] = useState(schedule[0]?.id);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [removeModalOpen, setRemoveModalOpen] = useState(false);
+  const [clientToRemove, setClientToRemove] = useState(null);
+  const [dragEnabled, setDragEnabled] = useState(false);
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
   const [justSaved, setJustSaved] = useState(false);
@@ -36,16 +43,22 @@ export default function RouteView() {
   const active = schedule.find((s) => s.id === selected) || schedule[0];
   const totalMin = schedule.reduce((s, c) => s + (c.duration || 30), 0);
 
+  /* ─── Sort: visited stops to bottom when route is active ── */
+  const sortedSchedule = useMemo(() => {
+    if (!routeActive) return schedule;
+    const visited = schedule.filter(c => visitedIds.includes(c.id));
+    const unvisited = schedule.filter(c => !visitedIds.includes(c.id));
+    return [...unvisited, ...visited];
+  }, [schedule, routeActive, visitedIds]);
+
+  const displayedSchedule = sortedSchedule;
+
   /* ─── Optimize modal ─────────────────────────────────── */
-  const openOptimize = () => {
-    // Start in the current mode
-    setModalOpen(true);
-  };
+  const openOptimize = () => setModalOpen(true);
 
   const applyOptimization = (modeId) => {
     setOptimizing(true);
     setModalOpen(false);
-    // Call optimize directly — no setTimeout, no stale closures
     optimize(modeId);
     setOptimizing(false);
   };
@@ -63,17 +76,13 @@ export default function RouteView() {
     setDragIdx(idx);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", String(idx));
-    setTimeout(() => {
-      e.target.style.opacity = "0.5";
-    }, 0);
+    setTimeout(() => { e.target.style.opacity = "0.5"; }, 0);
   }, []);
 
   const handleDragOver = useCallback((e, idx) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-    if (dragItem.current !== idx) {
-      setDragOverIdx(idx);
-    }
+    if (dragItem.current !== idx) setDragOverIdx(idx);
   }, []);
 
   const handleDragEnd = useCallback((e) => {
@@ -88,19 +97,13 @@ export default function RouteView() {
     e.preventDefault();
     const fromIdx = dragItem.current;
     if (fromIdx === null || fromIdx === dropIdx) {
-      setDragIdx(null);
-      setDragOverIdx(null);
-      dragItem.current = null;
-      return;
+      setDragIdx(null); setDragOverIdx(null); dragItem.current = null; return;
     }
-
     const ids = schedule.map(s => s.id);
     const [moved] = ids.splice(fromIdx, 1);
     ids.splice(dropIdx, 0, moved);
     reorder(ids);
-    setDragIdx(null);
-    setDragOverIdx(null);
-    dragItem.current = null;
+    setDragIdx(null); setDragOverIdx(null); dragItem.current = null;
   }, [schedule, reorder]);
 
   // ── Touch drag support (mobile) ──
@@ -109,13 +112,8 @@ export default function RouteView() {
   const touchItemIdx = useRef(null);
   const touchListRef = useRef(null);
 
-  // Prevent page scroll while touch-dragging — requires non-passive listener
   useEffect(() => {
-    const preventScroll = (e) => {
-      if (touchActiveRef.current) {
-        e.preventDefault();
-      }
-    };
+    const preventScroll = (e) => { if (touchActiveRef.current) e.preventDefault(); };
     document.addEventListener('touchmove', preventScroll, { passive: false });
     return () => document.removeEventListener('touchmove', preventScroll);
   }, []);
@@ -133,15 +131,11 @@ export default function RouteView() {
     const touchY = e.touches[0].clientY;
     const listEl = touchListRef.current;
     if (!listEl) return;
-
     const items = listEl.querySelectorAll('li');
     let dropIdx = touchItemIdx.current;
     for (let i = 0; i < items.length; i++) {
       const rect = items[i].getBoundingClientRect();
-      if (touchY >= rect.top && touchY <= rect.bottom) {
-        dropIdx = i;
-        break;
-      }
+      if (touchY >= rect.top && touchY <= rect.bottom) { dropIdx = i; break; }
     }
     setDragOverIdx(dropIdx);
   }, []);
@@ -149,17 +143,12 @@ export default function RouteView() {
   const handleTouchEnd = useCallback(() => {
     if (!touchActiveRef.current) return;
     touchActiveRef.current = false;
-
     const fromIdx = dragItem.current;
     const toIdx = dragOverIdx;
-
-    setDragIdx(null);
-    setDragOverIdx(null);
+    setDragIdx(null); setDragOverIdx(null);
     dragItem.current = null;
     touchItemIdx.current = null;
-
     if (fromIdx === null || toIdx === null || fromIdx === toIdx) return;
-
     const ids = schedule.map(s => s.id);
     const [moved] = ids.splice(fromIdx, 1);
     ids.splice(toIdx, 0, moved);
@@ -170,16 +159,11 @@ export default function RouteView() {
 
   /* ─── Dynamic fuel & time saved ──────────────────────────── */
   const baselineRef = useRef(null);
-  // Set baseline during render (synchronous) — only on first real data
   if (routeDistance && routeDuration && !baselineRef.current) {
     baselineRef.current = { distance: routeDistance, duration: routeDuration };
-    logRouteState({
-      routeDistance, routeDuration, baseline: baselineRef.current,
-      optimized, mode: optimizationMode, routeGeoJson,
-    });
+    logRouteState({ routeDistance, routeDuration, baseline: baselineRef.current, optimized, mode: optimizationMode, routeGeoJson });
   }
 
-  // Reset baseline when user manually reorders (optimized goes to false)
   const prevOptimizedRef = useRef(optimized);
   useEffect(() => {
     if (prevOptimizedRef.current === true && !optimized && routeDistance) {
@@ -191,17 +175,9 @@ export default function RouteView() {
     prevOptimizedRef.current = optimized;
   }, [optimized, routeDistance, routeDuration]);
 
-  // Log route state whenever distance/duration/mode changes
   useEffect(() => {
     if (routeDistance && routeDuration && baselineRef.current) {
-      logRouteState({
-        routeDistance, routeDuration, baseline: baselineRef.current,
-        optimized, mode: optimizationMode, routeGeoJson,
-      });
-      // Detailed drive time audit
-      const rawMin = (routeDuration / 60).toFixed(1);
-      const display = secondsToShort(routeDuration);
-      console.log(`[DriveTime] Raw: ${routeDuration}s (${rawMin} min) → Display: ${display}`);
+      logRouteState({ routeDistance, routeDuration, baseline: baselineRef.current, optimized, mode: optimizationMode, routeGeoJson });
     }
   }, [routeDistance, routeDuration, optimizationMode, optimized]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -224,6 +200,15 @@ export default function RouteView() {
     return savedMin > 0 ? `${savedMin} min` : `${Math.abs(savedMin)} min`;
   };
 
+  /* ─── Get stop number (respects visited sort) ─────────── */
+  const getStopNumber = (clientId) => {
+    if (!routeActive) return null;
+    const unvisited = schedule.filter(c => !visitedIds.includes(c.id));
+    const idx = unvisited.findIndex(c => c.id === clientId);
+    if (idx >= 0) return idx + 1;
+    return "✓";
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* ── Header ── */}
@@ -231,12 +216,44 @@ export default function RouteView() {
         <div>
           <p className="text-xs uppercase tracking-[0.22em] text-stone-500 font-semibold mb-2">
             Route · Today
+            {routeActive && (
+              <span className="ml-2 text-emerald-600 font-semibold normal-case tracking-normal">· Active</span>
+            )}
           </p>
           <h1 className="font-display text-4xl md:text-5xl leading-tight">
-            {schedule.length} stops, <span className="font-serif-i text-[#D95D39]">one calm ribbon</span>.
+            {routeActive
+              ? `${displayedSchedule.length - visitedIds.length} remaining`
+              : `${schedule.length} stops`}
+            {routeActive && (
+              <span className="text-base font-sans font-normal text-stone-400 ml-2">
+                · {visitedIds.length} visited
+              </span>
+            )}
           </h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Start / Stop Route button */}
+          {schedule.length > 0 && (
+            routeActive ? (
+              <button
+                onClick={endRoute}
+                data-testid="end-route-btn"
+                className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-colors bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+              >
+                <StopCircle className="h-4 w-4" />
+                End route
+              </button>
+            ) : (
+              <button
+                onClick={() => startRoute()}
+                data-testid="start-route-btn"
+                className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-colors bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm"
+              >
+                <PlayCircle className="h-4 w-4" />
+                Start route
+              </button>
+            )
+          )}
           <button
             onClick={handleSaveRoute}
             data-testid="save-route-header-btn"
@@ -261,7 +278,7 @@ export default function RouteView() {
             Optimize route
           </button>
           <button
-            onClick={() => setBuilderOpen(true)}
+            onClick={() => { setBuilderTab("new"); setBuilderOpen(true); }}
             data-testid="route-create-btn"
             className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-colors bg-stone-900 hover:bg-stone-800 text-white shadow-sm"
           >
@@ -289,11 +306,7 @@ export default function RouteView() {
           </span>
           {weatherData && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 border border-sky-200 px-3 py-1.5 text-sky-800">
-              <img
-                src={`https://openweathermap.org/img/wn/${weatherData.icon}.png`}
-                alt={weatherData.condition}
-                className="h-4 w-4"
-              />
+              <img src={`https://openweathermap.org/img/wn/${weatherData.icon}.png`} alt={weatherData.condition} className="h-4 w-4" />
               {weatherData.temp}°F · {weatherData.condition} · {weatherData.city}
             </span>
           )}
@@ -314,15 +327,28 @@ export default function RouteView() {
           </span>
           {routeResult.validation?.isOptimal && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E3ECE5] border border-emerald-200 px-3 py-1.5 text-emerald-800">
-              <CheckCircle className="h-3 w-3" />
-              Optimal route
+              <CheckCircle className="h-3 w-3" /> Optimal route
             </span>
           )}
           {routeResult.label && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 border border-stone-200 px-3 py-1.5 text-stone-600">
-              {modeLabel}
-            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 border border-stone-200 px-3 py-1.5 text-stone-600">{modeLabel}</span>
           )}
+        </div>
+      )}
+
+      {/* ── Active route status bar ── */}
+      {routeActive && (
+        <div className="flex items-center gap-4 text-sm px-1">
+          <span className="inline-flex items-center gap-1.5 text-emerald-700 font-semibold">
+            <Flag className="h-4 w-4" />
+            {visitedIds.length} of {schedule.length} visits completed
+          </span>
+          <div className="flex-1 h-2 rounded-full bg-stone-200 overflow-hidden max-w-xs">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+              style={{ width: `${schedule.length > 0 ? (visitedIds.length / schedule.length) * 100 : 0}%` }}
+            />
+          </div>
         </div>
       )}
 
@@ -332,7 +358,7 @@ export default function RouteView() {
         <div className="lg:col-span-8 space-y-4">
           <StylizedMap onStopClick={setSelected} />
 
-          {/* Route summary strip — uses Mapbox real route data */}
+          {/* Route summary strip */}
           <div className="grid grid-cols-4 gap-3">
             <SumCard icon={Route} label="Distance" value={routeDistance ? `${metersToMiles(routeDistance)} mi` : "--"} tone="ink" />
             <SumCard icon={Clock} label="Drive time" value={routeDuration ? secondsToShort(routeDuration) : "--"} tone="ink" />
@@ -348,32 +374,38 @@ export default function RouteView() {
               <p className="text-xs uppercase tracking-[0.22em] text-stone-500 font-semibold">
                 Turn-by-turn timeline
               </p>
-              <button
-                onClick={() => setDragEnabled(d => !d)}
-                data-testid="toggle-drag-btn"
-                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors ${
-                  dragEnabled
-                    ? "bg-[#F7E5DD] text-[#D95D39] border border-[#F0D2C4]"
-                    : "bg-stone-100 text-stone-600 border border-stone-200 hover:bg-stone-200"
-                }`}
-              >
-                {dragEnabled ? <Unlock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-                                {dragEnabled ? "Drag to reorder" : "Change order"}
-              </button>
+              {!routeActive && (
+                <button
+                  onClick={() => setDragEnabled(d => !d)}
+                  data-testid="toggle-drag-btn"
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors ${
+                    dragEnabled
+                      ? "bg-[#F7E5DD] text-[#D95D39] border border-[#F0D2C4]"
+                      : "bg-stone-100 text-stone-600 border border-stone-200 hover:bg-stone-200"
+                  }`}
+                >
+                  {dragEnabled ? <Unlock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                  {dragEnabled ? "Drag to reorder" : "Change order"}
+                </button>
+              )}
             </div>
             <ol ref={touchListRef} className="mt-4 relative">
               <span className="absolute left-[19px] top-4 bottom-4 w-px bg-stone-200" />
-              {schedule.map((c, idx) => {
+              {displayedSchedule.map((c, idx) => {
+                const isVisited = visitedIds.includes(c.id);
                 const isActive = c.id === selected;
                 const isDragging = dragIdx === idx;
                 const isOver = dragOverIdx === idx && dragIdx !== idx;
+                const stopNum = getStopNumber(c.id);
 
                 return (
                   <li
                     key={c.id}
                     className={`relative transition-all duration-150 ${
                       isDragging ? "opacity-40 scale-[0.97]" : ""
-                    } ${isOver && dragEnabled ? "translate-y-1" : ""}`}
+                    } ${isOver && dragEnabled ? "translate-y-1" : ""} ${
+                      isVisited ? "opacity-80" : ""
+                    }`}
                     draggable={dragEnabled}
                     onDragStart={(e) => handleDragStart(e, idx)}
                     onDragOver={(e) => handleDragOver(e, idx)}
@@ -392,7 +424,11 @@ export default function RouteView() {
                       data-testid={`timeline-stop-${idx + 1}`}
                       onClick={() => setSelected(c.id)}
                       className={`w-full text-left flex items-start gap-2 px-2 py-3 rounded-xl transition-colors ${
-                        isActive ? "bg-[#F7E5DD]" : "hover:bg-stone-50"
+                        isVisited
+                          ? "bg-[#E3ECE5] border border-emerald-200"
+                          : isActive
+                            ? "bg-[#F7E5DD]"
+                            : "hover:bg-stone-50"
                       }`}
                     >
                       {/* Drag handle */}
@@ -405,18 +441,22 @@ export default function RouteView() {
                       {/* Stop number */}
                       <span
                         className={`relative z-10 h-10 w-10 shrink-0 rounded-full flex items-center justify-center font-semibold text-sm ${
-                          isActive
-                            ? "bg-[#D95D39] text-white"
-                            : "bg-white border border-stone-300 text-stone-800"
+                          isVisited
+                            ? "bg-emerald-500 text-white"
+                            : isActive
+                              ? "bg-[#D95D39] text-white"
+                              : "bg-white border border-stone-300 text-stone-800"
                         }`}
                       >
-                        {idx + 1}
+                        {isVisited ? <CheckCircle className="h-5 w-5" /> : (routeActive ? stopNum : idx + 1)}
                       </span>
 
                       {/* Stop details */}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-semibold text-sm truncate">{c.fullName}</p>
+                          <p className={`font-semibold text-sm truncate ${isVisited ? "text-emerald-800" : ""}`}>
+                            {c.fullName}
+                          </p>
                           <span className="text-[10px] uppercase tracking-widest text-stone-400">
                             · {c.duration}m
                           </span>
@@ -427,9 +467,28 @@ export default function RouteView() {
                         <p className="text-xs text-stone-500 truncate flex items-center gap-1 mt-0.5">
                           <MapPin className="h-3 w-3" /> {c.address}
                         </p>
+                        {isVisited && (
+                          <p className="text-[10px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3" /> Seen
+                          </p>
+                        )}
                       </div>
-                      <ChevronRight className="h-4 w-4 text-stone-400 mt-3 shrink-0" />
-                      {!dragEnabled && (
+
+                      {/* Action buttons: Mark visited or Remove */}
+                      {routeActive && !isVisited && !dragEnabled && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markVisited(c.id, c.fullName);
+                          }}
+                          data-testid={`mark-visited-${idx + 1}`}
+                          className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-100 text-emerald-600 hover:bg-emerald-200 transition-colors shrink-0 mt-2"
+                          title="Mark as visited"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                        </button>
+                      )}
+                      {!routeActive && !dragEnabled && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -454,7 +513,7 @@ export default function RouteView() {
               </span>
             </div>
 
-            {/* Validation info — with "Use this route" button */}
+            {/* Validation info */}
             {routeResult?.validation && !routeResult.validation.isOptimal && routeResult.validation.bestAlt && (
               <div className="mt-3 rounded-xl bg-[#F7E5DD] border border-[#F0D2C4] p-3">
                 <p className="text-[10px] uppercase tracking-widest text-[#D95D39] font-semibold flex items-center gap-1">
@@ -467,10 +526,7 @@ export default function RouteView() {
                   )}.
                 </p>
                 <button
-                  onClick={() => {
-                    const altOrder = routeResult.validation.bestAlt.order;
-                    if (altOrder) reorder(altOrder);
-                  }}
+                  onClick={() => { const altOrder = routeResult.validation.bestAlt.order; if (altOrder) reorder(altOrder); }}
                   className="mt-2 w-full text-xs font-semibold rounded-full py-2 px-4 bg-[#D95D39] text-white hover:bg-[#C05030] transition-colors"
                 >
                   Use this route instead
@@ -498,14 +554,24 @@ export default function RouteView() {
               <p className="text-sm text-stone-600 mt-1">{active.condition}</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {active.flags?.map((f) => (
-                  <span
-                    key={f}
-                    className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#E3ECE5] text-emerald-900 border border-emerald-100"
-                  >
+                  <span key={f} className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#E3ECE5] text-emerald-900 border border-emerald-100">
                     {f}
                   </span>
                 ))}
               </div>
+              {routeActive && !visitedIds.includes(active.id) && (
+                <button
+                  onClick={() => markVisited(active.id, active.fullName)}
+                  className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 text-sm font-semibold transition-colors"
+                >
+                  <CheckCircle className="h-4 w-4" /> Mark as visited
+                </button>
+              )}
+              {routeActive && visitedIds.includes(active.id) && (
+                <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#E3ECE5] border border-emerald-200 px-4 py-2.5 text-sm font-semibold text-emerald-700">
+                  <CheckCircle className="h-4 w-4" /> Visited
+                </div>
+              )}
             </div>
 
             <div className="space-y-3">
@@ -557,78 +623,43 @@ export default function RouteView() {
       {/* ── Optimization Modal ── */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/20 backdrop-blur-sm"
-            onClick={() => setModalOpen(false)}
-          />
-
-          {/* Modal */}
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
           <div className="relative w-full max-w-lg rounded-3xl border border-stone-200 bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Header */}
             <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-stone-100">
               <div>
                 <h2 className="font-display text-2xl">Optimize route</h2>
-                <p className="text-xs text-stone-500 mt-1">
-                  Choose how your route is ordered today
-                </p>
+                <p className="text-xs text-stone-500 mt-1">Choose how your route is ordered today</p>
               </div>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-stone-100 transition-colors"
-              >
-                <X className="h-4 w-4 text-stone-500" />
-              </button>
+              <button onClick={() => setModalOpen(false)} className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-stone-100"><X className="h-4 w-4 text-stone-500" /></button>
             </div>
-
-            {/* Mode options — auto-apply immediately on click */}
             <div className="px-6 py-4 space-y-2 max-h-[60vh] overflow-y-auto">
               {OPTIMIZATION_MODES.map((m) => {
-                  const isActive = optimizationMode === m.id;
-                  const Icon = m.icon;
-                  const isSaved = m.id === "saved";
-                  return (
-                    <button
-                      key={m.id}
-                      onClick={() => {
-                                                if (isSaved) {
-                                                  setOptimizationMode(m.id);
-                                                } else {
-                                                  setOptimizationMode(m.id);
-                                                  applyOptimization(m.id);
-                                                }
-                                              }}
-                      data-testid={`opt-mode-${m.id}`}
+                const isActive = optimizationMode === m.id;
+                const Icon = m.icon;
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => {
+                      if (m.id === "saved") { setOptimizationMode(m.id); }
+                      else { setOptimizationMode(m.id); applyOptimization(m.id); }
+                    }}
+                    data-testid={`opt-mode-${m.id}`}
                     className={`w-full text-left flex items-start gap-4 rounded-2xl border p-4 transition-all ${
-                      isActive
-                        ? "bg-[#F7E5DD] border-[#D95D39] ring-1 ring-[#D95D39]/20"
-                        : "bg-white border-stone-200 hover:border-stone-300 hover:bg-stone-50"
+                      isActive ? "bg-[#F7E5DD] border-[#D95D39] ring-1 ring-[#D95D39]/20" : "bg-white border-stone-200 hover:border-stone-300 hover:bg-stone-50"
                     }`}
                   >
-                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
-                      isActive ? "bg-[#D95D39] text-white" : "bg-stone-100 text-stone-600"
-                    }`}>
+                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${isActive ? "bg-[#D95D39] text-white" : "bg-stone-100 text-stone-600"}`}>
                       <Icon className="h-5 w-5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className={`font-semibold text-sm ${isActive ? "text-[#D95D39]" : "text-stone-800"}`}>
-                          {m.label}
-                        </p>
-                        {isActive && (
-                          <span className="h-2 w-2 rounded-full bg-[#D95D39]" />
-                        )}
-                      </div>
+                      <p className={`font-semibold text-sm ${isActive ? "text-[#D95D39]" : "text-stone-800"}`}>{m.label}</p>
                       <p className="text-xs text-stone-500 mt-0.5 leading-relaxed">{m.desc}</p>
                     </div>
                   </button>
                 );
               })}
             </div>
-
-            {/* Footer: validation + apply */}
             <div className="px-6 py-4 border-t border-stone-100 bg-[#F9F8F6] space-y-3">
-              {/* Route plan preview */}
               {optimizationMode !== "saved" && (
                 <div className="rounded-xl bg-white border border-stone-200 p-3">
                   <div className="flex items-center gap-2 text-xs text-stone-500">
@@ -639,8 +670,6 @@ export default function RouteView() {
                   </div>
                 </div>
               )}
-
-              {/* Saved routes picker */}
               {optimizationMode === "saved" && (
                 <div className="space-y-2">
                   <p className="text-xs uppercase tracking-widest text-stone-500 font-semibold">Saved routes</p>
@@ -651,11 +680,7 @@ export default function RouteView() {
                     </div>
                   ) : (
                     savedRoutes.map((r) => (
-                      <button
-                        key={r.id}
-                        onClick={() => { loadRoute(r.id); setModalOpen(false); }}
-                        className="w-full text-left rounded-xl bg-white border border-stone-200 p-3 hover:bg-stone-50 transition-colors"
-                      >
+                      <button key={r.id} onClick={() => { loadRoute(r.id); setModalOpen(false); }} className="w-full text-left rounded-xl bg-white border border-stone-200 p-3 hover:bg-stone-50 transition-colors">
                         <p className="text-sm font-semibold text-stone-800">{r.name}</p>
                         <p className="text-xs text-stone-500 mt-0.5">{r.stops?.length || 0} stops</p>
                       </button>
@@ -663,40 +688,21 @@ export default function RouteView() {
                   )}
                 </div>
               )}
-
-              {/* Action buttons */}
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => applyOptimization(optimizationMode)}
                   data-testid="apply-optimization-btn"
                   disabled={optimizing}
-                  className={`flex-1 inline-flex items-center justify-center gap-2 rounded-full h-11 text-sm font-semibold transition-colors ${
-                    optimizing
-                      ? "bg-stone-400 text-white cursor-wait"
-                      : "bg-stone-900 hover:bg-stone-800 text-white"
-                  }`}
+                  className={`flex-1 inline-flex items-center justify-center gap-2 rounded-full h-11 text-sm font-semibold transition-colors ${optimizing ? "bg-stone-400 text-white cursor-wait" : "bg-stone-900 hover:bg-stone-800 text-white"}`}
                 >
-                  {optimizing ? (
-                    <><Loader className="h-4 w-4 animate-spin" /> Optimizing…</>
-                  ) : (
-                    <><Sparkles className="h-4 w-4" />
-                    Apply {OPTIMIZATION_MODES.find(m => m.id === optimizationMode)?.label || "optimization"}</>
-                  )}
+                  {optimizing ? (<><Loader className="h-4 w-4 animate-spin" /> Optimizing…</>) : (<><Sparkles className="h-4 w-4" /> Apply {OPTIMIZATION_MODES.find(m => m.id === optimizationMode)?.label || "optimization"}</>)}
                 </button>
                 <button
                   onClick={handleSaveRoute}
                   data-testid="save-route-btn"
-                  className={`inline-flex items-center gap-2 rounded-full border h-11 px-4 text-sm font-semibold transition-colors ${
-                    justSaved
-                      ? "bg-[#E3ECE5] border-emerald-200 text-emerald-800"
-                      : "border-stone-300 text-stone-700 hover:bg-stone-50"
-                  }`}
+                  className={`inline-flex items-center gap-2 rounded-full border h-11 px-4 text-sm font-semibold transition-colors ${justSaved ? "bg-[#E3ECE5] border-emerald-200 text-emerald-800" : "border-stone-300 text-stone-700 hover:bg-stone-50"}`}
                 >
-                  {justSaved ? (
-                    <><CheckCircle className="h-4 w-4" /> Saved</>
-                  ) : (
-                    <><Loader className="h-4 w-4" /> Save</>
-                  )}
+                  {justSaved ? (<><CheckCircle className="h-4 w-4" /> Saved</>) : (<><Loader className="h-4 w-4" /> Save</>)}
                 </button>
               </div>
             </div>
@@ -706,14 +712,10 @@ export default function RouteView() {
 
       {/* Route Builder Modal */}
       <RouteBuilderModal
-              open={builderOpen}
-              onClose={() => setBuilderOpen(false)}
-              clients={clients}
-              scheduleIds={scheduleIds}
-              onScheduleIds={(ids) => createRoute(ids)}
-              onReschedule={(id, day) => rescheduleClient(id, day)}
-              rescheduledClients={rescheduledClients}
-            />
+        open={builderOpen}
+        onClose={() => setBuilderOpen(false)}
+        initialTab={builderTab}
+      />
 
       {/* Remove from Route Modal */}
       <RemoveFromRouteModal
@@ -746,9 +748,7 @@ function SumCard({ icon: Icon, label, value, tone }) {
 function InfoRow({ label, value }) {
   return (
     <div className="rounded-xl bg-[#F9F8F6] border border-stone-200 p-3">
-      <div className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">
-        {label}
-      </div>
+      <div className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">{label}</div>
       <div className="mt-1 text-sm font-medium text-stone-800">{value}</div>
     </div>
   );

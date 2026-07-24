@@ -8,6 +8,7 @@ import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import RouteView from "@/pages/RouteView";
+import Visits from "@/pages/Visits";
 import RoutesPage from "@/pages/Routes";
 import Notifications from "@/pages/Notifications";
 import Schedule from "@/pages/Schedule";
@@ -121,7 +122,8 @@ function App() {
               <Route index element={<Navigate to="/app/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="route" element={<RouteView />} />
-              <Route path="routes" element={<RoutesPage />} />
+                            <Route path="visits" element={<Visits />} />
+                            <Route path="routes" element={<RoutesPage />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="schedule" element={<Schedule />} />
               <Route path="clients" element={<Clients />} />

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
-import { Home, Map, Users, Calendar, User, LogOut, Bookmark, Stethoscope, Plus, Menu, X, Bell } from "lucide-react";
+import { Home, Map, Users, Calendar, User, LogOut, Bookmark, Stethoscope, Plus, Menu, X, Bell, ClipboardCheck } from "lucide-react";
 import HipaaBadge from "@/components/HipaaBadge";
 import NoteModal from "@/components/VoiceNoteModal";
 import NewActionModal from "@/components/NewActionModal";
@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 const NAV = [
   { to: "/app/dashboard", label: "Today", icon: Home, testId: "nav-dashboard" },
   { to: "/app/route", label: "Route", icon: Map, testId: "nav-route" },
+  { to: "/app/visits", label: "Visits", icon: ClipboardCheck, testId: "nav-visits" },
   { to: "/app/routes", label: "Saved Routes", icon: Bookmark, testId: "nav-routes" },
   { to: "/app/notifications", label: "Notifications", icon: Bell, testId: "nav-notifications" },
   { to: "/app/schedule", label: "Schedule", icon: Calendar, testId: "nav-schedule" },

@@ -1,30 +1,45 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { UserPlus, FileText, Route, X } from "lucide-react";
+import { UserPlus, FileText, Route, UserCheck, X } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 
 export default function NewActionModal({ open, onClose }) {
   const navigate = useNavigate();
-  const { openVoice, setBuilderOpen } = useRouteMe();
+  const { openVoice, setBuilderOpen, setBuilderTab, routeActive } = useRouteMe();
 
   if (!open) return null;
 
   const actions = [
-    {
-      id: "client",
+    ...(routeActive ? [{
+      id: "add-client",
       label: "New Client",
-      desc: "Add a new client to your roster",
+      desc: "Create a new client and add them to this route",
       icon: UserPlus,
       color: "bg-[#D95D39]",
       hoverColor: "hover:bg-[#C05030]",
       onClick: () => {
         onClose();
-        // Small delay so the modal animates out, then open RouteBuilderModal's add-client flow
         setTimeout(() => {
+          setBuilderTab("new");
           setBuilderOpen(true);
         }, 200);
       },
-    },
+    }] : []),
+    ...(routeActive ? [{
+      id: "add-existing",
+      label: "Add Existing Client",
+      desc: "Pick a client from your roster to add to this route",
+      icon: UserCheck,
+      color: "bg-[#7FA08B]",
+      hoverColor: "hover:bg-[#6E8F7A]",
+      onClick: () => {
+        onClose();
+        setTimeout(() => {
+          setBuilderTab("existing");
+          setBuilderOpen(true);
+        }, 200);
+      },
+    }] : []),
     {
       id: "note",
       label: "New Note",

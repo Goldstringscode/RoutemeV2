@@ -2,11 +2,11 @@ import React, { useState } from "react";
 import { X, Plus, Search, UserPlus } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 
-export default function RouteBuilderModal({ open, onClose }) {
+export default function RouteBuilderModal({ open, onClose, initialTab }) {
   const { clients, scheduleIds, addClient, createRoute } = useRouteMe();
 
   // Tabs: "new" | "existing"
-  const [tab, setTab] = useState("new");
+  const [tab, setTab] = useState(initialTab || "new");
 
   // New client form
   const [form, setForm] = useState({

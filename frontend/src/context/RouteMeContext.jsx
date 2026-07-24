@@ -145,6 +145,13 @@ export function RouteMeProvider({ children }) {
   const unreadNotifications = notifications.filter(n => !n.read).length;
   const [optimizationMode, setOptimizationMode] = useState("ai");
   const [navPreference, setNavPreference] = useState("google"); // "google" | "apple" | "both"
+
+  /* ─── Route session state (start/end, visits) ────── */
+  const [routeActive, setRouteActive] = useState(initial?.routeActive ?? false);
+  const [visitedIds, setVisitedIds] = useState(initial?.visitedIds ?? []);
+  const [visits, setVisits] = useState(initial?.visits ?? []);
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [builderTab, setBuilderTab] = useState("new"); // "new" | "existing"
     const [routeResult, setRouteResult] = useState(null);
         const [routeGeoJson, setRouteGeoJson] = useState(null);
         const [routeDistance, setRouteDistance] = useState(null);
@@ -442,19 +449,21 @@ export function RouteMeProvider({ children }) {
       try {
         localStorage.setItem(KEY, JSON.stringify({
           authed, clients, scheduleIds, notes, audit, optimized, savedRoutes, notifications,
-                    agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
-                    superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
-                    globalAudit, activeSessions, billingLedger, featureFlags,
-                    phiRevealed, maintenanceMode, impersonation, routeResult, routeGeoJson, routeDistance, routeDuration, rescheduledClients,
-                  }));
+                              agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
+                              superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
+                              globalAudit, activeSessions, billingLedger, featureFlags,
+                              phiRevealed, maintenanceMode, impersonation, routeResult, routeGeoJson, routeDistance, routeDuration, rescheduledClients,
+                              routeActive, visitedIds, visits,
+                            }));
       } catch { /* quota exceeded — ignore */ }
     }, [
       authed, clients, scheduleIds, notes, audit, optimized, savedRoutes, notifications,
-            agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
-            superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
-            globalAudit, activeSessions, billingLedger, featureFlags,
-            phiRevealed, maintenanceMode, impersonation, routeResult, routeGeoJson, routeDistance, routeDuration, rescheduledClients,
-          ]);
+                  agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
+                  superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
+                  globalAudit, activeSessions, billingLedger, featureFlags,
+                  phiRevealed, maintenanceMode, impersonation, routeResult, routeGeoJson, routeDistance, routeDuration, rescheduledClients,
+                  routeActive, visitedIds, visits,
+                ]);
 
   const schedule = useMemo(
     () => scheduleIds.map((id) => clients.find((c) => c.id === id)).filter(Boolean),
@@ -815,9 +824,43 @@ export function RouteMeProvider({ children }) {
         }, [pushAudit, clients]);
 
     const clearRescheduled = useCallback(() => {
-      setRescheduledClients({});
-      pushAudit("Rescheduled clients cleared", "write");
-    }, [pushAudit]);
+          setRescheduledClients({});
+          pushAudit("Rescheduled clients cleared", "write");
+        }, [pushAudit]);
+
+      /* ─── Route session (start/end, visits) ──────────── */
+      const startRoute = useCallback(() => {
+        setRouteActive(true);
+        setVisitedIds([]);
+        pushAudit("Route started", "route");
+      }, [pushAudit]);
+
+      const endRoute = useCallback(() => {
+        setRouteActive(false);
+        pushAudit(`Route ended — ${visitedIds.length} visits completed`, "route");
+      }, [pushAudit, visitedIds.length]);
+
+      const markVisited = useCallback((clientId, clientName) => {
+        setVisitedIds(prev => [...prev, clientId]);
+        const visit = {
+          id: "v_" + Math.random().toString(36).slice(2, 10),
+          clientId,
+          clientName,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          date: new Date().toISOString(),
+          notes: '',
+        };
+        setVisits(prev => [visit, ...prev]);
+        pushAudit(`Visit completed — ${clientName}`, "visit");
+      }, [pushAudit]);
+
+      const unmarkVisited = useCallback((clientId) => {
+        setVisitedIds(prev => prev.filter(id => id !== clientId));
+      }, []);
+
+      const addVisitNote = useCallback((visitId, notes) => {
+        setVisits(prev => prev.map(v => v.id === visitId ? { ...v, notes } : v));
+      }, []);
 
   /* ─── Agency actions ──────────────────────────────── */
 
@@ -961,8 +1004,15 @@ export function RouteMeProvider({ children }) {
             // Notifications
             notifications, unreadNotifications, addNotification, markNotificationRead, markAllNotificationsRead, dismissNotification,
     // Route management
-    removeFromRoute, rescheduleClient, createRoute, clearRescheduled,
-    rescheduledClients, getWeekStart,
+        removeFromRoute, rescheduleClient, createRoute, clearRescheduled,
+        rescheduledClients, getWeekStart,
+        // Route session
+        routeActive, startRoute, endRoute,
+        visitedIds, markVisited, unmarkVisited,
+        visits, addVisitNote,
+        visitsCount: visits.length,
+        // Builder modal
+        builderOpen, setBuilderOpen, builderTab, setBuilderTab,
     // Home Base
     updateNurseHomeBase,
     // Agency admin
