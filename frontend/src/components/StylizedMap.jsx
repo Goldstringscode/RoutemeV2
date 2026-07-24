@@ -81,7 +81,7 @@ export default function StylizedMap({ compact = false, onStopClick }) {
 
     const map = new mapboxgl.Map({
       container: mapContainer.current,
-      style: "mapbox://styles/mapbox/streets-v11",
+      style: "mapbox://styles/mapbox/light-v10",
       center: [centerLng, centerLat],
       zoom: compact ? 9.5 : 9,
       pitch: compact ? 0 : 55,
@@ -105,18 +105,19 @@ export default function StylizedMap({ compact = false, onStopClick }) {
           map.setTerrain({ source: "mapbox-dem", exaggeration: 1.5 });
         }
         if (!map.getLayer("rm-hillshade")) {
-          map.addLayer({
-            id: "rm-hillshade",
-            type: "hillshade",
-            source: "mapbox-dem",
-            paint: {
-              "hillshade-exaggeration": 0.6,
-              "hillshade-shadow-color": "#1a1a2e",
-              "hillshade-highlight-color": "#e8dcc8",
-              "hillshade-illumination-anchor": "viewport",
-            },
-          }, "land");
-        }
+                  const firstLayerId = map.getStyle().layers?.[0]?.id;
+                  map.addLayer({
+                    id: "rm-hillshade",
+                    type: "hillshade",
+                    source: "mapbox-dem",
+                    paint: {
+                      "hillshade-exaggeration": 0.6,
+                      "hillshade-shadow-color": "#1a1a2e",
+                      "hillshade-highlight-color": "#e8dcc8",
+                      "hillshade-illumination-anchor": "viewport",
+                    },
+                  }, firstLayerId);
+                }
         console.log("[Terrain] 3D elevation active ✅");
       } catch (e) {
         console.warn("[Terrain] setup failed:", e);
