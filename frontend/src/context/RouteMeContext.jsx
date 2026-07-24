@@ -536,14 +536,22 @@ export function RouteMeProvider({ children }) {
     }, [clients]);
 
   const optimize = useCallback((mode) => {
-            const optMode = mode || optimizationMode;
-            const result = optimizeRoute(schedule, optMode, savedRoutes, nurse.homeBase);
-            if (result.order?.length) {
-              setScheduleIds(result.order);
-            setOptimized(true);
-            setRouteResult(result);
-            pushAudit(`Route re-optimized (${optMode})`, "route");
-            const orderedStops = result.order.map((id) => schedule.find((s) => s.id === id)).filter(Boolean);
+              const optMode = mode || optimizationMode;
+              // When route is active, only optimize unvisited stops
+              const stopsToOptimize = routeActive && visitedIds.length > 0
+                ? schedule.filter(s => !visitedIds.includes(s.id))
+                : schedule;
+              const result = optimizeRoute(stopsToOptimize, optMode, savedRoutes, nurse.homeBase);
+              if (result.order?.length) {
+                // Merge: optimized unvisited order + visited stops at the end
+                const finalOrder = routeActive && visitedIds.length > 0
+                  ? [...result.order, ...visitedIds.filter(id => scheduleIds.includes(id))]
+                  : result.order;
+                setScheduleIds(finalOrder);
+              setOptimized(true);
+              setRouteResult(result);
+              pushAudit(`Route re-optimized (${optMode})`, "route");
+              const orderedStops = result.order.map((id) => stopsToOptimize.find((s) => s.id === id)).filter(Boolean);
                         if (orderedStops.length >= 2) {
                           // Validate all stops have coordinates
                           const badStops = orderedStops.filter(s => s.lat == null || s.lng == null);
@@ -570,7 +578,7 @@ export function RouteMeProvider({ children }) {
               });
             }
           }
-        }, [schedule, optimizationMode, savedRoutes, pushAudit]);
+        }, [schedule, optimizationMode, savedRoutes, pushAudit, routeActive, visitedIds, scheduleIds]);
 
         /* ─── Home Base ──────────────────────────────────────── */
         const updateNurseHomeBase = useCallback((homeBase) => {
@@ -841,18 +849,34 @@ export function RouteMeProvider({ children }) {
       }, [pushAudit, visitedIds.length]);
 
       const markVisited = useCallback((clientId, clientName) => {
-        setVisitedIds(prev => [...prev, clientId]);
-        const visit = {
-          id: "v_" + Math.random().toString(36).slice(2, 10),
-          clientId,
-          clientName,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          date: new Date().toISOString(),
-          notes: '',
-        };
-        setVisits(prev => [visit, ...prev]);
-        pushAudit(`Visit completed — ${clientName}`, "visit");
-      }, [pushAudit]);
+          setVisitedIds(prev => [...prev, clientId]);
+          const visit = {
+            id: "v_" + Math.random().toString(36).slice(2, 10),
+            clientId,
+            clientName,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            date: new Date().toISOString(),
+            notes: '',
+          };
+          setVisits(prev => [visit, ...prev]);
+          pushAudit(`Visit completed — ${clientName}`, "visit");
+          // Re-fetch the route for remaining unvisited stops only
+          const remainingStops = schedule.filter(s => s.id !== clientId);
+          const validRemaining = remainingStops.filter(s => s.lat != null && s.lng != null);
+          if (validRemaining.length >= 2) {
+            fetchRoute(validRemaining, nurse.homeBase).then((route) => {
+              if (route) {
+                setRouteGeoJson(route.routeGeoJson);
+                setRouteDistance(route.distance);
+                setRouteDuration(route.duration);
+              }
+            }).catch(() => {});
+          } else if (validRemaining.length === 0) {
+            setRouteGeoJson(null);
+            setRouteDistance(null);
+            setRouteDuration(null);
+          }
+        }, [pushAudit, schedule, nurse]);
 
       const unmarkVisited = useCallback((clientId) => {
         setVisitedIds(prev => prev.filter(id => id !== clientId));

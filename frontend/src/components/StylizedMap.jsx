@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
 import { useRouteMe } from "@/context/RouteMeContext";
 
@@ -10,15 +10,22 @@ const ROUTE_GLOW = "route-glow";
 /**
  * Stylized map: real Mapbox map with real route lines and SVG stop overlays.
  * 3D terrain via DEM source + hillshade added on load.
+ * When route is active, visited stops show green checkmarks and are excluded from the route line.
  */
 export default function StylizedMap({ compact = false, onStopClick }) {
-  const { schedule, routeGeoJson, routeDistance, routeDuration, nurse } = useRouteMe();
+  const { schedule, routeGeoJson, routeDistance, routeDuration, nurse, routeActive, visitedIds } = useRouteMe();
   const homeBase = nurse?.homeBase;
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const [svgPositions, setSvgPositions] = useState([]);
     const [homePos, setHomePos] = useState(null);
       const updateTimer = useRef(null);
+
+    /* ─── Filter out visited stops for the route path ──── */
+    const unvisitedSchedule = useMemo(() => {
+      if (!routeActive || !visitedIds?.length) return schedule;
+      return schedule.filter(c => !visitedIds.includes(c.id));
+    }, [schedule, routeActive, visitedIds]);
 
     // Project lat/lng to SVG pixel coordinates
     const updatePositions = useCallback(() => {
@@ -28,19 +35,25 @@ export default function StylizedMap({ compact = false, onStopClick }) {
       const rect = mapContainer.current?.getBoundingClientRect();
       if (!rect) return;
 
-      const positions = schedule.map((c, idx) => {
+      // Build positions for ALL stops (visited + unvisited)
+      let unvisitedCount = 0;
+      const positions = schedule.map((c) => {
+        const isVis = routeActive && visitedIds?.includes(c.id);
         if (c.lat && c.lng) {
           const point = map.project([c.lng, c.lat]);
           const svgX = (point.x / rect.width) * 1000;
           const svgY = (point.y / rect.height) * 600;
-          return { x: svgX, y: svgY, id: c.id, label: String(idx + 1), name: c.fullName };
+          const label = isVis ? "✓" : String(unvisitedCount + 1);
+          if (!isVis) unvisitedCount++;
+          return { x: svgX, y: svgY, id: c.id, label, name: c.fullName, isVisited: isVis };
         }
         return {
-          x: 150 + ((idx * 120) % 700),
-          y: 260 + ((idx * 47) % 200),
+          x: 150 + ((positions?.length || 0) * 120 % 700),
+          y: 260 + ((positions?.length || 0) * 47 % 200),
           id: c.id,
-          label: String(idx + 1),
+          label: isVis ? "✓" : String(unvisitedCount + 1),
           name: c.fullName,
+          isVisited: isVis,
         };
       });
       setSvgPositions(positions);
@@ -55,7 +68,7 @@ export default function StylizedMap({ compact = false, onStopClick }) {
       } else {
         setHomePos(null);
       }
-    }, [schedule, homeBase]);
+    }, [schedule, homeBase, routeActive, visitedIds]);
 
   // Debounced position update
   const scheduleUpdate = useCallback(() => {
@@ -63,17 +76,20 @@ export default function StylizedMap({ compact = false, onStopClick }) {
     updateTimer.current = setTimeout(updatePositions, 50);
   }, [updatePositions]);
 
-  // SVG path connecting stops (fallback when no real route)
-  const pathD = React.useMemo(() => {
-    if (svgPositions.length < 2) return "";
-    return svgPositions.reduce((acc, s, i, arr) => {
+  // SVG path connecting ONLY unvisited stops (skip visited for the route line)
+  const pathD = useMemo(() => {
+    const routeStops = routeActive && visitedIds?.length
+      ? svgPositions.filter(s => !s.isVisited)
+      : svgPositions;
+    if (routeStops.length < 2) return "";
+    return routeStops.reduce((acc, s, i, arr) => {
       if (i === 0) return `M ${s.x} ${s.y}`;
       const prev = arr[i - 1];
       const midX = (prev.x + s.x) / 2;
       const midY = (prev.y + s.y) / 2 - 30;
       return `${acc} Q ${midX} ${midY} ${s.x} ${s.y}`;
     }, "");
-  }, [svgPositions]);
+  }, [svgPositions, routeActive, visitedIds]);
 
   // Initialize Mapbox map
   useEffect(() => {
@@ -189,12 +205,12 @@ export default function StylizedMap({ compact = false, onStopClick }) {
     };
   }, [compact]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Update positions when schedule changes
+  // Update positions when schedule/visited changes
   useEffect(() => {
     if (mapRef.current) {
       setTimeout(updatePositions, 100);
     }
-  }, [schedule, homeBase, updatePositions]);
+  }, [schedule, homeBase, visitedIds, routeActive, updatePositions]);
 
   // Update route data when routeGeoJson changes
   useEffect(() => {
@@ -275,7 +291,7 @@ export default function StylizedMap({ compact = false, onStopClick }) {
           </g>
         )}
 
-        {/* Fallback SVG route path — only when no real route */}
+        {/* Fallback SVG route path — only connections between UNVISITED stops */}
         {!routeGeoJson && svgPositions.length > 1 && (
           <>
             <path
@@ -297,7 +313,7 @@ export default function StylizedMap({ compact = false, onStopClick }) {
           </>
         )}
 
-        {/* Home base marker — calculated in updatePositions, always visible */}
+        {/* Home base marker */}
                 {homePos && (
                   <g transform={`translate(${homePos.x} ${homePos.y})`} className="pointer-events-auto">
                     <circle r="20" fill="#4F46E5" stroke="#FFFFFF" strokeWidth="3" opacity="0.9" />
@@ -320,37 +336,61 @@ export default function StylizedMap({ compact = false, onStopClick }) {
             style={{ cursor: onStopClick ? "pointer" : "default" }}
             className="pointer-events-auto"
           >
-            <circle r="22" fill="#FFFFFF" stroke="#1C1C1C" strokeWidth="2" />
-            <circle r="16" fill={s.label === "1" ? "#7FA08B" : "#D95D39"} />
-            <text
-              x="0"
-              y="5"
-              textAnchor="middle"
-              fill="#FFFFFF"
-              fontFamily="Outfit, sans-serif"
-              fontWeight="600"
-              fontSize="14"
-            >
-              {s.label}
-            </text>
+            {s.isVisited ? (
+              <>
+                {/* Green checkmark circle for visited stops */}
+                <circle r="22" fill="#FFFFFF" stroke="#059669" strokeWidth="2.5" />
+                <circle r="16" fill="#059669" />
+                <text
+                  x="0" y="5"
+                  textAnchor="middle"
+                  fill="#FFFFFF"
+                  fontFamily="Outfit, sans-serif"
+                  fontWeight="600"
+                  fontSize="16"
+                >
+                  ✓
+                </text>
+              </>
+            ) : (
+              <>
+                {/* Standard numbered orange circle */}
+                <circle r="22" fill="#FFFFFF" stroke="#1C1C1C" strokeWidth="2" />
+                <circle r="16" fill={s.label === "1" ? "#7FA08B" : "#D95D39"} />
+                <text
+                  x="0" y="5"
+                  textAnchor="middle"
+                  fill="#FFFFFF"
+                  fontFamily="Outfit, sans-serif"
+                  fontWeight="600"
+                  fontSize="14"
+                >
+                  {s.label}
+                </text>
+              </>
+            )}
           </g>
         ))}
 
-        {/* Start marker */}
-        {svgPositions[0] && (
-          <g
-            transform={`translate(${svgPositions[0].x - 30} ${svgPositions[0].y - 34})`}
-            className="pointer-events-auto"
-          >
-            <rect width="60" height="18" rx="9" fill="#1C1C1C" />
-            <text
-              x="30" y="12" textAnchor="middle" fill="#FFFFFF"
-              fontFamily="Manrope, sans-serif" fontWeight="600" fontSize="9" letterSpacing="1"
+        {/* Start marker on first unvisited stop */}
+        {(() => {
+          const firstUnvisited = svgPositions.find(s => !s.isVisited);
+          if (!firstUnvisited) return null;
+          return (
+            <g
+              transform={`translate(${firstUnvisited.x - 30} ${firstUnvisited.y - 34})`}
+              className="pointer-events-auto"
             >
-              START
-            </text>
-          </g>
-        )}
+              <rect width="60" height="18" rx="9" fill="#1C1C1C" />
+              <text
+                x="30" y="12" textAnchor="middle" fill="#FFFFFF"
+                fontFamily="Manrope, sans-serif" fontWeight="600" fontSize="9" letterSpacing="1"
+              >
+                START
+              </text>
+            </g>
+          );
+        })()}
       </svg>
 
       {/* Legend chip */}
@@ -363,7 +403,11 @@ export default function StylizedMap({ compact = false, onStopClick }) {
         <span className="text-stone-600 tabular-nums">
           {routeGeoJson && routeDistance && routeDuration
             ? `${metersToMiles(routeDistance)} mi · ${secondsToShort(routeDuration)}`
-            : `${svgPositions.length} stops`}
+            : `${
+                routeActive && visitedIds?.length
+                  ? `${visitedIds.length} visited · ${svgPositions.length - visitedIds.length} remaining`
+                  : `${svgPositions.length} stops`
+              }`}
         </span>
       </div>
 
