@@ -108,33 +108,39 @@ export default function StylizedMap({ compact = false, onStopClick }) {
                   updatePositions();
 
                                     // ── Terrain setup ──
-                                                                        // mapbox-gl v2.x setTerrain is stable without the v3.x worker bug.
-                                                                        try {
-                                                                          if (!map.getSource("mapbox-dem")) {
-                                                                            map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
-                                                                            map.setTerrain({ source: "mapbox-dem", exaggeration: 2.0 });
-                                                                          }
-                                                                          // Add hillshade with unique ID at bottom of layer stack
-                                                                          const layerId = "rm-hillshade";
-                                                                          if (!map.getLayer(layerId)) {
-                                                                            // Insert before the first road/land layer
-                                                                            const beforeLayer = map.getStyle().layers?.find(l =>
-                                                                              ["land-structure-polygon", "building", "road", "waterway"].includes(l.id) ||
-                                                                              l.id.startsWith("road-") || l.id.startsWith("waterway-")
-                                                                            )?.id;
-                                                                            map.addLayer({
-                                                                              id: layerId,
-                                                                              type: "hillshade",
-                                                                              source: "mapbox-dem",
-                                                                              paint: {
-                                                                                "hillshade-exaggeration": 0.8,
-                                                                                "hillshade-shadow-color": "#1a1a2e",
-                                                                                "hillshade-highlight-color": "#e8dcc8",
-                                                                                "hillshade-illumination-anchor": "viewport"
-                                                                              }
-                                                                            }, beforeLayer);
-                                                                          }
-                                                                        } catch (e) {}
+                                                                        console.log("[Terrain] Starting terrain setup...");
+                                                                                                            if (!map.getSource("mapbox-dem")) {
+                                                                                                              map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
+                                                                                                              console.log("[Terrain] DEM source added");
+                                                                                                              map.setTerrain({ source: "mapbox-dem", exaggeration: 2.0 });
+                                                                                                              console.log("[Terrain] setTerrain called with exaggeration 2.0");
+                                                                                                            } else {
+                                                                                                              console.log("[Terrain] DEM source already exists");
+                                                                                                            }
+                                                                                                            // Add hillshade with unique ID
+                                                                                                            const layerId = "rm-hillshade";
+                                                                                                            if (!map.getLayer(layerId)) {
+                                                                                                              const beforeLayer = map.getStyle().layers?.find(l =>
+                                                                                                                ["land-structure-polygon", "building", "road", "waterway"].includes(l.id) ||
+                                                                                                                l.id.startsWith("road-") || l.id.startsWith("waterway-")
+                                                                                                              )?.id;
+                                                                                                              console.log("[Terrain] Trying to add hillshade before:", beforeLayer);
+                                                                                                              map.addLayer({
+                                                                                                                id: layerId,
+                                                                                                                type: "hillshade",
+                                                                                                                source: "mapbox-dem",
+                                                                                                                paint: {
+                                                                                                                  "hillshade-exaggeration": 0.8,
+                                                                                                                  "hillshade-shadow-color": "#1a1a2e",
+                                                                                                                  "hillshade-highlight-color": "#e8dcc8",
+                                                                                                                  "hillshade-illumination-anchor": "viewport"
+                                                                                                                }
+                                                                                                              }, beforeLayer);
+                                                                                                              console.log("[Terrain] Hillshade layer added");
+                                                                                                            } else {
+                                                                                                              console.log("[Terrain] Hillshade layer already exists");
+                                                                                                            }
+                                                                                                            console.log("[Terrain] Terrain setup complete");
                                   });
 
     // Update positions on map move/zoom
