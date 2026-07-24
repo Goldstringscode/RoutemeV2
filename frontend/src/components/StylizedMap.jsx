@@ -81,7 +81,7 @@ export default function StylizedMap({ compact = false, onStopClick }) {
 
     const map = new mapboxgl.Map({
               container: mapContainer.current,
-              style: "mapbox://styles/mapbox/streets-v12",
+              style: "mapbox://styles/mapbox/streets-v11",
               center: [centerLng, centerLat],
               zoom: compact ? 9.5 : 9,
               pitch: compact ? 0 : 55,
@@ -108,26 +108,33 @@ export default function StylizedMap({ compact = false, onStopClick }) {
                   updatePositions();
 
                                     // ── Terrain setup ──
-                                    // In mapbox-gl v2.x the setTerrain API is stable and does not have
-                                    // the web worker minification bug present in v3.x.
-                                    try {
-                                      if (!map.getSource("mapbox-dem")) {
-                                        map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
-                                        map.setTerrain({ source: "mapbox-dem", exaggeration: 2.0 });
-                                      }
-                                      if (!map.getLayer("hillshade")) {
-                                        map.addLayer({
-                                          id: "hillshade",
-                                          type: "hillshade",
-                                          source: "mapbox-dem",
-                                          paint: {
-                                            "hillshade-exaggeration": 0.6,
-                                            "hillshade-shadow-color": "#1a1a2e",
-                                            "hillshade-highlight-color": "#e8dcc8"
-                                          }
-                                        });
-                                      }
-                                    } catch (e) {}
+                                                                        // mapbox-gl v2.x setTerrain is stable without the v3.x worker bug.
+                                                                        try {
+                                                                          if (!map.getSource("mapbox-dem")) {
+                                                                            map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
+                                                                            map.setTerrain({ source: "mapbox-dem", exaggeration: 2.0 });
+                                                                          }
+                                                                          // Add hillshade with unique ID at bottom of layer stack
+                                                                          const layerId = "rm-hillshade";
+                                                                          if (!map.getLayer(layerId)) {
+                                                                            // Insert before the first road/land layer
+                                                                            const beforeLayer = map.getStyle().layers?.find(l =>
+                                                                              ["land-structure-polygon", "building", "road", "waterway"].includes(l.id) ||
+                                                                              l.id.startsWith("road-") || l.id.startsWith("waterway-")
+                                                                            )?.id;
+                                                                            map.addLayer({
+                                                                              id: layerId,
+                                                                              type: "hillshade",
+                                                                              source: "mapbox-dem",
+                                                                              paint: {
+                                                                                "hillshade-exaggeration": 0.8,
+                                                                                "hillshade-shadow-color": "#1a1a2e",
+                                                                                "hillshade-highlight-color": "#e8dcc8",
+                                                                                "hillshade-illumination-anchor": "viewport"
+                                                                              }
+                                                                            }, beforeLayer);
+                                                                          }
+                                                                        } catch (e) {}
                                   });
 
     // Update positions on map move/zoom
