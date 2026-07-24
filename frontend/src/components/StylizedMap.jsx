@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import mapboxgl from "mapbox-gl";
 import { useRouteMe } from "@/context/RouteMeContext";
+import terrainStyle from "@/assets/terrain-style.json";
 
 const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 const ROUTE_SOURCE = "route-source";
@@ -80,15 +81,15 @@ export default function StylizedMap({ compact = false, onStopClick }) {
       : -118.2437;
 
     const map = new mapboxgl.Map({
-              container: mapContainer.current,
-              style: "mapbox://styles/mapbox/streets-v11",
-              center: [centerLng, centerLat],
-              zoom: compact ? 9.5 : 9,
-              pitch: compact ? 0 : 55,
-              interactive: !compact,
-              attributionControl: false,
-              logoPosition: "bottom-right",
-            });
+                  container: mapContainer.current,
+                  style: terrainStyle,
+                  center: [centerLng, centerLat],
+                  zoom: compact ? 9.5 : 9,
+                  pitch: compact ? 0 : 55,
+                  interactive: !compact,
+                  attributionControl: false,
+                  logoPosition: "bottom-right",
+                });
 
         map.on("load", () => {
                   // ── Route layers ──
@@ -107,40 +108,9 @@ export default function StylizedMap({ compact = false, onStopClick }) {
 
                   updatePositions();
 
-                                    // ── Terrain setup ──
-                                                                        console.log("[Terrain] Starting terrain setup...");
-                                                                                                            if (!map.getSource("mapbox-dem")) {
-                                                                                                              map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
-                                                                                                              console.log("[Terrain] DEM source added");
-                                                                                                              map.setTerrain({ source: "mapbox-dem", exaggeration: 2.0 });
-                                                                                                              console.log("[Terrain] setTerrain called with exaggeration 2.0");
-                                                                                                            } else {
-                                                                                                              console.log("[Terrain] DEM source already exists");
-                                                                                                            }
-                                                                                                            // Add hillshade with unique ID
-                                                                                                            const layerId = "rm-hillshade";
-                                                                                                            if (!map.getLayer(layerId)) {
-                                                                                                              const beforeLayer = map.getStyle().layers?.find(l =>
-                                                                                                                ["land-structure-polygon", "building", "road", "waterway"].includes(l.id) ||
-                                                                                                                l.id.startsWith("road-") || l.id.startsWith("waterway-")
-                                                                                                              )?.id;
-                                                                                                              console.log("[Terrain] Trying to add hillshade before:", beforeLayer);
-                                                                                                              map.addLayer({
-                                                                                                                id: layerId,
-                                                                                                                type: "hillshade",
-                                                                                                                source: "mapbox-dem",
-                                                                                                                paint: {
-                                                                                                                  "hillshade-exaggeration": 0.8,
-                                                                                                                  "hillshade-shadow-color": "#1a1a2e",
-                                                                                                                  "hillshade-highlight-color": "#e8dcc8",
-                                                                                                                  "hillshade-illumination-anchor": "viewport"
-                                                                                                                }
-                                                                                                              }, beforeLayer);
-                                                                                                              console.log("[Terrain] Hillshade layer added");
-                                                                                                            } else {
-                                                                                                              console.log("[Terrain] Hillshade layer already exists");
-                                                                                                            }
-                                                                                                            console.log("[Terrain] Terrain setup complete");
+                  // ── Terrain setup ──
+                                    // Terrain is baked into the custom style JSON (src/assets/terrain-style.json)
+                                    console.log("[Terrain] Terrain baked into style, no programmatic setup needed");
                                   });
 
     // Update positions on map move/zoom
