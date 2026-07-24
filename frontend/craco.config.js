@@ -81,7 +81,23 @@ let webpackConfig = {
     },
     configure: (webpackConfig) => {
 
-      // Add ignored patterns to reduce watched directories
+          // Exclude mapbox-gl from Babel transpilation to prevent worker bundle mangling
+          const rules = webpackConfig.module.rules;
+          for (const rule of rules) {
+            if (rule.oneOf) {
+              for (const sub of rule.oneOf) {
+                if (sub.loader && sub.loader.includes('babel-loader')) {
+                  const existing = sub.exclude || [];
+                  sub.exclude = [
+                    ...(Array.isArray(existing) ? existing : [existing]),
+                    /node_modules[\\/]mapbox-gl/,
+                  ];
+                }
+              }
+            }
+          }
+
+          // Add ignored patterns to reduce watched directories
               webpackConfig.watchOptions = {
                 ...webpackConfig.watchOptions,
                 ignored: [
