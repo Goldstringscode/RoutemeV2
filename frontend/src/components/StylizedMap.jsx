@@ -85,7 +85,6 @@ export default function StylizedMap({ compact = false, onStopClick }) {
               center: [centerLng, centerLat],
               zoom: compact ? 9.5 : 9,
               pitch: compact ? 0 : 55,
-              projection: "mercator", // REQUIRED: globe breaks setTerrain()
               interactive: !compact,
               attributionControl: false,
               logoPosition: "bottom-right",
@@ -107,20 +106,29 @@ export default function StylizedMap({ compact = false, onStopClick }) {
                   }
 
                   updatePositions();
-                });
 
-                // ── Terrain is disabled in production builds ──
-                                // Mapbox GL JS v3.x has a confirmed internal worker minification bug
-                                // (ReferenceError in variable names like `a` / `o`) when DEM terrain
-                                // tiles are processed through the web worker. This causes cascading
-                                // `TypeError: composite` errors that break the map rendering.
-                                // Using `streets-v12` style, which still shows highways, city names,
-                                // and provides an excellent visual experience without 3D terrain.
-                                // 
-                                // To re-enable, test on the dev server (craco start) where the
-                                // worker code runs unminified and terrain works correctly.
-                                // map.once("idle", () => { ... setTerrain + hillshade ... });
-                                                                //
+                                    // ── Terrain setup ──
+                                    // In mapbox-gl v2.x the setTerrain API is stable and does not have
+                                    // the web worker minification bug present in v3.x.
+                                    try {
+                                      if (!map.getSource("mapbox-dem")) {
+                                        map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
+                                        map.setTerrain({ source: "mapbox-dem", exaggeration: 2.0 });
+                                      }
+                                      if (!map.getLayer("hillshade")) {
+                                        map.addLayer({
+                                          id: "hillshade",
+                                          type: "hillshade",
+                                          source: "mapbox-dem",
+                                          paint: {
+                                            "hillshade-exaggeration": 0.6,
+                                            "hillshade-shadow-color": "#1a1a2e",
+                                            "hillshade-highlight-color": "#e8dcc8"
+                                          }
+                                        });
+                                      }
+                                    } catch (e) {}
+                                  });
 
     // Update positions on map move/zoom
     map.on("move", scheduleUpdate);
