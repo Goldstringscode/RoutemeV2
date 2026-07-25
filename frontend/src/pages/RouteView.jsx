@@ -474,19 +474,35 @@ export default function RouteView() {
                         )}
                       </div>
 
-                      {/* Action buttons: Mark visited or Remove */}
+                      {/* Action buttons: Mark visited + Remove */}
                       {routeActive && !isVisited && !dragEnabled && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            markVisited(c.id, c.fullName);
-                          }}
-                          data-testid={`mark-visited-${idx + 1}`}
-                          className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-100 text-emerald-600 hover:bg-emerald-200 transition-colors shrink-0 mt-2"
-                          title="Mark as visited"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                        </button>
+                        <div className="flex items-center gap-1 shrink-0 mt-2">
+                          {/* Mark as visited */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              markVisited(c.id, c.fullName);
+                            }}
+                            data-testid={`mark-visited-${idx + 1}`}
+                            className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-100 text-emerald-600 hover:bg-emerald-200 transition-colors"
+                            title="Mark as visited"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </button>
+                          {/* Remove from route */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setClientToRemove(c);
+                              setRemoveModalOpen(true);
+                            }}
+                            data-testid={`remove-stop-active-${idx + 1}`}
+                            className="h-7 w-7 rounded-full flex items-center justify-center text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            title="Remove from route"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       )}
                       {!routeActive && !dragEnabled && (
                         <button
