@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
-import { GripVertical, Sparkles, Clock, MapPin, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Sun, Moon, ChevronDown, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { GripVertical, Sparkles, Clock, MapPin, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Sun, Moon, ChevronDown, X, User, Plus } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { formatTimeWindow } from "@/lib/utils";
 
@@ -30,10 +31,12 @@ function isWeekend(windowStr) {
 
 /* ─── Calendar component ──────────────────────────────── */
 
-function CalendarPicker({ selected, onSelect, onClose }) {
+function CalendarPicker({ selected, onSelect, onClose, schedule, clients }) {
   const today = new Date();
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [hoverDate, setHoverDate] = useState(null);
+  const [hoveredDay, setHoveredDay] = useState(null);
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
@@ -64,8 +67,26 @@ function CalendarPicker({ selected, onSelect, onClose }) {
     onSelect(picked);
   };
 
+  const handleDayHover = (d) => {
+    const date = new Date(viewYear, viewMonth, d);
+    setHoveredDay(d);
+
+    // Check if this date has any scheduled clients
+    const isTodayDate = d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+    if (isTodayDate && schedule.length > 0) {
+      setHoverDate(schedule);
+    } else {
+      setHoverDate(null);
+    }
+  };
+
+  const handleDayLeave = () => {
+    setHoveredDay(null);
+    setHoverDate(null);
+  };
+
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white shadow-lg p-4 animate-in fade-in zoom-in-95 duration-200">
+    <div className="relative rounded-2xl border border-stone-200 bg-white shadow-lg p-4 animate-in fade-in zoom-in-95 duration-200">
       <div className="flex items-center justify-between mb-4">
         <button onClick={prevMonth} className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-stone-100 transition-colors">
           <ChevronLeft className="h-4 w-4 text-stone-600" />
@@ -79,12 +100,10 @@ function CalendarPicker({ selected, onSelect, onClose }) {
       </div>
       <div className="grid grid-cols-7 gap-1 mb-1">
         {dayNames.map(d => (
-          <div key={d} className="text-center text-[10px] uppercase tracking-widest text-stone-400 font-semibold py-1">
-            {d}
-          </div>
+          <div key={d} className="text-center text-[10px] uppercase tracking-widest text-stone-400 font-semibold py-1">{d}</div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-1 relative">
         {Array.from({ length: firstDayOfWeek }).map((_, i) => (
           <div key={`empty-${i}`} />
         ))}
@@ -93,22 +112,64 @@ function CalendarPicker({ selected, onSelect, onClose }) {
           const sel = isSelected(d);
           const tod = isToday(d);
           return (
-            <button
-              key={d}
-              onClick={() => handleDayClick(d)}
-              className={`h-9 w-9 rounded-full text-sm font-medium transition-colors flex items-center justify-center mx-auto ${
-                sel
-                  ? "bg-[#D95D39] text-white"
-                  : tod
-                    ? "bg-[#F7E5DD] text-[#D95D39]"
-                    : "hover:bg-stone-100 text-stone-700"
-              }`}
-            >
-              {d}
-            </button>
+            <div key={d} className="relative">
+              <button
+                onClick={() => handleDayClick(d)}
+                onMouseEnter={() => handleDayHover(d)}
+                onMouseLeave={handleDayLeave}
+                className={`h-9 w-9 rounded-full text-sm font-medium transition-colors flex items-center justify-center mx-auto relative ${
+                  sel
+                    ? "bg-[#D95D39] text-white"
+                    : tod
+                      ? "bg-[#F7E5DD] text-[#D95D39]"
+                      : "hover:bg-stone-100 text-stone-700"
+                }`}
+              >
+                {d}
+                {/* Dot indicator: today with scheduled clients */}
+                {tod && schedule.length > 0 && (
+                  <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-[#D95D39]" />
+                )}
+              </button>
+            </div>
           );
         })}
       </div>
+
+      {/* Hover popup for today's client list */}
+      {hoverDate && hoveredDay && (
+        <div className="absolute left-0 right-0 mt-3 z-20 bg-white border border-stone-200 rounded-2xl shadow-xl p-4 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-stone-600 uppercase tracking-wider">
+              Today's clients · {hoverDate.length}
+            </p>
+            <button onClick={() => { setHoverDate(null); setHoveredDay(null); }} className="h-5 w-5 rounded-full flex items-center justify-center hover:bg-stone-100">
+              <X className="h-3 w-3 text-stone-400" />
+            </button>
+          </div>
+          <div className="space-y-1.5 max-h-[180px] overflow-y-auto">
+            {hoverDate.map((c) => (
+              <div key={c.id} className="flex items-center justify-between rounded-lg border border-stone-100 px-3 py-2 hover:bg-stone-50 transition-colors">
+                <div className="min-w-0 flex-1">
+                  <Link to={`/app/clients/${c.id}`} className="text-sm font-medium text-stone-800 hover:text-[#D95D39] transition-colors">
+                    {c.fullName}
+                  </Link>
+                  <p className="text-[10px] text-stone-500 truncate mt-0.5">{c.address}</p>
+                </div>
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${
+                  c.priority === "high"
+                    ? "bg-[#F7E5DD] text-[#D95D39] border-[#F0D2C4]"
+                    : c.priority === "medium"
+                      ? "bg-[#E3ECE5] text-emerald-900 border-emerald-100"
+                      : "bg-stone-100 text-stone-600 border-stone-200"
+                }`}>
+                  {c.priority}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -118,7 +179,7 @@ function CalendarPicker({ selected, onSelect, onClose }) {
 const FILTERS = [
   { id: "today", label: "Today", icon: Clock },
   { id: "all-week", label: "All Week", icon: CalendarIcon },
-  { id: "mon-sun", label: "Mon\u2013Sun", icon: ChevronDown },
+  { id: "mon-sun", label: "Mon–Sun", icon: ChevronDown },
   { id: "morning", label: "Morning", icon: Sun },
   { id: "afternoon", label: "Afternoon", icon: Moon },
   { id: "weekends", label: "Weekends", icon: Sparkles },
@@ -150,21 +211,11 @@ export default function Schedule() {
   /* ─── Filtered list ───────────────────────────────────── */
   const filtered = useMemo(() => {
     const f = activeFilter;
-    if (f === "today" || f === "calendar") {
-      return schedule;
-    }
-    if (f === "all-week" || f === "mon-sun") {
-      return clients;
-    }
-    if (f === "morning") {
-      return schedule.filter(c => isMorning(c.window));
-    }
-    if (f === "afternoon") {
-      return schedule.filter(c => isAfternoon(c.window));
-    }
-    if (f === "weekends") {
-      return schedule.filter(c => isWeekend(c.window));
-    }
+    if (f === "today" || f === "calendar") return schedule;
+    if (f === "all-week" || f === "mon-sun") return clients;
+    if (f === "morning") return schedule.filter(c => isMorning(c.window));
+    if (f === "afternoon") return schedule.filter(c => isAfternoon(c.window));
+    if (f === "weekends") return schedule.filter(c => isWeekend(c.window));
     return schedule;
   }, [activeFilter, schedule, clients, calendarDate]);
 
@@ -264,6 +315,8 @@ export default function Schedule() {
             selected={calendarDate}
             onSelect={handleCalendarSelect}
             onClose={() => setCalendarOpen(false)}
+            schedule={schedule}
+            clients={clients}
           />
         </div>
       )}

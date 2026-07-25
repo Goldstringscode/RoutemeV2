@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { Link } from "react-router-dom";
 import mapboxgl from "mapbox-gl";
 import { useRouteMe } from "@/context/RouteMeContext";
 
@@ -11,72 +12,90 @@ const ROUTE_GLOW = "route-glow";
  * Stylized map: real Mapbox map with real route lines and SVG stop overlays.
  * 3D terrain via DEM source + hillshade added on load.
  * When route is active, visited stops show green checkmarks and are excluded from the route line.
+ * Hovering over a stop shows a tooltip with client info, profile link, and remove button.
  */
 export default function StylizedMap({ compact = false, onStopClick }) {
-  const { schedule, routeGeoJson, routeDistance, routeDuration, nurse, routeActive, visitedIds } = useRouteMe();
+  const { schedule, routeGeoJson, routeDistance, routeDuration, nurse, routeActive, visitedIds, removeFromRoute, clients } = useRouteMe();
   const homeBase = nurse?.homeBase;
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const [svgPositions, setSvgPositions] = useState([]);
-    const [homePos, setHomePos] = useState(null);
-      const updateTimer = useRef(null);
+  const [homePos, setHomePos] = useState(null);
+  const [hoveredStop, setHoveredStop] = useState(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const updateTimer = useRef(null);
 
-    /* ─── Filter out visited stops for the route path ──── */
-    const unvisitedSchedule = useMemo(() => {
-      if (!routeActive || !visitedIds?.length) return schedule;
-      return schedule.filter(c => !visitedIds.includes(c.id));
-    }, [schedule, routeActive, visitedIds]);
+  // Collect all clients for quick lookup (need full client data for tooltip)
+  const clientMap = useMemo(() => {
+    const map = {};
+    clients.forEach(c => { map[c.id] = c; });
+    schedule.forEach(c => { if (!map[c.id]) map[c.id] = c; });
+    return map;
+  }, [clients, schedule]);
 
-    // Project lat/lng to SVG pixel coordinates
-    const updatePositions = useCallback(() => {
-      const map = mapRef.current;
-      if (!map || !schedule.length) return;
+  // Project lat/lng to SVG pixel coordinates
+  const updatePositions = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || !schedule.length) return;
 
-      const rect = mapContainer.current?.getBoundingClientRect();
-      if (!rect) return;
+    const rect = mapContainer.current?.getBoundingClientRect();
+    if (!rect) return;
 
-      // Build positions for ALL stops (visited + unvisited)
-      let unvisitedCount = 0;
-      const positions = schedule.map((c) => {
-        const isVis = routeActive && visitedIds?.includes(c.id);
-        if (c.lat && c.lng) {
-          const point = map.project([c.lng, c.lat]);
-          const svgX = (point.x / rect.width) * 1000;
-          const svgY = (point.y / rect.height) * 600;
-          const label = isVis ? "✓" : String(unvisitedCount + 1);
-          if (!isVis) unvisitedCount++;
-          return { x: svgX, y: svgY, id: c.id, label, name: c.fullName, isVisited: isVis };
-        }
-        return {
-          x: 150 + ((positions?.length || 0) * 120 % 700),
-          y: 260 + ((positions?.length || 0) * 47 % 200),
-          id: c.id,
-          label: isVis ? "✓" : String(unvisitedCount + 1),
-          name: c.fullName,
-          isVisited: isVis,
-        };
-      });
-      setSvgPositions(positions);
-
-      // Home base position
-      if (homeBase?.lat && homeBase?.lng) {
-        const hp = map.project([homeBase.lng, homeBase.lat]);
-        setHomePos({
-          x: (hp.x / rect.width) * 1000,
-          y: (hp.y / rect.height) * 600,
-        });
-      } else {
-        setHomePos(null);
+    let unvisitedCount = 0;
+    const positions = schedule.map((c) => {
+      const isVis = routeActive && visitedIds?.includes(c.id);
+      if (c.lat && c.lng) {
+        const point = map.project([c.lng, c.lat]);
+        const svgX = (point.x / rect.width) * 1000;
+        const svgY = (point.y / rect.height) * 600;
+        const label = isVis ? "✓" : String(unvisitedCount + 1);
+        if (!isVis) unvisitedCount++;
+        return { x: svgX, y: svgY, id: c.id, label, name: c.fullName, isVisited: isVis };
       }
-    }, [schedule, homeBase, routeActive, visitedIds]);
+      return {
+        x: 150 + ((unvisitedCount * 120) % 700),
+        y: 260 + ((unvisitedCount * 47) % 200),
+        id: c.id,
+        label: isVis ? "✓" : String(unvisitedCount + 1),
+        name: c.fullName,
+        isVisited: isVis,
+      };
+    });
+    setSvgPositions(positions);
 
-  // Debounced position update
+    // Home base position
+    if (homeBase?.lat && homeBase?.lng) {
+      const hp = map.project([homeBase.lng, homeBase.lat]);
+      setHomePos({
+        x: (hp.x / rect.width) * 1000,
+        y: (hp.y / rect.height) * 600,
+      });
+    } else {
+      setHomePos(null);
+    }
+  }, [schedule, homeBase, routeActive, visitedIds]);
+
+  // Debounced position update for map move/zoom
   const scheduleUpdate = useCallback(() => {
     if (updateTimer.current) clearTimeout(updateTimer.current);
     updateTimer.current = setTimeout(updatePositions, 50);
   }, [updatePositions]);
 
-  // SVG path connecting ONLY unvisited stops (skip visited for the route line)
+  // Immediate position update when visitedIds/routeActive changes
+  useEffect(() => {
+    if (mapRef.current) {
+      updatePositions();
+    }
+  }, [visitedIds, routeActive, updatePositions]);
+
+  // Also update when schedule changes
+  useEffect(() => {
+    if (mapRef.current) {
+      setTimeout(updatePositions, 100);
+    }
+  }, [schedule, homeBase, updatePositions]);
+
+  // SVG path connecting ONLY unvisited stops
   const pathD = useMemo(() => {
     const routeStops = routeActive && visitedIds?.length
       ? svgPositions.filter(s => !s.isVisited)
@@ -117,7 +136,6 @@ export default function StylizedMap({ compact = false, onStopClick }) {
       logoPosition: "bottom-right",
     });
 
-    // ── 3D terrain + hillshade ──
     let terrainEnabled = false;
     const enableTerrain = () => {
       if (terrainEnabled) return;
@@ -125,9 +143,6 @@ export default function StylizedMap({ compact = false, onStopClick }) {
         console.log("[Terrain] Attempting to enable...");
         if (typeof map.setTerrain === "function") {
           map.setTerrain({ source: "mapbox-dem", exaggeration: 1.5 });
-          console.log("[Terrain] setTerrain() called");
-        } else {
-          console.log("[Terrain] setTerrain not available");
         }
         if (!map.getLayer("rm-hillshade")) {
           const firstLayerId = map.getStyle().layers?.[0]?.id;
@@ -142,7 +157,6 @@ export default function StylizedMap({ compact = false, onStopClick }) {
               "hillshade-illumination-anchor": "viewport",
             },
           }, firstLayerId);
-          console.log("[Terrain] Hillshade layer added");
         }
         terrainEnabled = true;
         console.log("[Terrain] ✅ Active");
@@ -151,9 +165,7 @@ export default function StylizedMap({ compact = false, onStopClick }) {
       }
     };
 
-    // Add DEM source and enable terrain on load
     map.on("load", () => {
-      console.log("[Terrain] Load event fired");
       if (!map.getSource("mapbox-dem")) {
         map.addSource("mapbox-dem", {
           type: "raster-dem",
@@ -161,11 +173,9 @@ export default function StylizedMap({ compact = false, onStopClick }) {
           tileSize: 512,
           maxzoom: 14,
         });
-        console.log("[Terrain] DEM source added");
       }
       enableTerrain();
 
-      // ── Route layers ──
       if (!map.getSource(ROUTE_SOURCE)) {
         try {
           map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
@@ -174,7 +184,6 @@ export default function StylizedMap({ compact = false, onStopClick }) {
         } catch (e) {}
       }
 
-      // ── Sky atmosphere ──
       if (!map.getLayer("sky")) {
         try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
       }
@@ -182,17 +191,12 @@ export default function StylizedMap({ compact = false, onStopClick }) {
       updatePositions();
     });
 
-    // Fallback: try enabling terrain when DEM source data arrives
     map.on("sourcedata", (e) => {
       if (e.sourceId === "mapbox-dem" && !terrainEnabled) {
-        console.log("[Terrain] sourcedata event:", e.sourceDataType);
-        if (e.isSourceLoaded) {
-          enableTerrain();
-        }
+        if (e.isSourceLoaded) enableTerrain();
       }
     });
 
-    // Update positions on map move/zoom
     map.on("move", scheduleUpdate);
     map.on("resize", scheduleUpdate);
 
@@ -204,13 +208,6 @@ export default function StylizedMap({ compact = false, onStopClick }) {
       mapRef.current = null;
     };
   }, [compact]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Update positions when schedule/visited changes
-  useEffect(() => {
-    if (mapRef.current) {
-      setTimeout(updatePositions, 100);
-    }
-  }, [schedule, homeBase, visitedIds, routeActive, updatePositions]);
 
   // Update route data when routeGeoJson changes
   useEffect(() => {
@@ -232,7 +229,6 @@ export default function StylizedMap({ compact = false, onStopClick }) {
           map.setLayoutProperty(ROUTE_LAYER, "visibility", "visible");
         } catch {}
 
-        // Fit map to route bounds — preserve pitch for terrain visibility
         if (!compact && routeGeoJson.coordinates?.length) {
           try {
             const bounds = routeGeoJson.coordinates.reduce(
@@ -252,13 +248,26 @@ export default function StylizedMap({ compact = false, onStopClick }) {
     };
 
     if (!applyRoute()) {
-      const onStyle = () => {
-        applyRoute();
-        map.off("style.load", onStyle);
-      };
+      const onStyle = () => { applyRoute(); map.off("style.load", onStyle); };
       map.on("style.load", onStyle);
     }
   }, [routeGeoJson, compact]);
+
+  const handleMouseEnter = (s, e) => {
+    const rect = mapContainer.current?.getBoundingClientRect();
+    if (!rect) return;
+    setHoveredStop(s);
+    setTooltipPos({
+      x: s.x,
+      y: s.y - 38,
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredStop(null);
+  };
+
+  const hoveredClient = hoveredStop ? clientMap[hoveredStop.id] : null;
 
   return (
     <div
@@ -267,19 +276,15 @@ export default function StylizedMap({ compact = false, onStopClick }) {
         compact ? "aspect-[16/9]" : "aspect-[16/10]"
       }`}
     >
-      {/* Real Mapbox map as background */}
       <div ref={mapContainer} className="absolute inset-0" />
-
-      {/* Warm gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#F9F8F6]/30 via-transparent to-[#D95D39]/5 pointer-events-none" />
 
-      {/* SVG overlay — numbered stops, compass, legend */}
+      {/* SVG overlay */}
       <svg
         viewBox="0 0 1000 600"
         preserveAspectRatio="xMidYMid slice"
         className="absolute inset-0 h-full w-full pointer-events-none"
       >
-        {/* Subtle grid roads — only shown when no real route */}
         {!routeGeoJson && (
           <g stroke="#1C1C1C" strokeOpacity="0.06" strokeWidth="1">
             {Array.from({ length: 10 }).map((_, i) => (
@@ -291,107 +296,104 @@ export default function StylizedMap({ compact = false, onStopClick }) {
           </g>
         )}
 
-        {/* Fallback SVG route path — only connections between UNVISITED stops */}
-        {!routeGeoJson && svgPositions.length > 1 && (
+        {!routeGeoJson && pathD && (
           <>
-            <path
-              d={pathD}
-              fill="none"
-              stroke="#D95D39"
-              strokeOpacity="0.15"
-              strokeWidth="14"
-              strokeLinecap="round"
-            />
-            <path
-              d={pathD}
-              fill="none"
-              stroke="#D95D39"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-              className="rm-route-path"
-            />
+            <path d={pathD} fill="none" stroke="#D95D39" strokeOpacity="0.15" strokeWidth="14" strokeLinecap="round" />
+            <path d={pathD} fill="none" stroke="#D95D39" strokeWidth="3.5" strokeLinecap="round" className="rm-route-path" />
           </>
         )}
 
-        {/* Home base marker */}
-                {homePos && (
-                  <g transform={`translate(${homePos.x} ${homePos.y})`} className="pointer-events-auto">
-                    <circle r="20" fill="#4F46E5" stroke="#FFFFFF" strokeWidth="3" opacity="0.9" />
-                    <circle r="7" fill="#FFFFFF" opacity="0.9" />
-                    <text
-                      x="0" y="28" textAnchor="middle" fill="#4F46E5"
-                      fontFamily="Manrope, sans-serif" fontWeight="700" fontSize="8" letterSpacing="0.5"
-                    >
-                      HOME
-                    </text>
-                  </g>
-                )}
+        {homePos && (
+          <g transform={`translate(${homePos.x} ${homePos.y})`} className="pointer-events-auto">
+            <circle r="20" fill="#4F46E5" stroke="#FFFFFF" strokeWidth="3" opacity="0.9" />
+            <circle r="7" fill="#FFFFFF" opacity="0.9" />
+            <text x="0" y="28" textAnchor="middle" fill="#4F46E5" fontFamily="Manrope, sans-serif" fontWeight="700" fontSize="8" letterSpacing="0.5">HOME</text>
+          </g>
+        )}
 
-        {/* Stops — clickable */}
+        {/* Stops clickable + hoverable */}
         {svgPositions.map((s) => (
           <g
             key={s.id}
             transform={`translate(${s.x} ${s.y})`}
             onClick={() => onStopClick?.(s.id)}
+            onMouseEnter={(e) => handleMouseEnter(s, e)}
+            onMouseLeave={handleMouseLeave}
             style={{ cursor: onStopClick ? "pointer" : "default" }}
             className="pointer-events-auto"
           >
             {s.isVisited ? (
               <>
-                {/* Green checkmark circle for visited stops */}
                 <circle r="22" fill="#FFFFFF" stroke="#059669" strokeWidth="2.5" />
                 <circle r="16" fill="#059669" />
-                <text
-                  x="0" y="5"
-                  textAnchor="middle"
-                  fill="#FFFFFF"
-                  fontFamily="Outfit, sans-serif"
-                  fontWeight="600"
-                  fontSize="16"
-                >
-                  ✓
-                </text>
+                <text x="0" y="5" textAnchor="middle" fill="#FFFFFF" fontFamily="Outfit, sans-serif" fontWeight="600" fontSize="16">✓</text>
               </>
             ) : (
               <>
-                {/* Standard numbered orange circle */}
                 <circle r="22" fill="#FFFFFF" stroke="#1C1C1C" strokeWidth="2" />
                 <circle r="16" fill={s.label === "1" ? "#7FA08B" : "#D95D39"} />
-                <text
-                  x="0" y="5"
-                  textAnchor="middle"
-                  fill="#FFFFFF"
-                  fontFamily="Outfit, sans-serif"
-                  fontWeight="600"
-                  fontSize="14"
-                >
-                  {s.label}
-                </text>
+                <text x="0" y="5" textAnchor="middle" fill="#FFFFFF" fontFamily="Outfit, sans-serif" fontWeight="600" fontSize="14">{s.label}</text>
               </>
             )}
           </g>
         ))}
 
-        {/* Start marker on first unvisited stop */}
+        {/* Start marker */}
         {(() => {
           const firstUnvisited = svgPositions.find(s => !s.isVisited);
           if (!firstUnvisited) return null;
           return (
-            <g
-              transform={`translate(${firstUnvisited.x - 30} ${firstUnvisited.y - 34})`}
-              className="pointer-events-auto"
-            >
+            <g transform={`translate(${firstUnvisited.x - 30} ${firstUnvisited.y - 34})`} className="pointer-events-auto">
               <rect width="60" height="18" rx="9" fill="#1C1C1C" />
-              <text
-                x="30" y="12" textAnchor="middle" fill="#FFFFFF"
-                fontFamily="Manrope, sans-serif" fontWeight="600" fontSize="9" letterSpacing="1"
-              >
-                START
-              </text>
+              <text x="30" y="12" textAnchor="middle" fill="#FFFFFF" fontFamily="Manrope, sans-serif" fontWeight="600" fontSize="9" letterSpacing="1">START</text>
             </g>
           );
         })()}
       </svg>
+
+      {/* Hover tooltip */}
+      {hoveredStop && hoveredClient && (
+        <div
+          className="absolute z-50 pointer-events-auto"
+          style={{
+            left: `${(tooltipPos.x / 1000) * 100}%`,
+            top: `${(tooltipPos.y / 600) * 100}%`,
+            transform: 'translate(-50%, -100%)',
+          }}
+        >
+          <div className="bg-white border border-stone-200 rounded-2xl shadow-xl p-4 min-w-[200px] animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-semibold text-sm text-stone-900 truncate">{hoveredClient.fullName}</p>
+              {hoveredStop.isVisited && (
+                <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Seen</span>
+              )}
+            </div>
+            <p className="text-xs text-stone-500 truncate">{hoveredClient.address}</p>
+            <p className="text-xs text-stone-500 mt-0.5">{hoveredClient.condition}</p>
+            <div className="flex items-center gap-2 mt-3">
+              <Link
+                to={`/app/clients/${hoveredClient.id}`}
+                className="flex-1 text-center rounded-full bg-[#D95D39] text-white px-3 py-1.5 text-[10px] font-semibold hover:bg-[#C05030] transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Full profile
+              </Link>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeFromRoute(hoveredClient.id);
+                  setHoveredStop(null);
+                }}
+                className="flex-1 text-center rounded-full border border-stone-300 text-stone-700 px-3 py-1.5 text-[10px] font-semibold hover:bg-stone-50 transition-colors"
+              >
+                Remove from route
+              </button>
+            </div>
+            {/* Arrow pointing down */}
+            <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-white" />
+          </div>
+        </div>
+      )}
 
       {/* Legend chip */}
       <div className="absolute left-4 bottom-4 flex items-center gap-2 rounded-full bg-white/90 backdrop-blur border border-stone-200 px-3 py-1.5 text-xs shadow-sm">
