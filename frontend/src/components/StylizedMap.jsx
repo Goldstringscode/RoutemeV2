@@ -15,7 +15,7 @@ const ROUTE_GLOW = "route-glow";
  * Hovering over a stop shows a tooltip with client info, profile link, and remove button.
  */
 export default function StylizedMap({ compact = false, onStopClick }) {
-  const { schedule, routeGeoJson, routeDistance, routeDuration, nurse, routeActive, visitedIds, removeFromRoute, clients } = useRouteMe();
+  const { schedule, routeGeoJson, routeDistance, routeDuration, nurse, routeActive, visitedIds, removeFromRoute, clients, navPreference } = useRouteMe();
   const homeBase = nurse?.homeBase;
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
@@ -23,6 +23,7 @@ export default function StylizedMap({ compact = false, onStopClick }) {
   const [homePos, setHomePos] = useState(null);
   const [hoveredStop, setHoveredStop] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [navChooserOpen, setNavChooserOpen] = useState(false);
   const updateTimer = useRef(null);
 
   // Collect all clients for quick lookup (need full client data for tooltip)
@@ -264,10 +265,35 @@ export default function StylizedMap({ compact = false, onStopClick }) {
   };
 
   const handleMouseLeave = () => {
-    setHoveredStop(null);
-  };
+      setHoveredStop(null);
+      setNavChooserOpen(false);
+    };
 
   const hoveredClient = hoveredStop ? clientMap[hoveredStop.id] : null;
+
+  const openGoogleMaps = (e, lat, lng) => {
+    e.stopPropagation();
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+    setNavChooserOpen(false);
+  };
+
+  const openAppleMaps = (e, lat, lng) => {
+    e.stopPropagation();
+    window.open(`https://maps.apple.com/?daddr=${lat},${lng}`, '_blank');
+    setNavChooserOpen(false);
+  };
+
+  const handleAddressClick = (e, lat, lng) => {
+    e.stopPropagation();
+    if (navPreference === "google") {
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+    } else if (navPreference === "apple") {
+      window.open(`https://maps.apple.com/?daddr=${lat},${lng}`, '_blank');
+    } else {
+      // "both" - show chooser popup
+      setNavChooserOpen(true);
+    }
+  };
 
   return (
     <div
@@ -361,38 +387,65 @@ export default function StylizedMap({ compact = false, onStopClick }) {
             transform: 'translate(-50%, -100%)',
           }}
         >
-          <div className="bg-white border border-stone-200 rounded-2xl shadow-xl p-4 min-w-[200px] animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between mb-2">
-              <p className="font-semibold text-sm text-stone-900 truncate">{hoveredClient.fullName}</p>
-              {hoveredStop.isVisited && (
-                <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Seen</span>
-              )}
-            </div>
-            <p className="text-xs text-stone-500 truncate">{hoveredClient.address}</p>
-            <p className="text-xs text-stone-500 mt-0.5">{hoveredClient.condition}</p>
-            <div className="flex items-center gap-2 mt-3">
-              <Link
-                to={`/app/clients/${hoveredClient.id}`}
-                className="flex-1 text-center rounded-full bg-[#D95D39] text-white px-3 py-1.5 text-[10px] font-semibold hover:bg-[#C05030] transition-colors"
-                onClick={(e) => e.stopPropagation()}
-              >
-                Full profile
-              </Link>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeFromRoute(hoveredClient.id);
-                  setHoveredStop(null);
-                }}
-                className="flex-1 text-center rounded-full border border-stone-300 text-stone-700 px-3 py-1.5 text-[10px] font-semibold hover:bg-stone-50 transition-colors"
-              >
-                Remove from route
-              </button>
-            </div>
-            {/* Arrow pointing down */}
-            <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-white" />
-          </div>
-        </div>
+                  <div className="bg-white border border-stone-200 rounded-2xl shadow-xl p-4 min-w-[200px] animate-in fade-in zoom-in-95 duration-150">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-semibold text-sm text-stone-900 truncate">{hoveredClient.fullName}</p>
+                      {hoveredStop.isVisited && (
+                        <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Seen</span>
+                      )}
+                    </div>
+                    <p
+                      className="text-xs text-stone-500 truncate cursor-pointer hover:text-[#D95D39] transition-colors"
+                      onClick={(e) => hoveredClient.lat && hoveredClient.lng && handleAddressClick(e, hoveredClient.lat, hoveredClient.lng)}
+                      title="Click to navigate"
+                    >
+                      {hoveredClient.address}
+                      <span className="ml-1 text-[10px] opacity-60">↗</span>
+                    </p>
+                    <p className="text-xs text-stone-500 mt-0.5">{hoveredClient.condition}</p>
+                    <div className="flex items-center gap-2 mt-3">
+                      <Link
+                        to={`/app/clients/${hoveredClient.id}`}
+                        className="flex-1 text-center rounded-full bg-[#D95D39] text-white px-3 py-1.5 text-[10px] font-semibold hover:bg-[#C05030] transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Full profile
+                      </Link>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFromRoute(hoveredClient.id);
+                          setHoveredStop(null);
+                        }}
+                        className="flex-1 text-center rounded-full border border-stone-300 text-stone-700 px-3 py-1.5 text-[10px] font-semibold hover:bg-stone-50 transition-colors"
+                      >
+                        Remove from route
+                      </button>
+                    </div>
+                    {/* Navigation chooser (when navPreference="both") */}
+                    {navChooserOpen && (
+                      <div className="mt-3 pt-3 border-t border-stone-100">
+                        <p className="text-[10px] text-stone-400 mb-2 font-medium">Open in...</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={(e) => hoveredClient.lat && hoveredClient.lng && openGoogleMaps(e, hoveredClient.lat, hoveredClient.lng)}
+                            className="flex-1 rounded-full bg-blue-50 text-blue-700 px-3 py-1.5 text-[10px] font-semibold hover:bg-blue-100 transition-colors"
+                          >
+                            Google Maps
+                          </button>
+                          <button
+                            onClick={(e) => hoveredClient.lat && hoveredClient.lng && openAppleMaps(e, hoveredClient.lat, hoveredClient.lng)}
+                            className="flex-1 rounded-full bg-stone-50 text-stone-700 px-3 py-1.5 text-[10px] font-semibold hover:bg-stone-100 transition-colors"
+                          >
+                            Apple Maps
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {/* Arrow pointing down */}
+                    <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-white" />
+                  </div>
+                </div>
       )}
 
       {/* Legend chip */}
