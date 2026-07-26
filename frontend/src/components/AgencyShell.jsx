@@ -10,17 +10,29 @@ import {
   CreditCard,
   LogOut,
   Search,
+  Calendar,
+  BarChart3,
+  DollarSign,
+  FileText,
+  UserCog,
+  Settings,
 } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import HipaaBadge from "@/components/HipaaBadge";
 
 const NAV = [
   { to: "/agency/overview", label: "Overview", icon: LayoutDashboard, testId: "agency-nav-overview" },
+  { to: "/agency/dispatch", label: "Dispatch", icon: Calendar, testId: "agency-nav-dispatch" },
   { to: "/agency/nurses", label: "Nurses", icon: Users, testId: "agency-nav-nurses" },
-  { to: "/agency/activity", label: "Live activity", icon: Activity, testId: "agency-nav-activity" },
   { to: "/agency/clients", label: "Clients", icon: UserRound, testId: "agency-nav-clients" },
+  { to: "/agency/activity", label: "Live activity", icon: Activity, testId: "agency-nav-activity" },
+  { to: "/agency/reports", label: "Reports", icon: BarChart3, testId: "agency-nav-reports" },
+  { to: "/agency/payroll", label: "Payroll", icon: DollarSign, testId: "agency-nav-payroll" },
+  { to: "/agency/invoicing", label: "Invoicing", icon: FileText, testId: "agency-nav-invoicing" },
   { to: "/agency/compliance", label: "Compliance", icon: ShieldCheck, testId: "agency-nav-compliance" },
   { to: "/agency/billing", label: "Billing", icon: CreditCard, testId: "agency-nav-billing" },
+  { to: "/agency/team", label: "Team", icon: UserCog, testId: "agency-nav-team" },
+  { to: "/agency/settings", label: "Settings", icon: Settings, testId: "agency-nav-settings" },
 ];
 
 export default function AgencyShell() {
