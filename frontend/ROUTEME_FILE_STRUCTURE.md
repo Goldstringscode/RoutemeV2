@@ -1,7 +1,7 @@
 # RouteMe — Complete File Structure
 
 **Last Updated:** 2026-07-26
-**Commit:** 883e270
+**Commit:** bad2aab
 
 > ⚠️ **If you build or add anything new, update this file.** It's the single source of truth for the project tree.
 
@@ -17,8 +17,11 @@ routemev2/frontend/
 ├── postcss.config.js
 ├── tailwind.config.js            # Tailwind + shadcn theme
 ├── ROUTEME_APP_DOCS.md           # App documentation (features, state, build)
-├── ROUTEME_AUDIT_2026-07-25.md   # Full code audit
+├── ROUTEME_AUDIT_2026-07-25.md           # Full code audit
 ├── ROUTEME_COMPETITIVE_RESEARCH_2026-07-26.md  # Competitive research & revenue features
+├── ROUTEME_SOAP_NOTES_SPEC.md            # SOAP notes system specification
+├── ROUTEME_FUTURE_IMPLEMENTATIONS.md      # Planned but not yet built features
+├── ROUTEME_FILE_STRUCTURE.md             # This file — complete project tree
 ├── token.txt
 │
 ├── public/
