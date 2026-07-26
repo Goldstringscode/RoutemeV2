@@ -35,16 +35,17 @@ RouteMe is a home-health nurse routing app that optimizes daily visit schedules,
 
 ### Route Session (mark visited flow)
 1. Click **Start Route** → activates route session
-2. Each timeline stop shows a **Mark as visited** button (green checkmark)
-3. Clicking it:
+2. Each timeline stop shows **both** ✅ Mark as visited and ❌ Remove from route buttons
+3. Clicking ✅ **Mark as visited**:
    - Logs a visit record (client, time, date) to the Visits tab
    - **Re-fetches the Mapbox route** excluding that stop (route line updates)
    - The map shows a **green checkmark** circle instead of the numbered orange marker
-   - The card moves to the bottom of the timeline with green "Seen" label
+   - The card turns green with "Seen" label, moves to the bottom of the timeline
    - Header updates: "X remaining · Y visited"
    - Progress bar updates
-4. Click **End Route** to stop the session
-5. Re-optimizing while route is active only reorders **unvisited** stops
+4. Clicking ❌ **Remove from route** shows RemoveFromRouteModal (reschedule option)
+5. Click **End Route** to stop the session
+6. Re-optimizing while route is active only reorders **unvisited** stops
 
 ### Map Features (StylizedMap.jsx)
 - Real Mapbox map (light-v10 style)
@@ -54,6 +55,8 @@ RouteMe is a home-health nurse routing app that optimizes daily visit schedules,
 - Route line skips visited stops (re-fetched via Mapbox Directions API)
 - Home base marker (indigo)
 - Fallback SVG path when no real route data
+- **Clickable address** in hover tooltip — opens Google Maps / Apple Maps based on navPreference
+- **Nav chooser popup** inside tooltip when preference is "both" (pick Google or Apple)
 
 ### Visit Tracking
 - Every "Mark as visited" creates a visit record
