@@ -24,6 +24,7 @@ import PasswordResetEmail from "@/emails/PasswordResetEmail";
 import NurseInviteEmail from "@/emails/NurseInviteEmail";
 import LicenseExpiryEmail from "@/emails/LicenseExpiryEmail";
 import HipaaWeeklyEmail from "@/emails/HipaaWeeklyEmail";
+import TrialEndingEmail from "@/emails/TrialEndingEmail";
 
 const TEMPLATES = [
   {
@@ -104,6 +105,16 @@ const TEMPLATES = [
     from: "RouteMe compliance <compliance@routeme.app>",
     icon: ShieldCheck,
     Component: HipaaWeeklyEmail,
+    props: {},
+  },
+  {
+    id: "trial-ending",
+    label: "Trial ending soon",
+    kicker: "Trial · day 12 of 14",
+    subject: "2 days left on your RouteMe trial — no action needed",
+    from: "RouteMe <hello@routeme.app>",
+    icon: Sparkles,
+    Component: TrialEndingEmail,
     props: {},
   },
 ];

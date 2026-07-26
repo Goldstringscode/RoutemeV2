@@ -1,5 +1,6 @@
 import React from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+// P0 nav additions: Dispatch, Reports, Payroll, Invoicing, Team, Settings (linked from overview + direct URL)
 import {
   LayoutDashboard,
   Users,
