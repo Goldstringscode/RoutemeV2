@@ -1,7 +1,8 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import StylizedMap from "@/components/StylizedMap";
 import { useRouteMe } from "@/context/RouteMeContext";
-import { Sparkles, Clock, MapPin, Mic, Phone, ChevronRight, Fuel, Route } from "lucide-react";
+import { Sparkles, Clock, MapPin, Mic, Phone, ChevronRight, Fuel, Route, FileText } from "lucide-react";
 
 export default function RouteView() {
   const { schedule, optimize, optimized, openVoice } = useRouteMe();
@@ -145,10 +146,17 @@ export default function RouteView() {
               <button
                 onClick={() => openVoice(active.id)}
                 data-testid="route-voice-btn"
+                className="inline-flex items-center gap-2 rounded-full border border-stone-300 hover:bg-stone-50 text-stone-800 px-4 py-2.5 text-sm font-semibold transition-colors"
+              >
+                <Mic className="h-4 w-4" /> Quick note
+              </button>
+              <Link
+                to={`/app/soap/new?client=${active.id}`}
+                data-testid="route-soap-btn"
                 className="inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-4 py-2.5 text-sm font-semibold transition-colors"
               >
-                <Mic className="h-4 w-4" /> Record visit note
-              </button>
+                <FileText className="h-4 w-4" /> Write SOAP Note
+              </Link>
             </div>
           </div>
         </div>

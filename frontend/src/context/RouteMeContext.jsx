@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { CLIENTS_SEED, NURSE, AUDIT_LOG } from "@/lib/mockData";
+import { SOAP_HISTORY_SEED, generateSOAPFromInputs } from "@/lib/soapMockData";
 import {
   AGENCY,
   NURSES_SEED,
@@ -76,6 +77,9 @@ export function RouteMeProvider({ children }) {
   const [maintenanceMode, setMaintenanceMode] = useState(initial?.maintenanceMode ?? false);
   const [impersonation, setImpersonation] = useState(initial?.impersonation ?? null);
 
+  // SOAP notes state
+  const [soapNotes, setSoapNotes] = useState(initial?.soapNotes ?? SOAP_HISTORY_SEED);
+
   useEffect(() => {
     localStorage.setItem(
       KEY,
@@ -102,6 +106,7 @@ export function RouteMeProvider({ children }) {
         phiRevealed,
         maintenanceMode,
         impersonation,
+        soapNotes,
       })
     );
   }, [
@@ -109,7 +114,7 @@ export function RouteMeProvider({ children }) {
     agencyAuthed, nurses, liveActivity, agencyClients,
     superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
     globalAudit, activeSessions, billingLedger, featureFlags,
-    phiRevealed, maintenanceMode, impersonation,
+    phiRevealed, maintenanceMode, impersonation, soapNotes,
   ]);
 
   const schedule = useMemo(
@@ -401,6 +406,30 @@ export function RouteMeProvider({ children }) {
     toggleMaintenance,
     impersonateAgency,
     stopImpersonation,
+    // SOAP
+    soapNotes,
+    addSOAPNote: (note) => {
+      const id = "soap_" + Math.random().toString(36).slice(2, 8);
+      setSoapNotes((s) => [{ id, ...note }, ...s]);
+      pushAudit(`SOAP note ${note.signed ? "signed" : "saved as draft"} — ${note.templateLabel}`, note.signed ? "sign" : "draft");
+    },
+    updateSOAPNote: (id, patch) => {
+      setSoapNotes((s) => s.map((n) => (n.id === id ? { ...n, ...patch } : n)));
+      pushAudit(`SOAP note ${patch.signed ? "signed" : "updated"}`, patch.signed ? "sign" : "draft");
+    },
+    addSOAPAddendum: (id, { reason, text }) => {
+      setSoapNotes((s) => s.map((n) => (n.id === id ? {
+        ...n,
+        addendums: [...(n.addendums || []), {
+          id: "add_" + Math.random().toString(36).slice(2, 8),
+          author: `${NURSE.name}, ${NURSE.license || "RN"}`,
+          addedAt: new Date().toISOString(),
+          reason, text,
+        }],
+      } : n)));
+      pushAudit(`Addendum appended (${reason})`, "addendum");
+    },
+    generateSOAPMock: generateSOAPFromInputs,
   };
 
   return <RouteMeContext.Provider value={value}>{children}</RouteMeContext.Provider>;

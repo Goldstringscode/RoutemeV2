@@ -28,6 +28,8 @@ import VisitSignature from "@/pages/VisitSignature";
 import CarePlan from "@/pages/CarePlan";
 import VitalsEntry from "@/pages/VitalsEntry";
 import Onboarding from "@/pages/Onboarding";
+import SOAPHub from "@/pages/SOAPHub";
+import SOAPEditorPage from "@/pages/SOAPEditorPage";
 import Terms from "@/pages/legal/Terms";
 import Privacy from "@/pages/legal/Privacy";
 import BAA from "@/pages/legal/BAA";
@@ -135,6 +137,9 @@ function App() {
               <Route path="clients/:id/vitals" element={<VitalsEntry />} />
               <Route path="clients/:id/signature" element={<VisitSignature />} />
               <Route path="notifications" element={<Notifications />} />
+              <Route path="soap" element={<SOAPHub />} />
+              <Route path="soap/new" element={<SOAPEditorPage />} />
+              <Route path="soap/:id" element={<SOAPEditorPage />} />
               <Route path="settings" element={<NurseSettings />} />
               <Route path="time" element={<TimeMileage />} />
               <Route path="profile" element={<Profile />} />

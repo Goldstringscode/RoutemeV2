@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Home, Map, Users, Calendar, User, LogOut, Mic, Plus } from "lucide-react";
+import { Home, Map, Users, Calendar, User, LogOut, Mic, Plus, FileText } from "lucide-react";
 import HipaaBadge from "@/components/HipaaBadge";
 import VoiceNoteModal from "@/components/VoiceNoteModal";
 import { useRouteMe } from "@/context/RouteMeContext";
@@ -10,6 +10,7 @@ const NAV = [
   { to: "/app/route", label: "Route", icon: Map, testId: "nav-route" },
   { to: "/app/schedule", label: "Schedule", icon: Calendar, testId: "nav-schedule" },
   { to: "/app/clients", label: "Clients", icon: Users, testId: "nav-clients" },
+  { to: "/app/soap", label: "SOAP notes", icon: FileText, testId: "nav-soap" },
   { to: "/app/profile", label: "Profile", icon: User, testId: "nav-profile" },
 ];
 

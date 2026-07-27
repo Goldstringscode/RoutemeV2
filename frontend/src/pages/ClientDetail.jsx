@@ -12,15 +12,17 @@ import {
   ChevronRight,
   Pill,
   Activity,
+  FileText,
 } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 
 export default function ClientDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { clients, notes, openVoice, schedule } = useRouteMe();
+  const { clients, notes, openVoice, schedule, soapNotes } = useRouteMe();
 
   const client = clients.find((c) => c.id === id);
+  const clientSOAP = (soapNotes || []).filter((s) => s.clientId === id).sort((a, b) => new Date(b.serviceAt) - new Date(a.serviceAt));
   if (!client) {
     return (
       <div className="max-w-3xl mx-auto text-center py-16">
@@ -192,20 +194,64 @@ export default function ClientDetail() {
         </div>
       </div>
 
-      {/* Notes */}
+      {/* SOAP notes */}
       <div className="rounded-3xl border border-stone-200 bg-white p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-display text-2xl">Visit notes</h3>
+            <h3 className="font-display text-2xl">SOAP notes</h3>
+            <p className="text-sm text-stone-500 mt-0.5">
+              {clientSOAP.length} structured note{clientSOAP.length === 1 ? "" : "s"} · legally defensible
+            </p>
+          </div>
+          <Link
+            to={`/app/soap/new?client=${client.id}`}
+            data-testid="clientdetail-new-soap"
+            className="inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-4 py-2 text-sm font-semibold"
+          >
+            <FileText className="h-3.5 w-3.5" /> New SOAP Note
+          </Link>
+        </div>
+        {clientSOAP.length === 0 ? (
+          <div className="text-center py-8 rounded-2xl border border-dashed border-stone-200 bg-[#F9F8F6]">
+            <FileText className="h-6 w-6 text-stone-300 mx-auto mb-2" />
+            <p className="text-sm text-stone-500">No SOAP notes yet — start one now.</p>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {clientSOAP.slice(0, 5).map((s) => (
+              <li key={s.id}>
+                <Link to={`/app/soap/${s.id}`} className="flex items-center gap-3 rounded-xl border border-stone-200 hover:border-stone-400 hover:bg-stone-50 p-3 transition-colors" data-testid={`clientdetail-soap-${s.id}`}>
+                  <div className="h-8 w-8 rounded-lg bg-[#F7E5DD] text-[#D95D39] flex items-center justify-center text-xs">
+                    <FileText className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">{s.templateLabel}</p>
+                    <p className="text-xs text-stone-500">{new Date(s.serviceAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })} · {s.author}</p>
+                  </div>
+                  <span className={`text-[10px] uppercase tracking-widest font-semibold rounded-full px-2 py-0.5 ${s.signed ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-amber-100 text-amber-800 border border-amber-200"}`}>
+                    {s.signed ? "signed" : "draft"}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Quick notes */}
+      <div className="rounded-3xl border border-stone-200 bg-white p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-display text-2xl">Quick notes</h3>
             <p className="text-sm text-stone-500 mt-0.5">
               {clientNotes.length} note{clientNotes.length === 1 ? "" : "s"} · voice-transcribed &amp; encrypted
             </p>
           </div>
           <button
             onClick={() => openVoice(client.id)}
-            className="inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-4 py-2 text-sm font-semibold"
+            className="inline-flex items-center gap-2 rounded-full border border-stone-300 hover:bg-stone-50 text-stone-800 px-4 py-2 text-sm font-semibold"
           >
-            <Mic className="h-3.5 w-3.5" /> New note
+            <Mic className="h-3.5 w-3.5" /> Quick note
           </button>
         </div>
 
