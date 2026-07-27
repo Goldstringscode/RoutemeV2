@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Pill,
   Activity,
+  FileText,
 } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { formatTimeWindow } from "@/lib/utils";
@@ -19,7 +20,8 @@ import { formatTimeWindow } from "@/lib/utils";
 export default function ClientDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { clients, notes, openVoice, schedule } = useRouteMe();
+  const { clients, notes, openVoice, schedule, soapNotes } = useRouteMe();
+  const clientSoapNotes = soapNotes.filter(n => n.clientId === id);
 
   const client = clients.find((c) => c.id === id);
   if (!client) {
@@ -234,16 +236,73 @@ export default function ClientDetail() {
                   <ChevronRight className="h-3 w-3 text-stone-400" />
                 </div>
                 <p className="text-sm text-stone-800 leading-relaxed">{n.text}</p>
-              </li>
+                                  <Link
+                                    to={`/app/soap/new/${client.id}?quickNote=${encodeURIComponent(n.text)}`}
+                                    className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-[#D95D39] hover:underline"
+                                  >
+                                    <FileText className="h-3 w-3" /> Upgrade to SOAP
+                                  </Link>
+                              </li>
             ))}
           </ul>
         )}
-      </div>
-    </div>
-  );
-}
+              </div>
 
-function InfoRow({ icon: Icon, label, value }) {
+              {/* SOAP Notes */}
+              <div className="rounded-3xl border border-stone-200 bg-white p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-display text-2xl">SOAP notes</h3>
+                    <p className="text-sm text-stone-500 mt-0.5">
+                      {clientSoapNotes.length} SOAP note{clientSoapNotes.length === 1 ? "" : "s"}
+                      · {clientSoapNotes.filter(n => n.signed).length} signed
+                    </p>
+                  </div>
+                  <Link
+                    to={`/app/soap/new/${client.id}`}
+                    className="inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-4 py-2 text-sm font-semibold"
+                  >
+                    <FileText className="h-3.5 w-3.5" /> New SOAP note
+                  </Link>
+                </div>
+
+                {clientSoapNotes.length === 0 ? (
+                  <div className="text-center py-10 rounded-2xl border border-dashed border-stone-200 bg-[#F9F8F6]">
+                    <FileText className="h-6 w-6 text-stone-300 mx-auto mb-2" />
+                    <p className="text-sm text-stone-500">No SOAP notes yet. Tap &quot;New SOAP note&quot; to document a visit.</p>
+                  </div>
+                ) : (
+                  <ul className="space-y-3">
+                    {clientSoapNotes.sort((a, b) => new Date(b.serviceAt) - new Date(a.serviceAt)).map((n) => (
+                      <li key={n.id} className="rounded-2xl border border-stone-200 bg-[#F9F8F6] p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">
+                              {new Date(n.serviceAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                            <span className="text-stone-300">·</span>
+                            <span className="text-xs text-stone-500">{n.templateLabel}</span>
+                            {n.signed ? (
+                              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Signed</span>
+                            ) : (
+                              <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">Draft</span>
+                            )}
+                          </div>
+                          <Link to={`/app/soap/${n.id}`} className="text-xs text-[#D95D39] hover:underline font-semibold shrink-0">
+                            View →
+                          </Link>
+                        </div>
+                        <p className="text-sm text-stone-700 leading-relaxed line-clamp-2">{n.subjective}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        function InfoRow({ icon: Icon, label, value }) {
   return (
     <div className="flex items-start gap-3">
       <div className="h-9 w-9 rounded-xl bg-[#F9F8F6] border border-stone-200 flex items-center justify-center shrink-0">

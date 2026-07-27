@@ -22,18 +22,20 @@ export default function SOAPEditorPage() {
   const { nurse, clients, soapNotes, addSOAPNote, updateSOAPNote, generateSOAPMock } = useRouteMe();
 
   const existing = id ? soapNotes.find((n) => n.id === id) : null;
-  const [clientId, setClientId] = useState(existing?.clientId || preselectClientId || clients[0]?.id);
-  const client = clients.find((c) => c.id === clientId) ?? clients[0];
+    const [clientId, setClientId] = useState(existing?.clientId || preselectClientId || clients[0]?.id);
+    const client = clients.find((c) => c.id === clientId) ?? clients[0];
 
-  const [templateId, setTemplateId] = useState(existing?.templateId || "");
-  const template = SOAP_TEMPLATES[templateId];
+    const preselectQuickNote = params.get("quickNote");
 
-  const [sections, setSections] = useState({
-    subjective: existing?.subjective || "",
-    objective: existing?.objective || "",
-    assessment: existing?.assessment || "",
-    plan: existing?.plan || "",
-  });
+    const [templateId, setTemplateId] = useState(existing?.templateId || "");
+    const template = SOAP_TEMPLATES[templateId];
+
+    const [sections, setSections] = useState({
+      subjective: existing?.subjective || preselectQuickNote || "",
+      objective: existing?.objective || "",
+      assessment: existing?.assessment || "",
+      plan: existing?.plan || "",
+    });
   const [vitals, setVitals] = useState({ bpSys: "", bpDia: "", hr: "", temp: "", spo2: "", glucose: "" });
   const [icd10Codes, setIcd10Codes] = useState(existing?.icd10Codes || []);
   const [quickNote, setQuickNote] = useState(existing?.quickNote || "");
@@ -248,6 +250,7 @@ export default function SOAPEditorPage() {
             <AutoRow label="Care type" value={client?.careType || client?.conditions?.[0]} />
             <AutoRow label="Last visit" value={client?.lastVisit || "—"} />
             <AutoRow label="Care flags" value={client?.flags || client?.notes || "None"} full />
+            <AutoRow label="Medications" value={client?.medications?.map(m => `${m.name} — ${m.freq}`).join("; ") || "None on record"} full />
           </div>
         )}
       </div>

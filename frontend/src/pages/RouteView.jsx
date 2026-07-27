@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from "react"
 import { Link } from "react-router-dom";
 import StylizedMap from "@/components/StylizedMap";
 import { useRouteMe } from "@/context/RouteMeContext";
-import { Sparkles, Clock, MapPin, Stethoscope, Phone, ChevronRight, Fuel, Route, GripVertical, Lock, Unlock, Brain, Zap, Compass, SlidersHorizontal, Loader, CheckCircle, X, Info, ChevronDown, Map as MapIcon, ArrowUpDown, Plus, Trash2, Leaf, ShieldAlert, Navigation, PlayCircle, StopCircle, Flag } from "lucide-react";
+import { Sparkles, Clock, MapPin, Stethoscope, Phone, ChevronRight, Fuel, Route, GripVertical, Lock, Unlock, Brain, Zap, Compass, SlidersHorizontal, Loader, CheckCircle, X, Info, ChevronDown, Map as MapIcon, ArrowUpDown, Plus, Trash2, Leaf, ShieldAlert, Navigation, PlayCircle, StopCircle, Flag, FileText } from "lucide-react";
 import RouteBuilderModal from "@/components/RouteBuilderModal";
 import RemoveFromRouteModal from "@/components/RemoveFromRouteModal";
 import { formatTimeWindow } from "@/lib/utils";
@@ -502,6 +502,15 @@ export default function RouteView() {
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>
+                          {/* Write SOAP Note */}
+                          <Link
+                            to={`/app/soap/new/${c.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-7 w-7 rounded-full flex items-center justify-center text-stone-400 hover:text-[#D95D39] hover:bg-[#F7E5DD] transition-colors"
+                            title="Write SOAP note"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                          </Link>
                         </div>
                       )}
                       {!routeActive && !dragEnabled && (
@@ -578,10 +587,18 @@ export default function RouteView() {
               {routeActive && !visitedIds.includes(active.id) && (
                 <button
                   onClick={() => markVisited(active.id, active.fullName)}
-                  className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 text-sm font-semibold transition-colors"
+                  className="inline-flex items-center gap-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 text-sm font-semibold transition-colors"
                 >
                   <CheckCircle className="h-4 w-4" /> Mark as visited
                 </button>
+              )}
+              {routeActive && !visitedIds.includes(active.id) && (
+                <Link
+                  to={`/app/soap/new/${active.id}`}
+                  className="inline-flex items-center gap-2 rounded-full border border-stone-300 hover:bg-stone-50 text-stone-700 px-4 py-2.5 text-sm font-semibold transition-colors"
+                >
+                  <FileText className="h-4 w-4" /> Write SOAP note
+                </Link>
               )}
               {routeActive && visitedIds.includes(active.id) && (
                 <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#E3ECE5] border border-emerald-200 px-4 py-2.5 text-sm font-semibold text-emerald-700">

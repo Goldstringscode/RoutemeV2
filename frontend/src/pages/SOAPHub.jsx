@@ -74,7 +74,7 @@ export default function SOAPHub() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold text-stone-900">{n.client?.fullName || "Unknown client"}</p>
+                    <Link to={`/app/clients/${n.clientId}`} className="font-semibold text-stone-900 hover:text-[#D95D39] transition-colors">{n.client?.fullName || "Unknown client"}</Link>
                     <span className="text-xs text-stone-500">·</span>
                     <span className="text-xs text-stone-500">{n.templateLabel}</span>
                     {n.signed ? (

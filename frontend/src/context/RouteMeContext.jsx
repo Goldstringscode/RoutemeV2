@@ -23,7 +23,8 @@ import {
 import { supabase, signOut } from "@/lib/supabase";
 import { optimizeRoute, computeRouteMetrics, getDrivingConditions } from "@/lib/routeEngine";
 import { fetchRoute, metersToMiles, secondsToShort } from "@/lib/directions";
-import { SOAP_HISTORY_SEED, generateSOAPFromInputs } from "@/lib/soapMockData";
+import { SOAP_HISTORY_SEED } from "@/lib/soapMockData";
+import { generateSOAPFromLLM } from "@/lib/soapEngine";
 
 const KEY = "routeme.state.v1";
 const RouteMeContext = createContext(null);
@@ -1060,7 +1061,7 @@ export function RouteMeProvider({ children }) {
                   } : n));
                   pushAudit(`Addendum appended (${reason})`, "addendum");
                 },
-                generateSOAPMock: generateSOAPFromInputs,
+                generateSOAPMock: generateSOAPFromLLM,
                 // Builder modal
         builderOpen, setBuilderOpen, builderTab, setBuilderTab,
     // Home Base

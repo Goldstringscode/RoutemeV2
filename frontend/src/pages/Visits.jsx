@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { useRouteMe } from "@/context/RouteMeContext";
 
 export default function Visits() {
-  const { visits, schedule } = useRouteMe();
+  const { visits, schedule, soapNotes } = useRouteMe();
 
   const todayVisits = visits.filter(v => {
     const visitDate = new Date(v.date).toDateString();
@@ -85,6 +85,26 @@ export default function Visits() {
                       {v.notes}
                     </div>
                   )}
+                  {/* Link to SOAP note if one exists for this visit */}
+                  {(() => {
+                    const visitDate = new Date(v.date).toDateString();
+                    const linkedNote = soapNotes.find(n =>
+                      n.clientId === v.clientId &&
+                      new Date(n.serviceAt).toDateString() === visitDate
+                    );
+                    return linkedNote ? (
+                      <Link
+                        to={`/app/soap/${linkedNote.id}`}
+                        className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#D95D39] hover:underline"
+                      >
+                        <FileText className="h-3 w-3" />
+                        View SOAP note
+                        {!linkedNote.signed && (
+                          <span className="text-[10px] text-amber-600 font-semibold">(draft)</span>
+                        )}
+                      </Link>
+                    ) : null;
+                  })()}
                 </div>
               </div>
             ))}
