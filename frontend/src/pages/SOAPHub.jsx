@@ -87,6 +87,11 @@ export default function SOAPHub() {
                         +{n.addendums.length} addendum{n.addendums.length === 1 ? "" : "s"}
                       </span>
                     )}
+                    {n.carriedFromId && (
+                      <span data-testid={`soap-carried-badge-${n.id}`} className="text-[10px] uppercase tracking-widest font-semibold rounded-full bg-[#F7E5DD] text-[#8a3a24] border border-[#D95D39]/30 px-2 py-0.5">
+                        Carried forward
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-stone-500 mt-1 flex items-center gap-3">
                     <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {new Date(n.serviceAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span>

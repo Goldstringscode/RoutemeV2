@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, Save, Sparkles, Search, X, ShieldCheck, Fingerprint,
-  Info, ChevronDown, ChevronUp, Loader, AlertTriangle,
+  Info, ChevronDown, ChevronUp, Loader, AlertTriangle, Copy, RotateCcw,
 } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { SOAP_TEMPLATES, ICD10_CATALOG } from "@/lib/soapMockData";
@@ -40,7 +40,36 @@ export default function SOAPEditorPage() {
   const [generating, setGenerating] = useState(false);
   const [icdSearch, setIcdSearch] = useState("");
   const [showAutopop, setShowAutopop] = useState(true);
+  const [carriedFromId, setCarriedFromId] = useState(existing?.carriedFromId || null);
   const readOnly = existing?.signed;
+
+  // Find most recent signed note for the currently-selected client (excluding this draft if editing)
+  const priorSignedNote = useMemo(() => {
+    if (!clientId) return null;
+    return soapNotes
+      .filter((n) => n.clientId === clientId && n.signed && n.id !== id)
+      .sort((a, b) => new Date(b.serviceAt) - new Date(a.serviceAt))[0] || null;
+  }, [soapNotes, clientId, id]);
+
+  const duplicatePriorNote = () => {
+    if (!priorSignedNote) return;
+    setTemplateId(priorSignedNote.templateId || "");
+    setSections({
+      subjective: priorSignedNote.subjective || "",
+      objective: priorSignedNote.objective || "",
+      assessment: priorSignedNote.assessment || "",
+      plan: priorSignedNote.plan || "",
+    });
+    setIcd10Codes(priorSignedNote.icd10Codes || []);
+    setCarriedFromId(priorSignedNote.id);
+  };
+
+  const clearCarriedForward = () => {
+    setSections({ subjective: "", objective: "", assessment: "", plan: "" });
+    setIcd10Codes([]);
+    setTemplateId("");
+    setCarriedFromId(null);
+  };
 
   const applyTemplate = (tId) => {
     setTemplateId(tId);
@@ -84,6 +113,7 @@ export default function SOAPEditorPage() {
       signed: true,
       signedAt: new Date().toISOString(),
       addendums: [],
+      carriedFromId: carriedFromId || null,
     };
     if (existing) updateSOAPNote(existing.id, payload);
     else addSOAPNote(payload);
@@ -104,6 +134,7 @@ export default function SOAPEditorPage() {
       quickNote,
       signed: false,
       addendums: [],
+      carriedFromId: carriedFromId || null,
     };
     if (existing) updateSOAPNote(existing.id, payload);
     else addSOAPNote(payload);
@@ -157,6 +188,52 @@ export default function SOAPEditorPage() {
           </div>
         </div>
       </div>
+
+      {/* Duplicate prior note (new drafts only, when prior signed note exists) */}
+      {!existing && !readOnly && priorSignedNote && !carriedFromId && (
+        <div className="rounded-2xl border border-stone-200 bg-white p-5" data-testid="soap-duplicate-prior-block">
+          <div className="flex items-start gap-4">
+            <div className="h-10 w-10 rounded-xl bg-[#F7E5DD] text-[#D95D39] flex items-center justify-center shrink-0">
+              <Copy className="h-5 w-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-stone-900">Duplicate prior note</p>
+              <p className="text-xs text-stone-600 mt-0.5">
+                Carry forward the last signed note for <span className="font-semibold text-stone-800">{client?.fullName}</span> — {priorSignedNote.templateLabel} · {new Date(priorSignedNote.serviceAt).toLocaleDateString([], { dateStyle: "medium" })}. You must review and update before signing.
+              </p>
+            </div>
+            <button
+              onClick={duplicatePriorNote}
+              data-testid="soap-duplicate-prior-btn"
+              className="inline-flex items-center gap-2 rounded-full border border-[#D95D39]/40 text-[#D95D39] hover:bg-[#F7E5DD] px-4 py-2 text-xs font-semibold whitespace-nowrap"
+            >
+              <Copy className="h-3.5 w-3.5" /> Carry forward
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Carried-forward banner */}
+      {carriedFromId && !readOnly && (
+        <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4" data-testid="soap-carried-banner">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-700 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-amber-900 text-sm">Carried forward from prior note — please review</p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                Content was duplicated from a prior signed note. Review every section, update vitals, and revise findings to reflect today's visit before signing. Copy-forward is tracked in the audit trail.
+              </p>
+            </div>
+            <button
+              onClick={clearCarriedForward}
+              data-testid="soap-carried-clear"
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-400 text-amber-900 hover:bg-amber-100 px-3 py-1.5 text-xs font-semibold whitespace-nowrap"
+            >
+              <RotateCcw className="h-3 w-3" /> Start blank
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Auto-populated context */}
       <div className="rounded-2xl border border-stone-200 bg-[#FDFAF4] overflow-hidden" data-testid="soap-autopop">
