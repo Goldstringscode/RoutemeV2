@@ -20,6 +20,7 @@ routemev2/frontend/
 ├── ROUTEME_AUDIT_2026-07-25.md           # Full code audit
 ├── ROUTEME_COMPETITIVE_RESEARCH_2026-07-26.md  # Competitive research & revenue features
 ├── ROUTEME_SOAP_NOTES_SPEC.md            # SOAP notes system specification
+├── ROUTEME_SOAP_STANDARDS_2026.md        # SOAP formatting standards (1,018 lines)
 ├── ROUTEME_FUTURE_IMPLEMENTATIONS.md      # Planned but not yet built features
 ├── ROUTEME_FILE_STRUCTURE.md             # This file — complete project tree
 ├── token.txt

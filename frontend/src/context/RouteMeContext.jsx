@@ -23,6 +23,7 @@ import {
 import { supabase, signOut } from "@/lib/supabase";
 import { optimizeRoute, computeRouteMetrics, getDrivingConditions } from "@/lib/routeEngine";
 import { fetchRoute, metersToMiles, secondsToShort } from "@/lib/directions";
+import { SOAP_HISTORY_SEED, generateSOAPFromInputs } from "@/lib/soapMockData";
 
 const KEY = "routeme.state.v1";
 const RouteMeContext = createContext(null);
@@ -150,6 +151,7 @@ export function RouteMeProvider({ children }) {
   const [routeActive, setRouteActive] = useState(initial?.routeActive ?? false);
   const [visitedIds, setVisitedIds] = useState(initial?.visitedIds ?? []);
   const [visits, setVisits] = useState(initial?.visits ?? []);
+  const [soapNotes, setSoapNotes] = useState(initial?.soapNotes ?? SOAP_HISTORY_SEED);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [builderTab, setBuilderTab] = useState("new"); // "new" | "existing"
     const [routeResult, setRouteResult] = useState(null);
@@ -453,8 +455,8 @@ export function RouteMeProvider({ children }) {
                               superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
                               globalAudit, activeSessions, billingLedger, featureFlags,
                               phiRevealed, maintenanceMode, impersonation, routeResult, routeGeoJson, routeDistance, routeDuration, rescheduledClients,
-                              routeActive, visitedIds, visits,
-                            }));
+                              routeActive, visitedIds, visits, soapNotes,
+                                                          }));
       } catch { /* quota exceeded — ignore */ }
     }, [
       authed, clients, scheduleIds, notes, audit, optimized, savedRoutes, notifications,
@@ -462,8 +464,8 @@ export function RouteMeProvider({ children }) {
                   superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
                   globalAudit, activeSessions, billingLedger, featureFlags,
                   phiRevealed, maintenanceMode, impersonation, routeResult, routeGeoJson, routeDistance, routeDuration, rescheduledClients,
-                  routeActive, visitedIds, visits,
-                ]);
+                  routeActive, visitedIds, visits, soapNotes,
+                                  ]);
 
   const schedule = useMemo(
     () => scheduleIds.map((id) => clients.find((c) => c.id === id)).filter(Boolean),
@@ -1034,8 +1036,32 @@ export function RouteMeProvider({ children }) {
         routeActive, startRoute, endRoute,
         visitedIds, markVisited, unmarkVisited,
         visits, addVisitNote,
-        visitsCount: visits.length,
-        // Builder modal
+                visitsCount: visits.length,
+                // SOAP notes
+                soapNotes,
+                addSOAPNote: (note) => {
+                  const id = "soap_" + Math.random().toString(36).slice(2, 8);
+                  setSoapNotes((s) => [{ id, ...note }, ...s]);
+                  pushAudit(`SOAP note ${note.signed ? "signed" : "saved as draft"} — ${note.templateLabel}`, note.signed ? "sign" : "draft");
+                },
+                updateSOAPNote: (id, patch) => {
+                  setSoapNotes((s) => s.map((n) => (n.id === id ? { ...n, ...patch } : n)));
+                  pushAudit(`SOAP note ${patch.signed ? "signed" : "updated"}`, patch.signed ? "sign" : "update");
+                },
+                addSOAPAddendum: (id, { reason, text }) => {
+                  setSoapNotes((s) => s.map((n) => n.id === id ? {
+                    ...n,
+                    addendums: [...(n.addendums || []), {
+                      id: "add_" + Math.random().toString(36).slice(2, 8),
+                      author: `${nurse.name}, ${nurse.license || "RN"}`,
+                      addedAt: new Date().toISOString(),
+                      reason, text,
+                    }],
+                  } : n));
+                  pushAudit(`Addendum appended (${reason})`, "addendum");
+                },
+                generateSOAPMock: generateSOAPFromInputs,
+                // Builder modal
         builderOpen, setBuilderOpen, builderTab, setBuilderTab,
     // Home Base
     updateNurseHomeBase,

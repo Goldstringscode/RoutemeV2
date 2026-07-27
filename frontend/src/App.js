@@ -15,6 +15,8 @@ import Schedule from "@/pages/Schedule";
 import Clients from "@/pages/Clients";
 import ClientDetail from "@/pages/ClientDetail";
 import Profile from "@/pages/Profile";
+import SOAPHub from "@/pages/SOAPHub";
+import SOAPEditorPage from "@/pages/SOAPEditorPage";
 import Pricing from "@/pages/Pricing";
 import Signup from "@/pages/Signup";
 import Payment from "@/pages/Payment";
@@ -129,6 +131,10 @@ function App() {
               <Route path="clients" element={<Clients />} />
               <Route path="clients/:id" element={<ClientDetail />} />
               <Route path="profile" element={<Profile />} />
+              <Route path="soap" element={<SOAPHub />} />
+              <Route path="soap/new" element={<SOAPEditorPage />} />
+                            <Route path="soap/new/:clientId" element={<SOAPEditorPage />} />
+              <Route path="soap/:id" element={<SOAPEditorPage />} />
               <Route path="*" element={<NotFound />} />
             </Route>
 
