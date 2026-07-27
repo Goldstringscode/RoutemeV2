@@ -112,34 +112,34 @@ export default function SOAPEditorPage() {
       quickNote,
       signed: true,
       signedAt: new Date().toISOString(),
-      addendums: [],
-      carriedFromId: carriedFromId || null,
-    };
-    if (existing) updateSOAPNote(existing.id, payload);
-    else addSOAPNote(payload);
-    navigate("/app/soap");
-  };
+      addendums: existing?.addendums || [],
+            carriedFromId: carriedFromId || null,
+          };
+          if (existing) updateSOAPNote(existing.id, payload);
+          else addSOAPNote(payload);
+          navigate("/app/soap");
+        };
 
-  const saveDraft = () => {
-    const payload = {
-      clientId: client.id,
-      author: `${nurse.name}, ${nurse.license || "RN"}`,
-      authorCredentials: nurse.role || "RN",
-      templateId,
-      templateLabel: template?.label || "General",
-      serviceAt: existing?.serviceAt || new Date().toISOString(),
-      entryAt: new Date().toISOString(),
-      ...sections,
-      icd10Codes,
-      quickNote,
-      signed: false,
-      addendums: [],
-      carriedFromId: carriedFromId || null,
-    };
-    if (existing) updateSOAPNote(existing.id, payload);
-    else addSOAPNote(payload);
-    navigate("/app/soap");
-  };
+        const saveDraft = () => {
+          const payload = {
+            clientId: client.id,
+            author: `${nurse.name}, ${nurse.license || "RN"}`,
+            authorCredentials: nurse.role || "RN",
+            templateId,
+            templateLabel: template?.label || "General",
+            serviceAt: existing?.serviceAt || new Date().toISOString(),
+            entryAt: new Date().toISOString(),
+            ...sections,
+            icd10Codes,
+            quickNote,
+            signed: false,
+            addendums: existing?.addendums || [],
+            carriedFromId: carriedFromId || null,
+          };
+          if (existing) updateSOAPNote(existing.id, payload);
+          else addSOAPNote(payload);
+          navigate("/app/soap");
+        };
 
   const anyContent = Object.values(sections).some((v) => v.trim().length > 0);
   const now = new Date();
