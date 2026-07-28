@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, Save, Sparkles, Search, X, ShieldCheck, Fingerprint,
-  Info, ChevronDown, ChevronUp, Loader, AlertTriangle, Copy, RotateCcw, Printer,
+  Info, ChevronDown, ChevronUp, Loader, AlertTriangle, Copy, RotateCcw, Printer, Eye,
 } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { SOAP_TEMPLATES, ICD10_CATALOG } from "@/lib/soapMockData";
@@ -66,7 +66,8 @@ export default function SOAPEditorPage() {
   const [carriedFromId, setCarriedFromId] = useState(existing?.carriedFromId || null);
     const [flashingSections, setFlashingSections] = useState(false);
     const [toastMsg, setToastMsg] = useState(null);
-    const [pendingTemplateId, setPendingTemplateId] = useState(null);
+      const [pendingTemplateId, setPendingTemplateId] = useState(null);
+      const [showPreview, setShowPreview] = useState(false);
     const readOnly = existing?.signed;
 
   // Find most recent signed note for the currently-selected client (excluding this draft if editing)
@@ -519,21 +520,24 @@ export default function SOAPEditorPage() {
             Signing locks this note. Corrections require an addendum — no deletions per HIPAA + Joint Commission.
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-3">
-                      <button onClick={saveDraft} disabled={!anyContent} data-testid="soap-save-draft" className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold ${anyContent ? "border-stone-300 hover:bg-stone-100 text-stone-900" : "border-stone-200 text-stone-400 cursor-not-allowed"}`}>
-                                    <Save className="h-4 w-4" /> Save draft
+                                <button onClick={saveDraft} disabled={!anyContent} data-testid="soap-save-draft" className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold ${anyContent ? "border-stone-300 hover:bg-stone-100 text-stone-900" : "border-stone-200 text-stone-400 cursor-not-allowed"}`}>
+                                  <Save className="h-4 w-4" /> Save draft
+                                </button>
+                                <button onClick={() => setShowPreview(true)} disabled={!anyContent} className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold ${anyContent ? "border-stone-300 hover:bg-stone-100 text-stone-900" : "border-stone-200 text-stone-400 cursor-not-allowed"}`}>
+                                  <Eye className="h-4 w-4" /> Preview
+                                </button>
+                                <div className="relative group w-full sm:w-auto">
+                                  <button onClick={signAndLock} disabled={!canSign} data-testid="soap-sign" className={`w-full inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold ${canSign ? "bg-[#D95D39] hover:bg-[#C05030] text-white" : "bg-stone-200 text-stone-400 cursor-not-allowed"}`}>
+                                    <Fingerprint className="h-4 w-4" /> Sign electronically · {nurse.name.split(" ")[0]}
                                   </button>
-                                  <div className="relative group w-full sm:w-auto">
-                                    <button onClick={signAndLock} disabled={!canSign} data-testid="soap-sign" className={`w-full inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold ${canSign ? "bg-[#D95D39] hover:bg-[#C05030] text-white" : "bg-stone-200 text-stone-400 cursor-not-allowed"}`}>
-                                      <Fingerprint className="h-4 w-4" /> Sign electronically · {nurse.name.split(" ")[0]}
-                                    </button>
-                                    {!canSign && signDisabledReason && (
-                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
-                                        {signDisabledReason}
-                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-stone-900" />
-                                      </div>
-                                    )}
-                                  </div>
-                    </div>
+                                  {!canSign && signDisabledReason && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                                      {signDisabledReason}
+                                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-stone-900" />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
         </div>
       )}
 
@@ -613,9 +617,131 @@ export default function SOAPEditorPage() {
                 </div>
               </div>
             )}
-          </div>
-        );
-      }
+                        {/* Preview modal */}
+                        {showPreview && (
+                          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                            <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowPreview(false)} />
+                            <div className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-3xl border border-stone-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                              {/* Header */}
+                              <div className="sticky top-0 z-10 flex items-center justify-between px-6 pt-6 pb-4 border-b border-stone-100 bg-white">
+                                <div className="flex items-center gap-3">
+                                  <div className="h-10 w-10 rounded-xl bg-[#F7E5DD] text-[#D95D39] flex items-center justify-center shrink-0">
+                                    <Eye className="h-5 w-5" />
+                                  </div>
+                                  <div>
+                                    <h2 className="font-display text-xl">Preview SOAP note</h2>
+                                    <p className="text-xs text-stone-500">Full rendered note — {existing?.signed ? "signed" : "draft"}</p>
+                                  </div>
+                                </div>
+                                <button onClick={() => setShowPreview(false)} className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-stone-100 transition-colors">
+                                  <X className="h-4 w-4 text-stone-500" />
+                                </button>
+                              </div>
+
+                              {/* Content */}
+                              <div className="px-6 py-6 space-y-6">
+                                {/* Client info header */}
+                                <div className="flex items-start justify-between">
+                                  <div>
+                                    <h3 className="font-display text-2xl">{client?.fullName || "Unknown client"}</h3>
+                                    <p className="text-sm text-stone-500 mt-0.5">{client?.condition || ""}</p>
+                                  </div>
+                                  <div className="text-right text-xs text-stone-500 space-y-0.5">
+                                    <p>{new Date().toLocaleDateString()}</p>
+                                    <p>{nurse.name}</p>
+                                    <p>{template?.label || "General"}</p>
+                                  </div>
+                                </div>
+
+                                {/* Vitals summary */}
+                                {Object.values(vitals).some(v => v.trim()) && (
+                                  <div className="flex flex-wrap gap-2">
+                                    {VITAL_CONFIG.map(cfg => vitals[cfg.key]?.trim() ? (
+                                      <span key={cfg.key} className="inline-flex items-center gap-1 rounded-md bg-[#F9F8F6] border border-stone-200 px-2 py-1 text-xs">
+                                        <span className="text-stone-500">{cfg.label}:</span>
+                                        <span className="font-semibold tabular-nums">{vitals[cfg.key]}</span>
+                                      </span>
+                                    ) : null)}
+                                  </div>
+                                )}
+
+                                {/* ICD-10 chips */}
+                                {icd10Codes.length > 0 && (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {icd10Codes.map(c => (
+                                      <span key={c.code} className="inline-flex items-center gap-1 rounded-md bg-[#F7E5DD] border border-[#D95D39]/30 px-2 py-0.5 text-[11px]">
+                                        <code className="font-mono font-semibold text-[#D95D39]">{c.code}</code>
+                                        <span className="text-stone-600">{c.label}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* 4 sections */}
+                                {Object.entries(SECTION_META).map(([key, meta]) => (
+                                  <div key={key}>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="h-6 w-6 rounded font-display text-xs text-white flex items-center justify-center" style={{ background: meta.color }}>
+                                        {key[0].toUpperCase()}
+                                      </div>
+                                      <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">{meta.label}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-[#FDFAF4] border border-stone-200 p-4">
+                                      <p className="text-sm text-stone-800 leading-relaxed whitespace-pre-line">
+                                        {sections[key] || <em className="text-stone-400">Not documented</em>}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {/* Addendums */}
+                                {existing?.addendums?.length > 0 && (
+                                  <div className="rounded-xl border border-stone-200 bg-white p-4">
+                                    <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold mb-3">Addendum thread · immutable</p>
+                                    {existing.addendums.map(a => (
+                                      <div key={a.id} className="border-l-2 border-[#D95D39] pl-4 mb-3 last:mb-0">
+                                        <p className="text-xs text-stone-500">
+                                          <span className="uppercase tracking-widest font-semibold text-[#D95D39]">{a.reason}</span> · {new Date(a.addedAt).toLocaleString()} · {a.author}
+                                        </p>
+                                        <p className="mt-1 text-sm text-stone-800 leading-relaxed">{a.text}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Signature block */}
+                                {existing?.signed ? (
+                                  <div className="rounded-xl border border-emerald-200 bg-[#E3ECE5] p-4">
+                                    <div className="flex items-center gap-2">
+                                      <Fingerprint className="h-4 w-4 text-emerald-700" />
+                                      <p className="text-sm font-semibold text-emerald-900">Signed & locked — {existing.author} · {new Date(existing.signedAt).toLocaleString()}</p>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                                    <div className="flex items-center gap-2">
+                                      <AlertTriangle className="h-4 w-4 text-amber-700" />
+                                      <p className="text-sm text-amber-900">Draft — not yet signed</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Footer */}
+                              <div className="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-stone-100 bg-white">
+                                <button onClick={() => setShowPreview(false)} className="rounded-full border border-stone-300 hover:bg-stone-50 px-5 py-2.5 text-sm font-semibold text-stone-800 transition-colors">
+                                  Close
+                                </button>
+                                <button onClick={() => { setShowPreview(false); openPrintWindow(existing || { ...sections, icd10Codes, templateLabel: template?.label || "General", author: `${nurse.name}, ${nurse.license || "RN"}`, serviceAt: new Date().toISOString(), entryAt: new Date().toISOString(), signed: false }, client); }} className="inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-5 py-2.5 text-sm font-semibold transition-colors">
+                                  <Printer className="h-4 w-4" /> Print / PDF
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
 
 function AutoRow({ label, value, full }) {
   return (
