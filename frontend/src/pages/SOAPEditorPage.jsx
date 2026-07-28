@@ -64,7 +64,10 @@ export default function SOAPEditorPage() {
   const [icdSearch, setIcdSearch] = useState("");
   const [showAutopop, setShowAutopop] = useState(true);
   const [carriedFromId, setCarriedFromId] = useState(existing?.carriedFromId || null);
-  const readOnly = existing?.signed;
+    const [flashingSections, setFlashingSections] = useState(false);
+    const [toastMsg, setToastMsg] = useState(null);
+    const [pendingTemplateId, setPendingTemplateId] = useState(null);
+    const readOnly = existing?.signed;
 
   // Find most recent signed note for the currently-selected client (excluding this draft if editing)
   const priorSignedNote = useMemo(() => {
@@ -95,11 +98,27 @@ export default function SOAPEditorPage() {
   };
 
   const applyTemplate = (tId) => {
-    setTemplateId(tId);
-    const t = SOAP_TEMPLATES[tId];
-    if (!t) return;
-    setSections({ subjective: t.subjective, objective: t.objective, assessment: t.assessment, plan: t.plan });
-  };
+      const hasContent = Object.values(sections).some((v) => v.trim().length > 0);
+      if (hasContent && tId !== templateId) {
+        setPendingTemplateId(tId);
+        return;
+      }
+      doApplyTemplate(tId);
+    };
+
+    const doApplyTemplate = (tId) => {
+      setTemplateId(tId);
+      setPendingTemplateId(null);
+      const t = SOAP_TEMPLATES[tId];
+      if (!t) return;
+      setSections({ subjective: t.subjective, objective: t.objective, assessment: t.assessment, plan: t.plan });
+      // Flash highlight on all sections
+      setFlashingSections(true);
+      setTimeout(() => setFlashingSections(false), 1200);
+      // Toast
+      setToastMsg(`${t.label} template applied`);
+      setTimeout(() => setToastMsg(null), 3000);
+    };
 
   const generate = async () => {
     setGenerating(true);
@@ -220,10 +239,20 @@ export default function SOAPEditorPage() {
             <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">Entered</p>
             <p className="mt-1.5 text-sm font-mono">{now.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</p>
             {lateEntry && !existing && (
-              <p className="text-xs text-amber-700 font-semibold mt-1 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Late entry (&gt;24h)</p>
-            )}
-          </div>
-        </div>
+                          <p className="text-xs text-amber-700 font-semibold mt-1 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Late entry (&gt;24h)</p>
+                        )}
+                      </div>
+                    </div>
+
+                  {/* Toast notification */}
+                  {toastMsg && (
+                    <div className="fixed top-6 right-6 z-50 animate-in slide-in-from-right-2 fade-in duration-300">
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-lg flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-emerald-600" />
+                        <p className="text-sm font-semibold text-emerald-900">{toastMsg}</p>
+                      </div>
+                    </div>
+                  )}
       </div>
 
       {/* Duplicate prior note (new drafts only, when prior signed note exists) */}
@@ -293,9 +322,28 @@ export default function SOAPEditorPage() {
       {/* Template picker */}
       <div className="rounded-2xl border border-stone-200 bg-white p-5">
         <div className="flex items-center gap-2 mb-3">
-          <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">Condition template</p>
-          {template && <span className="text-[10px] text-emerald-700 bg-[#E3ECE5] border border-emerald-200 rounded-full px-2 py-0.5 uppercase tracking-widest font-semibold">Applied</span>}
-        </div>
+                  <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">Condition template</p>
+                  {template && <span className="text-[10px] text-emerald-700 bg-[#E3ECE5] border border-emerald-200 rounded-full px-2 py-0.5 uppercase tracking-widest font-semibold animate-in fade-in zoom-in-95 duration-300">Applied</span>}
+                </div>
+                {/* Overwrite confirmation */}
+                {pendingTemplateId && (
+                  <div className="mb-3 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 animate-in slide-in-from-top-2 duration-200">
+                    <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0" />
+                    <p className="text-xs text-amber-900 flex-1">Sections have content. Replace with this template?</p>
+                    <button
+                      onClick={() => { doApplyTemplate(pendingTemplateId); }}
+                      className="rounded-full bg-amber-700 hover:bg-amber-800 text-white px-3 py-1 text-xs font-semibold transition-colors"
+                    >
+                      Replace
+                    </button>
+                    <button
+                      onClick={() => setPendingTemplateId(null)}
+                      className="rounded-full border border-amber-300 text-amber-800 hover:bg-white px-3 py-1 text-xs font-semibold transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
                   {Object.values(SOAP_TEMPLATES).map((t) => (
             <button
@@ -373,7 +421,7 @@ export default function SOAPEditorPage() {
 
       {/* 4 sections */}
       {Object.entries(SECTION_META).map(([key, meta]) => (
-        <div key={key} className="rounded-2xl border border-stone-200 bg-white p-6" data-testid={`soap-section-${key}`}>
+        <div key={key} className={`rounded-2xl border bg-white p-6 transition-all duration-500 ${flashingSections ? "border-emerald-400 ring-4 ring-emerald-200 bg-[#F0FDF4]" : "border-stone-200"}`} data-testid={`soap-section-${key}`}>
           <div className="flex items-center gap-3 mb-3">
             <div className="h-8 w-8 rounded-lg font-display text-lg text-white flex items-center justify-center" style={{ background: meta.color }}>
               {key[0].toUpperCase()}
