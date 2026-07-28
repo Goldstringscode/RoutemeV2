@@ -10,18 +10,38 @@ export default function NewActionModal({ open, onClose }) {
   if (!open) return null;
 
   const actions = [
-    {
-      id: "add-client",
-      label: "New Client",
-      desc: "Add a new client to your roster",
-      icon: UserPlus,
-      color: "bg-[#D95D39]",
-      hoverColor: "hover:bg-[#C05030]",
-      onClick: () => {
-        onClose();
-        navigate("/app/clients");
+    ...(routeActive ? [
+      {
+        id: "add-client",
+        label: "New Client",
+        desc: "Add a new client to this route",
+        icon: UserPlus,
+        color: "bg-[#D95D39]",
+        hoverColor: "hover:bg-[#C05030]",
+        onClick: () => {
+          onClose();
+          setTimeout(() => {
+            setBuilderTab("new");
+            setBuilderOpen(true);
+          }, 200);
+        },
       },
-    },
+      {
+        id: "add-existing",
+        label: "Add Existing Client",
+        desc: "Pick a client from your roster to add to this route",
+        icon: UserCheck,
+        color: "bg-[#7FA08B]",
+        hoverColor: "hover:bg-[#6E8F7A]",
+        onClick: () => {
+          onClose();
+          setTimeout(() => {
+            setBuilderTab("existing");
+            setBuilderOpen(true);
+          }, 200);
+        },
+      },
+    ] : []),
     {
       id: "soap-note",
       label: "New SOAP Note",
@@ -34,21 +54,6 @@ export default function NewActionModal({ open, onClose }) {
         navigate("/app/soap/new");
       },
     },
-    ...(routeActive ? [{
-      id: "add-existing",
-      label: "Add Existing Client",
-      desc: "Pick a client from your roster to add to this route",
-      icon: UserCheck,
-      color: "bg-[#7FA08B]",
-      hoverColor: "hover:bg-[#6E8F7A]",
-      onClick: () => {
-        onClose();
-        setTimeout(() => {
-          setBuilderTab("existing");
-          setBuilderOpen(true);
-        }, 200);
-      },
-    }] : []),
     {
       id: "note",
       label: "New Quick Note",

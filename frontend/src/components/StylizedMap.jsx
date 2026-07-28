@@ -394,14 +394,32 @@ export default function StylizedMap({ compact = false, onStopClick }) {
                         <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Seen</span>
                       )}
                     </div>
-                    <p
-                      className="text-xs text-stone-500 truncate cursor-pointer hover:text-[#D95D39] transition-colors"
-                      onClick={(e) => hoveredClient.lat && hoveredClient.lng && handleAddressClick(e, hoveredClient.lat, hoveredClient.lng)}
-                      title="Click to navigate"
-                    >
-                      {hoveredClient.address}
-                      <span className="ml-1 text-[10px] opacity-60">↗</span>
-                    </p>
+                    {navPreference === "both" ? (
+                                          <button
+                                            className="text-xs text-stone-500 truncate text-left w-full hover:text-blue-600 hover:underline transition-colors"
+                                            onClick={(e) => hoveredClient.lat && hoveredClient.lng && handleAddressClick(e, hoveredClient.lat, hoveredClient.lng)}
+                                            title="Choose navigation app"
+                                          >
+                                            {hoveredClient.address}
+                                            <span className="ml-1 text-[10px] opacity-60">↗</span>
+                                          </button>
+                                        ) : (
+                                          <a
+                                            href={hoveredClient.lat && hoveredClient.lng
+                                              ? (navPreference === "google"
+                                                  ? `https://www.google.com/maps/dir/?api=1&destination=${hoveredClient.lat},${hoveredClient.lng}`
+                                                  : `https://maps.apple.com/?daddr=${hoveredClient.lat},${hoveredClient.lng}`)
+                                              : "#"}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-xs text-stone-500 truncate hover:text-blue-600 hover:underline transition-colors"
+                                            title={`Open in ${navPreference === "google" ? "Google" : "Apple"} Maps`}
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            {hoveredClient.address}
+                                            <span className="ml-1 text-[10px] opacity-60">↗</span>
+                                          </a>
+                                        )}
                     <p className="text-xs text-stone-500 mt-0.5">{hoveredClient.condition}</p>
                     <div className="flex items-center gap-2 mt-3">
                       <Link

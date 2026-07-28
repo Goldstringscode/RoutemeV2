@@ -374,20 +374,32 @@ export default function RouteView() {
               <p className="text-xs uppercase tracking-[0.22em] text-stone-500 font-semibold">
                 Turn-by-turn timeline
               </p>
-              {!routeActive && (
-                <button
-                  onClick={() => setDragEnabled(d => !d)}
-                  data-testid="toggle-drag-btn"
-                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors ${
-                    dragEnabled
-                      ? "bg-[#F7E5DD] text-[#D95D39] border border-[#F0D2C4]"
-                      : "bg-stone-100 text-stone-600 border border-stone-200 hover:bg-stone-200"
-                  }`}
-                >
-                  {dragEnabled ? <Unlock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-                  {dragEnabled ? "Drag to reorder" : "Change order"}
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {!routeActive && schedule.length > 0 && (
+                  <button
+                    onClick={() => startRoute()}
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm"
+                    title="Begin driving this route"
+                  >
+                    <PlayCircle className="h-3.5 w-3.5" />
+                    Begin route
+                  </button>
+                )}
+                {!routeActive && (
+                  <button
+                    onClick={() => setDragEnabled(d => !d)}
+                    data-testid="toggle-drag-btn"
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors ${
+                      dragEnabled
+                        ? "bg-[#F7E5DD] text-[#D95D39] border border-[#F0D2C4]"
+                        : "bg-stone-100 text-stone-600 border border-stone-200 hover:bg-stone-200"
+                    }`}
+                  >
+                    {dragEnabled ? <Unlock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                    {dragEnabled ? "Drag to reorder" : "Change order"}
+                  </button>
+                )}
+              </div>
             </div>
             <ol ref={touchListRef} className="mt-4 relative">
               <span className="absolute left-[19px] top-4 bottom-4 w-px bg-stone-200" />
@@ -403,9 +415,7 @@ export default function RouteView() {
                     key={c.id}
                     className={`relative transition-all duration-150 ${
                       isDragging ? "opacity-40 scale-[0.97]" : ""
-                    } ${isOver && dragEnabled ? "translate-y-1" : ""} ${
-                      isVisited ? "opacity-80" : ""
-                    }`}
+                    } ${isOver && dragEnabled ? "translate-y-1" : ""}`}
                     draggable={dragEnabled}
                     onDragStart={(e) => handleDragStart(e, idx)}
                     onDragOver={(e) => handleDragOver(e, idx)}
