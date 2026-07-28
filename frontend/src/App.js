@@ -23,6 +23,24 @@ import Payment from "@/pages/Payment";
 import Welcome from "@/pages/Welcome";
 import NotFound from "@/pages/NotFound";
 import EmailPreview from "@/pages/EmailPreview";
+import ForgotPassword from "@/pages/auth/ForgotPassword";
+import SetNewPassword from "@/pages/auth/SetNewPassword";
+import VerifyEmail from "@/pages/auth/VerifyEmail";
+import DataPrivacy from "@/pages/auth/DataPrivacy";
+import BAA from "@/pages/legal/BAA";
+import Privacy from "@/pages/legal/Privacy";
+import Terms from "@/pages/legal/Terms";
+import SecurityPage from "@/pages/legal/SecurityPage";
+import Cookies from "@/pages/legal/Cookies";
+import ClientForm from "@/pages/ClientForm";
+import CarePlan from "@/pages/CarePlan";
+import VitalsEntry from "@/pages/VitalsEntry";
+import VisitSignature from "@/pages/VisitSignature";
+import HelpCenter from "@/pages/HelpCenter";
+import Onboarding from "@/pages/Onboarding";
+import NurseSettings from "@/pages/NurseSettings";
+import SuperAdminDataRetention from "@/pages/superadmin/DataRetention";
+import SuperAdminGlobalSearch from "@/pages/superadmin/GlobalSearch";
 import AgencyLogin from "@/pages/AgencyLogin";
 import AgencyOverview from "@/pages/agency/Overview";
 import AgencyNurses from "@/pages/agency/Nurses";
@@ -112,6 +130,16 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/agency/login" element={<AgencyLogin />} />
             <Route path="/superadmin/login" element={<SuperAdminLogin />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<SetNewPassword />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/data-privacy" element={<DataPrivacy />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/legal/baa" element={<BAA />} />
+            <Route path="/legal/privacy" element={<Privacy />} />
+            <Route path="/legal/terms" element={<Terms />} />
+            <Route path="/legal/security" element={<SecurityPage />} />
+            <Route path="/legal/cookies" element={<Cookies />} />
 
             <Route
               path="/app"
@@ -135,7 +163,14 @@ function App() {
               <Route path="soap/new" element={<SOAPEditorPage />} />
                             <Route path="soap/new/:clientId" element={<SOAPEditorPage />} />
               <Route path="soap/:id" element={<SOAPEditorPage />} />
-              <Route path="*" element={<NotFound />} />
+                            <Route path="clients/new" element={<ClientForm />} />
+                            <Route path="clients/:id/edit" element={<ClientForm />} />
+                            <Route path="clients/:id/care-plan" element={<CarePlan />} />
+                            <Route path="clients/:id/vitals" element={<VitalsEntry />} />
+                            <Route path="clients/:id/sign" element={<VisitSignature />} />
+                            <Route path="help" element={<HelpCenter />} />
+                            <Route path="settings" element={<NurseSettings />} />
+                            <Route path="*" element={<NotFound />} />
             </Route>
 
             <Route
@@ -179,7 +214,9 @@ function App() {
               <Route path="security" element={<SuperAdminSecurity />} />
               <Route path="billing" element={<SuperAdminBilling />} />
               <Route path="system" element={<SuperAdminSystem />} />
-              <Route path="*" element={<NotFound />} />
+                            <Route path="data-retention" element={<SuperAdminDataRetention />} />
+                            <Route path="global-search" element={<SuperAdminGlobalSearch />} />
+                            <Route path="*" element={<NotFound />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />
