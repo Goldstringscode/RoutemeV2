@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, FileText, ChevronDown, ChevronUp, Search, Fingerprint, Clock, Edit3, Lock } from "lucide-react";
+import { Plus, FileText, ChevronDown, ChevronUp, Search, Fingerprint, Clock, Edit3, Lock, Printer } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
+import { openPrintWindow } from "@/lib/soapPrint";
 
 export default function SOAPHub() {
   const { soapNotes, clients, addSOAPAddendum } = useRouteMe();
@@ -88,10 +89,15 @@ export default function SOAPHub() {
                       </span>
                     )}
                     {n.carriedFromId && (
-                      <span data-testid={`soap-carried-badge-${n.id}`} className="text-[10px] uppercase tracking-widest font-semibold rounded-full bg-[#F7E5DD] text-[#8a3a24] border border-[#D95D39]/30 px-2 py-0.5">
-                        Carried forward
-                      </span>
-                    )}
+                                          <span data-testid={`soap-carried-badge-${n.id}`} className="text-[10px] uppercase tracking-widest font-semibold rounded-full bg-[#F7E5DD] text-[#8a3a24] border border-[#D95D39]/30 px-2 py-0.5">
+                                            Carried forward
+                                          </span>
+                                        )}
+                                        {n.lateEntry && (
+                                          <span className="text-[10px] uppercase tracking-widest font-semibold rounded-full bg-red-50 text-red-700 border border-red-200 px-2 py-0.5">
+                                            Late entry
+                                          </span>
+                                        )}
                   </div>
                   <p className="text-xs text-stone-500 mt-1 flex items-center gap-3">
                     <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {new Date(n.serviceAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span>
@@ -136,8 +142,11 @@ export default function SOAPHub() {
                     {n.signed && (
                       <>
                         <Link to={`/app/soap/${n.id}`} className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full border border-stone-300 hover:bg-white px-3 py-1.5">
-                          <Fingerprint className="h-3.5 w-3.5" /> View signed note
-                        </Link>
+                                                  <Fingerprint className="h-3.5 w-3.5" /> View signed note
+                                                </Link>
+                                                <button onClick={() => openPrintWindow(n, n.client)} className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full border border-stone-300 hover:bg-white px-3 py-1.5">
+                                                  <Printer className="h-3.5 w-3.5" /> Print / PDF
+                                                </button>
                         <button onClick={() => setAddOpen(addOpen === n.id ? null : n.id)} data-testid={`soap-addendum-open-${n.id}`} className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full border border-[#D95D39]/40 text-[#D95D39] hover:bg-[#F7E5DD] px-3 py-1.5">
                           <Edit3 className="h-3.5 w-3.5" /> Add addendum
                         </button>

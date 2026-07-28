@@ -2,10 +2,11 @@ import React, { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, Save, Sparkles, Search, X, ShieldCheck, Fingerprint,
-  Info, ChevronDown, ChevronUp, Loader, AlertTriangle, Copy, RotateCcw,
+  Info, ChevronDown, ChevronUp, Loader, AlertTriangle, Copy, RotateCcw, Printer,
 } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { SOAP_TEMPLATES, ICD10_CATALOG } from "@/lib/soapMockData";
+import { openPrintWindow } from "@/lib/soapPrint";
 
 const SECTION_META = {
   subjective: { label: "S — Subjective", tone: "Patient's own words, quoted · present tense", color: "#D95D39" },
@@ -37,9 +38,29 @@ export default function SOAPEditorPage() {
       plan: existing?.plan || "",
     });
   const [vitals, setVitals] = useState({ bpSys: "", bpDia: "", hr: "", temp: "", spo2: "", glucose: "" });
+  const [vitalWarnings, setVitalWarnings] = useState({});
+  const VITAL_CONFIG = [
+    { key: "bpSys", label: "BP sys", min: 60, max: 250, alertLow: 90, alertHigh: 180, step: 1 },
+    { key: "bpDia", label: "BP dia", min: 30, max: 150, alertLow: 60, alertHigh: 120, step: 1 },
+    { key: "hr", label: "HR", min: 30, max: 220, alertLow: 50, alertHigh: 120, step: 1 },
+    { key: "temp", label: "Temp °F", min: 94, max: 108, alertLow: 96.5, alertHigh: 102, step: 0.1 },
+    { key: "spo2", label: "SpO₂", min: 50, max: 100, alertLow: 92, alertHigh: null, step: 1 },
+    { key: "glucose", label: "Glucose", min: 30, max: 800, alertLow: 70, alertHigh: 300, step: 1 },
+  ];
+  const validateVital = (key, value) => {
+    if (!value) return false;
+    const cfg = VITAL_CONFIG.find(v => v.key === key);
+    if (!cfg) return false;
+    const num = parseFloat(value);
+    if (isNaN(num)) return true;
+    if (num < cfg.alertLow) return true;
+    if (cfg.alertHigh !== null && num > cfg.alertHigh) return true;
+    return false;
+  };
   const [icd10Codes, setIcd10Codes] = useState(existing?.icd10Codes || []);
   const [quickNote, setQuickNote] = useState(existing?.quickNote || "");
   const [generating, setGenerating] = useState(false);
+  const [showSignConfirm, setShowSignConfirm] = useState(false);
   const [icdSearch, setIcdSearch] = useState("");
   const [showAutopop, setShowAutopop] = useState(true);
   const [carriedFromId, setCarriedFromId] = useState(existing?.carriedFromId || null);
@@ -100,27 +121,32 @@ export default function SOAPEditorPage() {
   };
   const removeICD = (code) => setIcd10Codes(icd10Codes.filter((x) => x.code !== code));
 
-  const signAndLock = () => {
-    const payload = {
-      clientId: client.id,
-      author: `${nurse.name}, ${nurse.license || "RN"}`,
-      authorCredentials: nurse.role || "RN",
-      templateId,
-      templateLabel: template?.label || "General",
-      serviceAt: new Date().toISOString(),
-      entryAt: new Date().toISOString(),
-      ...sections,
-      icd10Codes,
-      quickNote,
-      signed: true,
-      signedAt: new Date().toISOString(),
-      addendums: existing?.addendums || [],
-            carriedFromId: carriedFromId || null,
-          };
-          if (existing) updateSOAPNote(existing.id, payload);
-          else addSOAPNote(payload);
-          navigate("/app/soap");
-        };
+  const executeSign = () => {
+      const payload = {
+        clientId: client.id,
+        author: `${nurse.name}, ${nurse.license || "RN"}`,
+        authorCredentials: nurse.role || "RN",
+        templateId,
+        templateLabel: template?.label || "General",
+        serviceAt: new Date().toISOString(),
+        entryAt: new Date().toISOString(),
+        ...sections,
+        icd10Codes,
+        quickNote,
+        signed: true,
+                signedAt: new Date().toISOString(),
+                addendums: existing?.addendums || [],
+                carriedFromId: carriedFromId || null,
+                lateEntry,
+      };
+      if (existing) updateSOAPNote(existing.id, payload);
+      else addSOAPNote(payload);
+      navigate("/app/soap");
+    };
+
+    const signAndLock = () => {
+      setShowSignConfirm(true);
+    };
 
         const saveDraft = () => {
           const payload = {
@@ -135,15 +161,24 @@ export default function SOAPEditorPage() {
             icd10Codes,
             quickNote,
             signed: false,
-            addendums: existing?.addendums || [],
-            carriedFromId: carriedFromId || null,
+                        addendums: existing?.addendums || [],
+                        carriedFromId: carriedFromId || null,
+                        lateEntry,
           };
           if (existing) updateSOAPNote(existing.id, payload);
           else addSOAPNote(payload);
           navigate("/app/soap");
         };
 
-  const anyContent = Object.values(sections).some((v) => v.trim().length > 0);
+  const anyContent = Object.values(sections).some((v) => v.trim().length > 0)
+    || Object.values(vitals).some((v) => v.trim().length > 0);
+  const canSign = (sections.subjective.trim().length > 0 || sections.objective.trim().length > 0)
+    && clientId;
+  const signDisabledReason = !clientId
+    ? "Select a client first"
+    : !sections.subjective.trim() && !sections.objective.trim()
+      ? "Add content to Subjective or Objective before signing"
+      : null;
   const now = new Date();
   const serviceTime = existing?.serviceAt ? new Date(existing.serviceAt) : now;
   const lateEntry = (now - serviceTime) / 36e5 > 24;
@@ -261,8 +296,8 @@ export default function SOAPEditorPage() {
           <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">Condition template</p>
           {template && <span className="text-[10px] text-emerald-700 bg-[#E3ECE5] border border-emerald-200 rounded-full px-2 py-0.5 uppercase tracking-widest font-semibold">Applied</span>}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-          {Object.values(SOAP_TEMPLATES).map((t) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+                  {Object.values(SOAP_TEMPLATES).map((t) => (
             <button
               key={t.id}
               data-testid={`soap-tpl-${t.id}`}
@@ -285,20 +320,35 @@ export default function SOAPEditorPage() {
       {!readOnly && (
         <div className="rounded-2xl border border-stone-200 bg-white p-5" data-testid="soap-vitals">
           <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold mb-3">Vitals (used by AI generate to fill Objective)</p>
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-            {[
-              ["bpSys", "BP sys"], ["bpDia", "BP dia"], ["hr", "HR"],
-              ["temp", "Temp °F"], ["spo2", "SpO₂"], ["glucose", "Glucose"],
-            ].map(([k, label]) => (
-              <div key={k}>
-                <label className="text-[10px] uppercase tracking-widest text-stone-400 font-semibold">{label}</label>
-                <input
-                  data-testid={`soap-vital-${k}`}
-                  value={vitals[k]} onChange={(e) => setVitals({ ...vitals, [k]: e.target.value })}
-                  className="mt-1 w-full h-10 rounded-lg border border-stone-200 px-2 text-sm outline-none focus:border-stone-500 tabular-nums"
-                />
-              </div>
-            ))}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                      {VITAL_CONFIG.map((cfg) => {
+                        const hasWarning = vitalWarnings[cfg.key];
+                        return (
+                          <div key={cfg.key}>
+                            <label className="text-[10px] uppercase tracking-widest text-stone-400 font-semibold">{cfg.label}</label>
+                            <input
+                              type="number"
+                              min={cfg.min}
+                              max={cfg.max}
+                              step={cfg.step}
+                              data-testid={`soap-vital-${cfg.key}`}
+                              value={vitals[cfg.key]}
+                              onChange={(e) => setVitals({ ...vitals, [cfg.key]: e.target.value })}
+                              onBlur={() => {
+                                setVitalWarnings(prev => ({ ...prev, [cfg.key]: validateVital(cfg.key, vitals[cfg.key]) }));
+                              }}
+                              className={`mt-1 w-full h-10 rounded-lg border px-2 text-sm outline-none focus:border-stone-500 tabular-nums ${
+                                hasWarning ? "border-red-400 bg-red-50" : "border-stone-200"
+                              }`}
+                            />
+                            {hasWarning && (
+                              <p className="text-[10px] text-red-600 mt-0.5">
+                                {parseFloat(vitals[cfg.key]) < cfg.alertLow ? `Low (<${cfg.alertLow})` : `High (>${cfg.alertHigh})`}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
           </div>
         </div>
       )}
@@ -336,10 +386,10 @@ export default function SOAPEditorPage() {
           <textarea
             data-testid={`soap-input-${key}`}
             rows={key === "objective" ? 6 : 5}
-            disabled={readOnly}
-            value={sections[key]} onChange={(e) => setSections({ ...sections, [key]: e.target.value })}
-            placeholder={`Write the ${key} section — or apply a template above and let AI Generate fill this in.`}
-            className="w-full rounded-xl border border-stone-200 bg-white p-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100 disabled:bg-stone-50 leading-relaxed"
+                        disabled={readOnly}
+                        value={sections[key]} onChange={(e) => setSections({ ...sections, [key]: e.target.value })}
+                        placeholder={`Write the ${key} section — or apply a template above and let AI Generate fill this in.`}
+                        className="w-full rounded-xl border border-stone-200 bg-white p-3 text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-100 disabled:bg-stone-50 leading-relaxed min-h-[120px]"
           />
         </div>
       ))}
@@ -395,36 +445,129 @@ export default function SOAPEditorPage() {
       {/* Signature / actions */}
       {readOnly ? (
         <div className="rounded-2xl border border-emerald-200 bg-[#E3ECE5] p-5" data-testid="soap-signed-block">
-          <div className="flex items-center gap-3">
-            <Fingerprint className="h-6 w-6 text-emerald-700" />
-            <div>
-              <p className="font-semibold text-emerald-900">Signed & locked</p>
-              <p className="text-xs text-emerald-800">{existing.author} · {new Date(existing.signedAt).toLocaleString()}</p>
-            </div>
-          </div>
-          <p className="mt-3 text-xs text-emerald-800">
-            This note is legally locked. To correct or amend, use the Addendum feature from the SOAP history.
-          </p>
-        </div>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                    <Fingerprint className="h-6 w-6 text-emerald-700" />
+                    <div>
+                      <p className="font-semibold text-emerald-900">Signed & locked</p>
+                      <p className="text-xs text-emerald-800">{existing.author} · {new Date(existing.signedAt).toLocaleString()}</p>
+                    </div>
+                    </div>
+                    <button
+                      onClick={() => openPrintWindow(existing, client)}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full border border-emerald-400 hover:bg-white px-3 py-1.5 text-emerald-800 transition-colors"
+                    >
+                      <Printer className="h-3.5 w-3.5" /> Print / PDF
+                    </button>
+                  </div>
+                  <p className="mt-3 text-xs text-emerald-800">
+                    This note is legally locked. To correct or amend, use the Addendum feature from the SOAP history.
+                  </p>
+                </div>
       ) : (
         <div className="rounded-2xl border border-stone-200 bg-white p-5" data-testid="soap-sign-block">
           <div className="flex items-center gap-2 text-xs text-stone-500 mb-3">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
             Signing locks this note. Corrections require an addendum — no deletions per HIPAA + Joint Commission.
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={saveDraft} disabled={!anyContent} data-testid="soap-save-draft" className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold ${anyContent ? "border-stone-300 hover:bg-stone-100 text-stone-900" : "border-stone-200 text-stone-400 cursor-not-allowed"}`}>
-              <Save className="h-4 w-4" /> Save draft
-            </button>
-            <button onClick={signAndLock} disabled={!anyContent} data-testid="soap-sign" className={`ml-auto inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold ${anyContent ? "bg-[#D95D39] hover:bg-[#C05030] text-white" : "bg-stone-200 text-stone-400 cursor-not-allowed"}`}>
-              <Fingerprint className="h-4 w-4" /> Sign electronically · {nurse.name.split(" ")[0]}
-            </button>
-          </div>
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+                      <button onClick={saveDraft} disabled={!anyContent} data-testid="soap-save-draft" className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold ${anyContent ? "border-stone-300 hover:bg-stone-100 text-stone-900" : "border-stone-200 text-stone-400 cursor-not-allowed"}`}>
+                                    <Save className="h-4 w-4" /> Save draft
+                                  </button>
+                                  <div className="relative group w-full sm:w-auto">
+                                    <button onClick={signAndLock} disabled={!canSign} data-testid="soap-sign" className={`w-full inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold ${canSign ? "bg-[#D95D39] hover:bg-[#C05030] text-white" : "bg-stone-200 text-stone-400 cursor-not-allowed"}`}>
+                                      <Fingerprint className="h-4 w-4" /> Sign electronically · {nurse.name.split(" ")[0]}
+                                    </button>
+                                    {!canSign && signDisabledReason && (
+                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                                        {signDisabledReason}
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-stone-900" />
+                                      </div>
+                                    )}
+                                  </div>
+                    </div>
         </div>
       )}
-    </div>
-  );
-}
+
+            {/* Sign confirmation modal */}
+            {showSignConfirm && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowSignConfirm(false)} />
+                <div className="relative w-full max-w-md rounded-3xl border border-stone-200 bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                  <div className="flex items-center gap-3 px-6 pt-6 pb-4 border-b border-stone-100">
+                    <div className="h-10 w-10 rounded-xl bg-[#F7E5DD] text-[#D95D39] flex items-center justify-center shrink-0">
+                      <Fingerprint className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h2 className="font-display text-xl">Confirm signature</h2>
+                      <p className="text-xs text-stone-500">This locks the note permanently</p>
+                    </div>
+                  </div>
+                  <div className="px-6 py-4 space-y-4">
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="rounded-xl bg-[#F9F8F6] border border-stone-200 p-3">
+                        <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">Client</p>
+                        <p className="mt-1 font-semibold text-stone-900 truncate">{client?.fullName || "—"}</p>
+                      </div>
+                      <div className="rounded-xl bg-[#F9F8F6] border border-stone-200 p-3">
+                        <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">Author</p>
+                        <p className="mt-1 font-semibold text-stone-900 truncate">{nurse.name}</p>
+                      </div>
+                      <div className="rounded-xl bg-[#F9F8F6] border border-stone-200 p-3">
+                        <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">Template</p>
+                        <p className="mt-1 font-semibold text-stone-900 truncate">{template?.label || "General"}</p>
+                      </div>
+                      <div className="rounded-xl bg-[#F9F8F6] border border-stone-200 p-3">
+                        <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">Date</p>
+                        <p className="mt-1 text-sm text-stone-900">{new Date().toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                                          <div className="flex items-start gap-2">
+                                            <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+                                            <div>
+                                              <p className="text-xs font-semibold text-amber-900">Signing locks this note</p>
+                                              <p className="text-[11px] text-amber-800 mt-0.5">
+                                                Per HIPAA + Joint Commission standards, signed notes cannot be edited or deleted. Corrections require an appended addendum with full audit trail.
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        {lateEntry && (
+                                          <div className="rounded-xl border border-red-200 bg-red-50 p-3">
+                                            <div className="flex items-start gap-2">
+                                              <AlertTriangle className="h-4 w-4 text-red-700 shrink-0 mt-0.5" />
+                                              <div>
+                                                <p className="text-xs font-semibold text-red-900">Late entry detected</p>
+                                                <p className="text-[11px] text-red-800 mt-0.5">
+                                                  This note is being signed over 24 hours after the service time. The record will be flagged as a late entry in the audit trail per HIPAA guidelines.
+                                                </p>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )}
+                  </div>
+                  <div className="flex items-center gap-3 px-6 pb-6">
+                    <button
+                      onClick={() => setShowSignConfirm(false)}
+                      className="flex-1 rounded-full border border-stone-300 hover:bg-stone-50 px-4 py-2.5 text-sm font-semibold text-stone-800 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={executeSign}
+                      data-testid="soap-confirm-sign"
+                      className="flex-1 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-4 py-2.5 text-sm font-semibold transition-colors inline-flex items-center justify-center gap-2"
+                    >
+                      <Fingerprint className="h-4 w-4" /> Sign & lock
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
 
 function AutoRow({ label, value, full }) {
   return (

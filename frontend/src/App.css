@@ -3,3 +3,38 @@
     min-height: 100vh;
     background: var(--rm-bg);
 }
+
+/* ── Print styles for SOAP notes ── */
+@media print {
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .App {
+    background: white !important;
+  }
+  nav, aside, .AppShell-sidebar, .Sidebar, 
+  button, .btn, [role="button"],
+  a[href]:not([href^="#"]):not(.soap-print-safe),
+  input, select, textarea,
+  .fixed, .sticky,
+  .rm-print-hide {
+    display: none !important;
+  }
+  /* Only show the printable content area */
+  .rm-print-area {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .rm-print-page {
+    page-break-after: always;
+  }
+  @page {
+    margin: 0.75in;
+  }
+}
