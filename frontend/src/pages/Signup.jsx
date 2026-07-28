@@ -135,11 +135,11 @@ export default function Signup() {
     if (!canSubmit) return;
     const fullName = `${form.firstName} ${form.lastName}`;
     if (isFree) {
-      navigate(`/welcome?plan=solo&name=${encodeURIComponent(fullName)}`);
+      navigate(`/onboarding?plan=solo&name=${encodeURIComponent(fullName)}`);
       return;
     }
     if (isEnterprise) {
-      navigate(`/welcome?plan=enterprise&name=${encodeURIComponent(fullName)}`);
+      navigate(`/onboarding?plan=enterprise&name=${encodeURIComponent(fullName)}`);
       return;
     }
     // paid → continue to payment

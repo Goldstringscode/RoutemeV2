@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Shield, Trash2, Bell, Volume2, MapPin, HeartPulse, Home, Map } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Shield, Trash2, Bell, Volume2, MapPin, HeartPulse, Home, Map, Settings, HelpCircle } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { Switch } from "@/components/ui/switch";
 
@@ -232,13 +233,29 @@ export default function Profile() {
           You&apos;re operating within your organization&apos;s BAA scope.
         </p>
         <div className="mt-5 flex flex-wrap gap-2 text-xs">
-          {["AES-256", "TLS 1.3", "SOC2 aligned", "Session audit", "MFA ready"].map((b) => (
-            <span key={b} className="rounded-full border border-white/20 px-3 py-1">
-              {b}
-            </span>
-          ))}
-        </div>
-      </div>
+                  {["AES-256", "TLS 1.3", "SOC2 aligned", "Session audit", "MFA ready"].map((b) => (
+                    <span key={b} className="rounded-full border border-white/20 px-3 py-1">
+                      {b}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick links */}
+              <div className="rounded-3xl border border-stone-200 bg-white p-6">
+                <h3 className="font-display text-xl mb-4">Quick links</h3>
+                <div className="flex flex-wrap gap-3">
+                  <Link to="/app/settings" className="inline-flex items-center gap-2 rounded-full border border-stone-300 hover:bg-stone-50 px-4 py-2.5 text-sm font-semibold text-stone-800 transition-colors">
+                    <Settings className="h-4 w-4" /> Settings
+                  </Link>
+                  <Link to="/data-privacy" className="inline-flex items-center gap-2 rounded-full border border-stone-300 hover:bg-stone-50 px-4 py-2.5 text-sm font-semibold text-stone-800 transition-colors">
+                    <Shield className="h-4 w-4" /> Data & privacy
+                  </Link>
+                  <Link to="/app/help" className="inline-flex items-center gap-2 rounded-full border border-stone-300 hover:bg-stone-50 px-4 py-2.5 text-sm font-semibold text-stone-800 transition-colors">
+                    <HelpCircle className="h-4 w-4" /> Help center
+                  </Link>
+                </div>
+              </div>
 
       <button
         data-testid="clear-data-btn"

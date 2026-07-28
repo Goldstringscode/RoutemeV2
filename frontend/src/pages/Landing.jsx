@@ -214,9 +214,16 @@ export default function Landing() {
       </section>
 
       <footer className="border-t border-stone-200 py-8">
-        <div className="mx-auto max-w-7xl px-6 lg:px-10 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-stone-500">
-          <p>© 2026 RouteMe · Built with care for traveling nurses.</p>
-          <p className="flex items-center gap-2"><MapPin className="h-3 w-3" /> Prototype · demo data only
+              <div className="mx-auto max-w-7xl px-6 lg:px-10 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-stone-500">
+                <p>© 2026 RouteMe · Built with care for traveling nurses.</p>
+                <div className="flex items-center gap-4">
+                  <Link to="/legal/terms" className="hover:text-stone-900 hover:underline">Terms</Link>
+                  <Link to="/legal/privacy" className="hover:text-stone-900 hover:underline">Privacy</Link>
+                  <Link to="/legal/baa" className="hover:text-stone-900 hover:underline">BAA</Link>
+                  <Link to="/legal/security" className="hover:text-stone-900 hover:underline">Security</Link>
+                  <Link to="/legal/cookies" className="hover:text-stone-900 hover:underline">Cookies</Link>
+                </div>
+                <p className="flex items-center gap-2"><MapPin className="h-3 w-3" /> Prototype · demo data only
             <Link
               to="/superadmin/login"
               data-testid="landing-superadmin-link"

@@ -99,12 +99,30 @@ export default function ClientDetail() {
               <Phone className="h-4 w-4" /> Call
             </a>
             <button
-              onClick={() => openVoice(client.id)}
-              data-testid="client-voice"
-              className="inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-4 py-2.5 text-sm font-semibold transition-colors"
-            >
-              <Mic className="h-4 w-4" /> Record note
-            </button>
+                          onClick={() => openVoice(client.id)}
+                          data-testid="client-voice"
+                          className="inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-4 py-2.5 text-sm font-semibold transition-colors"
+                        >
+                          <Mic className="h-4 w-4" /> Record note
+                        </button>
+                        <Link
+                          to={`/app/clients/${client.id}/care-plan`}
+                          className="inline-flex items-center gap-2 rounded-full border border-stone-300 hover:bg-stone-50 px-4 py-2.5 text-sm font-semibold text-stone-800 transition-colors"
+                        >
+                          <FileText className="h-4 w-4" /> Care plan
+                        </Link>
+                        <Link
+                          to={`/app/clients/${client.id}/vitals`}
+                          className="inline-flex items-center gap-2 rounded-full border border-stone-300 hover:bg-stone-50 px-4 py-2.5 text-sm font-semibold text-stone-800 transition-colors"
+                        >
+                          <Activity className="h-4 w-4" /> Vitals
+                        </Link>
+                        <Link
+                          to={`/app/clients/${client.id}/sign`}
+                          className="inline-flex items-center gap-2 rounded-full border border-stone-300 hover:bg-stone-50 px-4 py-2.5 text-sm font-semibold text-stone-800 transition-colors"
+                        >
+                          <Fingerprint className="h-4 w-4" /> Signature
+                        </Link>
           </div>
         </div>
       </div>

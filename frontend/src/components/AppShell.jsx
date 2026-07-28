@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
-import { Home, Map, Users, Calendar, User, LogOut, Bookmark, Stethoscope, Plus, Menu, X, Bell, ClipboardCheck, FileText } from "lucide-react";
+import { Home, Map, Users, Calendar, User, LogOut, Bookmark, Stethoscope, Plus, Menu, X, Bell, ClipboardCheck, FileText, Settings, HelpCircle } from "lucide-react";
 import HipaaBadge from "@/components/HipaaBadge";
 import NoteModal from "@/components/VoiceNoteModal";
 import NewActionModal from "@/components/NewActionModal";
@@ -18,7 +18,9 @@ const NAV = [
   { to: "/app/schedule", label: "Schedule", icon: Calendar, testId: "nav-schedule" },
   { to: "/app/clients", label: "Clients", icon: Users, testId: "nav-clients" },
   { to: "/app/profile", label: "Profile", icon: User, testId: "nav-profile" },
-];
+    { to: "/app/settings", label: "Settings", icon: Settings, testId: "nav-settings" },
+    { to: "/app/help", label: "Help", icon: HelpCircle, testId: "nav-help" },
+  ];
 
 export default function AppShell() {
   const { nurse, setAuthed, schedule, agency, unreadNotifications, notifications, dismissNotification, markAllNotificationsRead } = useRouteMe();

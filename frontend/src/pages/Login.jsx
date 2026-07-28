@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import HipaaBadge from "@/components/HipaaBadge";
@@ -105,9 +105,14 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 type="password"
-                required
-                className="mt-1.5 w-full h-12 rounded-xl border border-stone-200 bg-white px-4 text-sm focus:border-stone-400 focus:outline-none focus:ring-4 focus:ring-stone-100 transition-colors"
-              />
+                                required
+                                className="mt-1.5 w-full h-12 rounded-xl border border-stone-200 bg-white px-4 text-sm focus:border-stone-400 focus:outline-none focus:ring-4 focus:ring-stone-100 transition-colors"
+                              />
+                              <div className="flex justify-end mt-1">
+                                <Link to="/forgot-password" className="text-xs text-stone-500 hover:text-stone-900 hover:underline font-semibold">
+                                  Forgot password?
+                                </Link>
+                              </div>
             </div>
 
                         {error && (
