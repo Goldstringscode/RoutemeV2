@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { UserPlus, FileText, Route, UserCheck, X } from "lucide-react";
+import { UserPlus, FileText, Route, UserCheck, X, Mic } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 
 export default function NewActionModal({ open, onClose }) {
@@ -10,21 +10,30 @@ export default function NewActionModal({ open, onClose }) {
   if (!open) return null;
 
   const actions = [
-    ...(routeActive ? [{
+    {
       id: "add-client",
       label: "New Client",
-      desc: "Create a new client and add them to this route",
+      desc: "Add a new client to your roster",
       icon: UserPlus,
       color: "bg-[#D95D39]",
       hoverColor: "hover:bg-[#C05030]",
       onClick: () => {
         onClose();
-        setTimeout(() => {
-          setBuilderTab("new");
-          setBuilderOpen(true);
-        }, 200);
+        navigate("/app/clients");
       },
-    }] : []),
+    },
+    {
+      id: "soap-note",
+      label: "New SOAP Note",
+      desc: "Document a clinical visit with a structured SOAP note",
+      icon: FileText,
+      color: "bg-[#7FA08B]",
+      hoverColor: "hover:bg-[#6E8F7A]",
+      onClick: () => {
+        onClose();
+        navigate("/app/soap/new");
+      },
+    },
     ...(routeActive ? [{
       id: "add-existing",
       label: "Add Existing Client",
@@ -44,7 +53,7 @@ export default function NewActionModal({ open, onClose }) {
       id: "note",
       label: "New Note",
       desc: "Record a HIPAA-safe visit note",
-      icon: FileText,
+      icon: Mic,
       color: "bg-stone-900",
       hoverColor: "hover:bg-stone-800",
       onClick: () => {
