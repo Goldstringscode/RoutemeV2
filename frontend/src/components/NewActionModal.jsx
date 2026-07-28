@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { UserPlus, FileText, Route, UserCheck, X, Mic } from "lucide-react";
+import { UserPlus, FileText, Route, UserCheck, X, Zap } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 
 export default function NewActionModal({ open, onClose }) {
@@ -51,9 +51,9 @@ export default function NewActionModal({ open, onClose }) {
     }] : []),
     {
       id: "note",
-      label: "New Note",
+      label: "New Quick Note",
       desc: "Record a HIPAA-safe visit note",
-      icon: Mic,
+      icon: Zap,
       color: "bg-stone-900",
       hoverColor: "hover:bg-stone-800",
       onClick: () => {
