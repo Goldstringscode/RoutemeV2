@@ -217,7 +217,7 @@ export default function Schedule() {
     if (f === "afternoon") return schedule.filter(c => isAfternoon(c.window));
     if (f === "weekends") return schedule.filter(c => isWeekend(c.window));
     return schedule;
-  }, [activeFilter, schedule, clients, calendarDate]);
+  }, [activeFilter, schedule, clients]);
 
   /* ─── Stats ────────────────────────────────────────────── */
   const totalMin = filtered.reduce((s, c) => s + (c.duration || 30), 0);

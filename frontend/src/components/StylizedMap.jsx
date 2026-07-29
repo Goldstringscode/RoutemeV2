@@ -7,6 +7,7 @@ const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 const ROUTE_SOURCE = "route-source";
 const ROUTE_LAYER = "route-layer";
 const ROUTE_GLOW = "route-glow";
+const devLog = (...args) => { if (process.env.NODE_ENV !== 'production') console.log(...args); };
 
 /**
  * Stylized map: real Mapbox map with real route lines and SVG stop overlays.
@@ -141,7 +142,7 @@ export default function StylizedMap({ compact = false, onStopClick }) {
     const enableTerrain = () => {
       if (terrainEnabled) return;
       try {
-        console.log("[Terrain] Attempting to enable...");
+        devLog("[Terrain] Attempting to enable...");
         if (typeof map.setTerrain === "function") {
           map.setTerrain({ source: "mapbox-dem", exaggeration: 1.5 });
         }
@@ -160,7 +161,7 @@ export default function StylizedMap({ compact = false, onStopClick }) {
           }, firstLayerId);
         }
         terrainEnabled = true;
-        console.log("[Terrain] ✅ Active");
+        devLog("[Terrain] ✅ Active");
       } catch (e) {
         console.warn("[Terrain] ❌ Setup failed:", e);
       }

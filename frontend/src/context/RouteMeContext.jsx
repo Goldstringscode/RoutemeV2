@@ -28,6 +28,7 @@ import { generateSOAPFromLLM } from "@/lib/soapEngine";
 
 const KEY = "routeme.state.v1";
 const RouteMeContext = createContext(null);
+const devLog = (...args) => { if (process.env.NODE_ENV !== 'production') console.log(...args); };
 
 /* ─── helpers ─────────────────────────────────────────── */
 
@@ -537,9 +538,9 @@ export function RouteMeProvider({ children }) {
           console.error("[RouteMe] fetchRoute error:", err);
         });
       }
-    }, [clients]);
+    }, [clients, nurse.homeBase]);
 
-  const optimize = useCallback((mode) => {
+      const optimize = useCallback((mode) => {
               const optMode = mode || optimizationMode;
               // When route is active, only optimize unvisited stops
               const stopsToOptimize = routeActive && visitedIds.length > 0
@@ -567,10 +568,10 @@ export function RouteMeProvider({ children }) {
                             console.warn("[RouteMe] Not enough valid stops to fetch route");
                             return;
                           }
-                          console.log("[RouteMe] Optimize: fetching Mapbox route for", validStops.length, "stops");
+                          devLog("[RouteMe] Optimize: fetching Mapbox route for", validStops.length, "stops");
                           fetchRoute(validStops, nurse.homeBase).then((route) => {
                 if (route) {
-                  console.log("[RouteMe] Route fetched:", metersToMiles(route.distance), "mi,", secondsToShort(route.duration));
+                  devLog("[RouteMe] Route fetched:", metersToMiles(route.distance), "mi,", secondsToShort(route.duration));
                   setRouteGeoJson(route.routeGeoJson);
                   setRouteDistance(route.distance);
                   setRouteDuration(route.duration);
@@ -582,9 +583,9 @@ export function RouteMeProvider({ children }) {
               });
             }
           }
-        }, [schedule, optimizationMode, savedRoutes, pushAudit, routeActive, visitedIds, scheduleIds]);
+        }, [schedule, optimizationMode, savedRoutes, pushAudit, routeActive, visitedIds, scheduleIds, nurse.homeBase]);
 
-        /* ─── Home Base ──────────────────────────────────────── */
+                /* ─── Home Base ──────────────────────────────────────── */
         const updateNurseHomeBase = useCallback((homeBase) => {
           setNurse(n => ({ ...n, homeBase }));
           pushAudit(`Home base updated — ${homeBase.address}`, "write");
@@ -598,7 +599,7 @@ export function RouteMeProvider({ children }) {
                         useEffect(() => {
                           if (schedule.length >= 2 && !routeGeoJson && !routeFetchedRef.current) {
                             routeFetchedRef.current = true;
-                            console.log("[RouteMe] Initial fetch for", schedule.length, "stops");
+                            devLog("[RouteMe] Initial fetch for", schedule.length, "stops");
                             // Also set routeResult so summary cards show data immediately
                             const initialMetrics = computeRouteMetrics(schedule, nurse.homeBase);
                             setRouteResult({
@@ -612,7 +613,7 @@ export function RouteMeProvider({ children }) {
                             });
                             fetchRoute(schedule, nurse.homeBase).then((route) => {
                                                   if (route) {
-                                                    console.log("[RouteMe] Initial route:", metersToMiles(route.distance), "mi,", secondsToShort(route.duration));
+                                                    devLog("[RouteMe] Initial route:", metersToMiles(route.distance), "mi,", secondsToShort(route.duration));
                                                     setRouteGeoJson(route.routeGeoJson);
                                                     setRouteDistance(route.distance);
                                                     setRouteDuration(route.duration);
@@ -623,9 +624,9 @@ export function RouteMeProvider({ children }) {
                       console.error("[RouteMe] Initial fetchRoute error:", err);
                     });
                   }
-                }, [schedule, routeGeoJson]);
+                }, [schedule, routeGeoJson, nurse.homeBase]);
 
-                        /* ─── Weather fetch ──────────────────────────────────── */
+                                        /* ─── Weather fetch ──────────────────────────────────── */
                                                         const fetchWeather = useCallback(async () => {
                                                   if (weatherLoading || weatherData) return;
                                                   const lat = nurse?.homeBase?.lat || 33.7726;
@@ -670,7 +671,7 @@ export function RouteMeProvider({ children }) {
                                                   } finally {
                                                     setWeatherLoading(false);
                                                   }
-                                                }, [weatherLoading, weatherData, nurse?.homeBase?.lat, nurse?.homeBase?.lng]);
+                                                }, [weatherLoading, weatherData, nurse.homeBase]);
 
                                                 // Fetch weather on mount
                                                 useEffect(() => { fetchWeather(); }, [fetchWeather]);
@@ -778,9 +779,9 @@ export function RouteMeProvider({ children }) {
         }).catch(() => {});
       }
     }
-  }, [savedRoutes, clients]);
+  }, [savedRoutes, clients, nurse.homeBase]);
 
-  const deleteSavedRoute = useCallback(async (routeId) => {
+      const deleteSavedRoute = useCallback(async (routeId) => {
       setSavedRoutes(rs => rs.filter(r => r.id !== routeId));
       if (userIdRef.current) {
         await supabase.from('saved_routes').delete().eq('id', routeId).catch(() => {});
@@ -814,9 +815,9 @@ export function RouteMeProvider({ children }) {
                 return newIds;
               });
               pushAudit(`Client removed from route`, "write");
-            }, [pushAudit, clients]);
+            }, [pushAudit, clients, nurse.homeBase]);
 
-    const rescheduleClient = useCallback((id, day) => {
+                            const rescheduleClient = useCallback((id, day) => {
       const weekStart = getWeekStart();
       setScheduleIds(ids => ids.filter(sid => sid !== id));
       setRescheduledClients(rc => ({

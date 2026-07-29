@@ -4,6 +4,7 @@ import { RouteMeProvider, useRouteMe } from "@/context/RouteMeContext";
 import AppShell from "@/components/AppShell";
 import AgencyShell from "@/components/AgencyShell";
 import SuperAdminShell from "@/components/SuperAdminShell";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
@@ -144,12 +145,14 @@ function App() {
             <Route path="/legal/cookies" element={<Cookies />} />
 
             <Route
-              path="/app"
-              element={
-                <Protected>
-                  <AppShell />
-                </Protected>
-              }
+                          path="/app"
+                          element={
+                            <ErrorBoundary fallbackMessage="The nurse workspace encountered an error.">
+                              <Protected>
+                                <AppShell />
+                              </Protected>
+                            </ErrorBoundary>
+                          }
             >
               <Route index element={<Navigate to="/app/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
@@ -176,12 +179,14 @@ function App() {
             </Route>
 
             <Route
-              path="/agency"
-              element={
-                <AgencyProtected>
-                  <AgencyShell />
-                </AgencyProtected>
-              }
+                          path="/agency"
+                          element={
+                            <ErrorBoundary fallbackMessage="The agency console encountered an error.">
+                              <AgencyProtected>
+                                <AgencyShell />
+                              </AgencyProtected>
+                            </ErrorBoundary>
+                          }
             >
               <Route index element={<Navigate to="/agency/overview" replace />} />
               <Route path="overview" element={<AgencyOverview />} />
@@ -196,12 +201,14 @@ function App() {
             </Route>
 
             <Route
-              path="/superadmin"
-              element={
-                <SuperAdminProtected>
-                  <SuperAdminShell />
-                </SuperAdminProtected>
-              }
+                          path="/superadmin"
+                          element={
+                            <ErrorBoundary fallbackMessage="The superadmin console encountered an error.">
+                              <SuperAdminProtected>
+                                <SuperAdminShell />
+                              </SuperAdminProtected>
+                            </ErrorBoundary>
+                          }
             >
               <Route index element={<Navigate to="/superadmin/overview" replace />} />
               <Route path="overview" element={<SuperAdminOverview />} />
