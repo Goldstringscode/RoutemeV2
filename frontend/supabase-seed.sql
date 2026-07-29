@@ -98,7 +98,15 @@ SELECT
   jsonb_build_object('lat', 33.7726, 'lng', -117.5928, 'address', 'Dos Lagos, Corona, CA 92883')
 FROM auth.users u
 WHERE u.email = 'amara.okafor@nurse.demo'
-AND NOT EXISTS (SELECT 1 FROM profiles WHERE email = 'amara.okafor@nurse.demo');
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  title = EXCLUDED.title,
+  email = EXCLUDED.email,
+  role = EXCLUDED.role,
+  license = EXCLUDED.license,
+  region = EXCLUDED.region,
+  avatar_url = EXCLUDED.avatar_url,
+  home_base = EXCLUDED.home_base;
 
 -- SEED: Priya Nair (agency director)
 INSERT INTO profiles (id, name, title, email, role)
@@ -106,7 +114,11 @@ SELECT
   u.id, 'Priya Nair', 'Agency Director', 'priya@sunrisehh.demo', 'agency_admin'
 FROM auth.users u
 WHERE u.email = 'priya@sunrisehh.demo'
-AND NOT EXISTS (SELECT 1 FROM profiles WHERE email = 'priya@sunrisehh.demo');
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  title = EXCLUDED.title,
+  email = EXCLUDED.email,
+  role = EXCLUDED.role;
 
 -- SEED: Dr. Isla Fernandez (super admin)
 INSERT INTO profiles (id, name, title, email, role)
@@ -114,7 +126,11 @@ SELECT
   u.id, 'Dr. Isla Fernandez', 'Platform Owner', 'super@routeme.com', 'super_admin'
 FROM auth.users u
 WHERE u.email = 'super@routeme.com'
-AND NOT EXISTS (SELECT 1 FROM profiles WHERE email = 'super@routeme.com');
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  title = EXCLUDED.title,
+  email = EXCLUDED.email,
+  role = EXCLUDED.role;
 
 -- ============================================================
 -- SEED: Clients (Amara's patients)
