@@ -89,13 +89,44 @@ CREATE TABLE IF NOT EXISTS visits (
 CREATE TABLE IF NOT EXISTS soap_notes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id UUID REFERENCES clients(id),
+  nurse_id UUID REFERENCES profiles(id),
   author TEXT,
+  author_credentials TEXT,
+  template_id TEXT,
+  template_label TEXT,
   service_at TIMESTAMPTZ,
+  entry_at TIMESTAMPTZ,
   subjective TEXT,
   objective TEXT,
   assessment TEXT,
   plan TEXT,
+  icd10_codes JSONB DEFAULT '[]',
   signed BOOLEAN DEFAULT FALSE,
+  signed_at TIMESTAMPTZ,
+  quick_note TEXT DEFAULT '',
+  addendums JSONB DEFAULT '[]',
+  late_entry BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create saved_routes table
+CREATE TABLE IF NOT EXISTS saved_routes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nurse_id UUID REFERENCES profiles(id),
+  name TEXT,
+  stop_order JSONB DEFAULT '[]',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create route_sessions table
+CREATE TABLE IF NOT EXISTS route_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nurse_id UUID REFERENCES profiles(id),
+  active BOOLEAN DEFAULT FALSE,
+  visited_ids JSONB DEFAULT '[]',
+  started_at TIMESTAMPTZ DEFAULT NOW(),
+  ended_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

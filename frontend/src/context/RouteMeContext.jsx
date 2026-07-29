@@ -25,6 +25,12 @@ import { optimizeRoute, computeRouteMetrics, getDrivingConditions } from "@/lib/
 import { fetchRoute, metersToMiles, secondsToShort } from "@/lib/directions";
 import { SOAP_HISTORY_SEED } from "@/lib/soapMockData";
 import { generateSOAPFromLLM } from "@/lib/soapEngine";
+import {
+  loadSOAPNotes, saveSOAPNote, updateSOAPNote, addSOAPAddendum as addSOAPAddendumDB,
+  loadVisits, saveVisit, updateVisitNote,
+  loadSavedRoutes, deleteSavedRoute as deleteSavedRouteDB,
+  loadLatestRouteSession, saveRouteSession,
+} from "@/lib/dataService";
 
 const KEY = "routeme.state.v1";
 const RouteMeContext = createContext(null);
@@ -231,14 +237,46 @@ export function RouteMeProvider({ children }) {
       } : NURSE);
 
       // 3. Role-appropriate data loading
-      if (role === 'nurse') {
-        // ── Nurse: load own data ──
-        const { data: clientData } = await supabase
-          .from('clients').select('*').eq('nurse_id', userId).order('created_at', { ascending: false });
-        setClients(clientData?.length ? clientData.map(mapClientFromDB) : CLIENTS_SEED);
+            if (role === 'nurse') {
+              // ── Nurse: load own data ──
+              const { data: clientData } = await supabase
+                .from('clients').select('*').eq('nurse_id', userId).order('created_at', { ascending: false });
+              setClients(clientData?.length ? clientData.map(mapClientFromDB) : CLIENTS_SEED);
 
-        const today = new Date().toISOString().split('T')[0];
-        const { data: schedData } = await supabase
+              const today = new Date().toISOString().split('T')[0];
+
+              // Load SOAP notes from Supabase with mock fallback
+              const soapResult = await loadSOAPNotes(userId);
+              if (soapResult.data) {
+                setSoapNotes(soapResult.data);
+              } else if (soapResult.fallback) {
+                setSoapNotes(soapResult.fallback);
+              }
+
+              // Load visits from Supabase with mock fallback
+              const visitsResult = await loadVisits(userId);
+              if (visitsResult.data) {
+                setVisits(visitsResult.data);
+              } else if (visitsResult.fallback) {
+                setVisits(visitsResult.fallback);
+              }
+
+              // Load saved routes from Supabase with mock fallback
+              const routesResult = await loadSavedRoutes(userId);
+              if (routesResult.data) {
+                setSavedRoutes(routesResult.data);
+              } else if (routesResult.fallback) {
+                setSavedRoutes(routesResult.fallback);
+              }
+
+              // Load latest route session state
+              const sessionResult = await loadLatestRouteSession(userId);
+              if (sessionResult.data) {
+                setRouteActive(sessionResult.data.active);
+                setVisitedIds(sessionResult.data.visitedIds);
+              }
+
+                            const { data: schedData } = await supabase
           .from('schedules').select('*').eq('nurse_id', userId).eq('visit_date', today).order('sort_order', { ascending: true });
         if (schedData?.length) {
                   setScheduleIds(schedData.map(s => s.client_id));
@@ -782,13 +820,16 @@ export function RouteMeProvider({ children }) {
   }, [savedRoutes, clients, nurse.homeBase]);
 
       const deleteSavedRoute = useCallback(async (routeId) => {
-      setSavedRoutes(rs => rs.filter(r => r.id !== routeId));
-      if (userIdRef.current) {
-        await supabase.from('saved_routes').delete().eq('id', routeId).catch(() => {});
-      }
-    }, []);
+              setSavedRoutes(rs => rs.filter(r => r.id !== routeId));
+              pushAudit(`Route deleted`, "route");
+              const result = await deleteSavedRouteDB(routeId);
+              if (result.error) {
+                console.error("Failed to delete route:", result.error);
+                pushAudit(`DB sync failed — delete route`, "error");
+              }
+            }, [pushAudit]);
 
-    /* ─── Route management ────────────────────────────── */
+                /* ─── Route management ────────────────────────────── */
 
         // getWeekStart is a module-level function — no useCallback needed
         const removeFromRoute = useCallback((id) => {
@@ -851,29 +892,37 @@ export function RouteMeProvider({ children }) {
         }, [pushAudit]);
 
       /* ─── Route session (start/end, visits) ──────────── */
-      const startRoute = useCallback(() => {
-        setRouteActive(true);
-        setVisitedIds([]);
-        pushAudit("Route started", "route");
-      }, [pushAudit]);
+            const startRoute = useCallback(() => {
+              setRouteActive(true);
+              setVisitedIds([]);
+              pushAudit("Route started", "route");
+              saveRouteSession({ active: true, visitedIds: [], startedAt: new Date().toISOString() }, userIdRef.current).catch(() => {});
+            }, [pushAudit]);
 
-      const endRoute = useCallback(() => {
+            const endRoute = useCallback(() => {
         setRouteActive(false);
         pushAudit(`Route ended — ${visitedIds.length} visits completed`, "route");
       }, [pushAudit, visitedIds.length]);
 
       const markVisited = useCallback((clientId, clientName) => {
-          setVisitedIds(prev => [...prev, clientId]);
-          const visit = {
-            id: "v_" + Math.random().toString(36).slice(2, 10),
-            clientId,
-            clientName,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            date: new Date().toISOString(),
-            notes: '',
-          };
-          setVisits(prev => [visit, ...prev]);
-          pushAudit(`Visit completed — ${clientName}`, "visit");
+                setVisitedIds(prev => [...prev, clientId]);
+                const visit = {
+                  id: "v_" + Math.random().toString(36).slice(2, 10),
+                  clientId,
+                  clientName,
+                  time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  date: new Date().toISOString(),
+                  notes: '',
+                };
+                setVisits(prev => [visit, ...prev]);
+                pushAudit(`Visit completed — ${clientName}`, "write");
+                // Persist to Supabase
+                saveVisit(visit, userIdRef.current).then(result => {
+                  if (result.error) {
+                    console.error("Failed to save visit:", result.error);
+                    pushAudit(`DB sync failed — record visit`, "error");
+                  }
+                });
           // Re-fetch the route for remaining unvisited stops only
           const remainingStops = schedule.filter(s => s.id !== clientId);
           const validRemaining = remainingStops.filter(s => s.lat != null && s.lng != null);
@@ -897,8 +946,11 @@ export function RouteMeProvider({ children }) {
       }, []);
 
       const addVisitNote = useCallback((visitId, notes) => {
-        setVisits(prev => prev.map(v => v.id === visitId ? { ...v, notes } : v));
-      }, []);
+              setVisits(prev => prev.map(v => v.id === visitId ? { ...v, notes } : v));
+              updateVisitNote(visitId, notes).then(result => {
+                if (result.error) console.error("Failed to update visit note:", result.error);
+              });
+            }, []);
 
   /* ─── Agency actions ──────────────────────────────── */
 
@@ -1052,27 +1104,44 @@ export function RouteMeProvider({ children }) {
                 visitsCount: visits.length,
                 // SOAP notes
                 soapNotes,
-                addSOAPNote: (note) => {
-                  const id = "soap_" + Math.random().toString(36).slice(2, 8);
-                  setSoapNotes((s) => [{ id, ...note }, ...s]);
-                  pushAudit(`SOAP note ${note.signed ? "signed" : "saved as draft"} — ${note.templateLabel}`, note.signed ? "sign" : "draft");
-                },
-                updateSOAPNote: (id, patch) => {
-                  setSoapNotes((s) => s.map((n) => (n.id === id ? { ...n, ...patch } : n)));
-                  pushAudit(`SOAP note ${patch.signed ? "signed" : "updated"}`, patch.signed ? "sign" : "update");
-                },
-                addSOAPAddendum: (id, { reason, text }) => {
-                  setSoapNotes((s) => s.map((n) => n.id === id ? {
-                    ...n,
-                    addendums: [...(n.addendums || []), {
-                      id: "add_" + Math.random().toString(36).slice(2, 8),
-                      author: `${nurse.name}, ${nurse.license || "RN"}`,
-                      addedAt: new Date().toISOString(),
-                      reason, text,
-                    }],
-                  } : n));
-                  pushAudit(`Addendum appended (${reason})`, "addendum");
-                },
+                addSOAPNote: async (note) => {
+                                  const id = "soap_" + Math.random().toString(36).slice(2, 8);
+                                  setSoapNotes((s) => [{ id, ...note }, ...s]);
+                                  pushAudit(`SOAP note ${note.signed ? "signed" : "saved as draft"} — ${note.templateLabel}`, note.signed ? "sign" : "draft");
+                                  // Persist to Supabase (fire-and-forget with error toast)
+                                  const result = await saveSOAPNote({ ...note, id }, userIdRef.current);
+                                  if (result.error) {
+                                    console.error("Failed to save SOAP note:", result.error);
+                                    pushAudit(`DB sync failed — save SOAP note`, "error");
+                                  }
+                                },
+                                updateSOAPNote: async (id, patch) => {
+                                  setSoapNotes((s) => s.map((n) => (n.id === id ? { ...n, ...patch } : n)));
+                                  pushAudit(`SOAP note ${patch.signed ? "signed" : "updated"}`, patch.signed ? "sign" : "update");
+                                  const result = await updateSOAPNote(id, patch, userIdRef.current);
+                                  if (result.error) {
+                                    console.error("Failed to update SOAP note:", result.error);
+                                    pushAudit(`DB sync failed — update SOAP note`, "error");
+                                  }
+                                },
+                                addSOAPAddendum: async (id, { reason, text }) => {
+                                  const addendum = {
+                                    id: "add_" + Math.random().toString(36).slice(2, 8),
+                                    author: `${nurse.name}, ${nurse.license || "RN"}`,
+                                    addedAt: new Date().toISOString(),
+                                    reason, text,
+                                  };
+                                  setSoapNotes((s) => s.map((n) => n.id === id ? {
+                                    ...n,
+                                    addendums: [...(n.addendums || []), addendum],
+                                  } : n));
+                                  pushAudit(`Addendum appended (${reason})`, "addendum");
+                                  const result = await addSOAPAddendumDB(id, { reason, text, author: addendum.author });
+                                  if (result.error) {
+                                    console.error("Failed to save addendum:", result.error);
+                                    pushAudit(`DB sync failed — addendum`, "error");
+                                  }
+                                },
                 generateSOAPMock: generateSOAPFromLLM,
                 // Builder modal
         builderOpen, setBuilderOpen, builderTab, setBuilderTab,
