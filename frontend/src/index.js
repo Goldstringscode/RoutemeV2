@@ -24,5 +24,29 @@ root.render(
   </React.StrictMode>,
 );
 
-// Register service worker for offline support and PWA
-serviceWorkerRegistration.register();
+// Register service worker with safe update flow
+// The React tree uses window.__ROUTEME_SW_CALLBACKS__ to receive notifications
+serviceWorkerRegistration.register({
+  onUpdate: ({ skipWaiting }) => {
+    setTimeout(() => {
+      if (window.__ROUTEME_SW_CALLBACKS__?.onUpdate) {
+        window.__ROUTEME_SW_CALLBACKS__.onUpdate({ skipWaiting });
+      } else {
+        window.__ROUTEME_SW_PENDING_UPDATE__ = { skipWaiting };
+      }
+    }, 100);
+  },
+  onSuccess: (registration) => {
+    console.log('RouteMe: App is ready for offline use.');
+  },
+});
+
+// Check for a pending update that arrived before the hook mounted
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    if (window.__ROUTEME_SW_PENDING_UPDATE__ && window.__ROUTEME_SW_CALLBACKS__?.onUpdate) {
+      window.__ROUTEME_SW_CALLBACKS__.onUpdate(window.__ROUTEME_SW_PENDING_UPDATE__);
+      delete window.__ROUTEME_SW_PENDING_UPDATE__;
+    }
+  }, 2000);
+});

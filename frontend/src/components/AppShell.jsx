@@ -5,6 +5,8 @@ import HipaaBadge from "@/components/HipaaBadge";
 import NoteModal from "@/components/VoiceNoteModal";
 import NewActionModal from "@/components/NewActionModal";
 import ToastNotification from "@/components/ToastNotification";
+import UpdateBanner from "@/components/UpdateBanner";
+import { useSWUpdate } from "@/hooks/useSWUpdate";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { supabase } from "@/lib/supabase";
 
@@ -28,6 +30,7 @@ export default function AppShell() {
     const location = useLocation();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [newActionOpen, setNewActionOpen] = useState(false);
+  const { updateAvailable, applyUpdate, dismissUpdate } = useSWUpdate();
 
   const latestToast = notifications.filter(n => n.t === "just now" && !n.read)[0] || null;
   const routeNotifsUnread = notifications.filter(n => n.type === "route" && !n.read).length;
@@ -263,6 +266,11 @@ export default function AppShell() {
         {/* Modals */}
         <NoteModal />
         <NewActionModal open={newActionOpen} onClose={() => setNewActionOpen(false)} />
+
+        {/* SW Update Banner */}
+        {updateAvailable && (
+          <UpdateBanner onUpdate={applyUpdate} onDismiss={dismissUpdate} />
+        )}
       </div>
     </div>
   );
