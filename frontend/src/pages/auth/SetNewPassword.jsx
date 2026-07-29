@@ -1,21 +1,49 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, Lock, Eye, EyeOff, CheckCircle2, ShieldCheck } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowRight, Lock, Eye, EyeOff, CheckCircle2, ShieldCheck, Loader, AlertTriangle } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 export default function SetNewPassword() {
   const [pw, setPw] = useState("");
   const [confirm, setConfirm] = useState("");
   const [show, setShow] = useState(false);
   const [done, setDone] = useState(false);
+  const [error, setError] = useState("");
+  const [updating, setUpdating] = useState(false);
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  // Grab the access token from the URL hash (Supabase sends it after email link)
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash) {
+      // Supabase embeds type=recovery + access_token in the hash
+      const params = new URLSearchParams(hash.replace("#", ""));
+      const type = params.get("type");
+      const accessToken = params.get("access_token");
+      if (type === "recovery" && accessToken) {
+        supabase.auth.setSession({ access_token: accessToken, refresh_token: "" }).catch(() => {});
+      }
+    }
+  }, []);
 
   const valid = pw.length >= 8 && pw === confirm && /[A-Z]/.test(pw) && /[0-9]/.test(pw);
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (!valid) return;
-    setDone(true);
-    setTimeout(() => navigate("/login"), 2000);
+    setUpdating(true);
+    setError("");
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({ password: pw });
+      if (updateError) throw updateError;
+      setDone(true);
+      setTimeout(() => navigate("/login"), 2000);
+    } catch (err) {
+      setError(err.message || "Failed to update password. The link may have expired.");
+    } finally {
+      setUpdating(false);
+    }
   };
 
   return (
@@ -44,16 +72,24 @@ export default function SetNewPassword() {
               A fresh <span className="font-serif-i text-[#D95D39]">start</span>.
             </h1>
             <form onSubmit={submit} className="mt-6 space-y-4" data-testid="setpw-form">
+              {error && (
+                <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700 flex items-start gap-2" data-testid="setpw-error">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                  {error}
+                </div>
+              )}
               <Field label="New password" show={show} setShow={setShow} value={pw} onChange={setPw} testId="setpw-new" />
               <Field label="Confirm new password" show={show} setShow={setShow} value={confirm} onChange={setConfirm} testId="setpw-confirm" hideToggle />
               <Requirements pw={pw} confirm={confirm} />
               <button
-                type="submit" disabled={!valid} data-testid="setpw-submit"
+                type="submit" disabled={!valid || updating} data-testid="setpw-submit"
                 className={`w-full inline-flex items-center justify-center gap-2 rounded-full h-12 text-sm font-semibold ${
-                  valid ? "bg-[#D95D39] hover:bg-[#C05030] text-white" : "bg-stone-200 text-stone-400 cursor-not-allowed"
+                  !valid || updating
+                    ? "bg-stone-200 text-stone-400 cursor-not-allowed"
+                    : "bg-[#D95D39] hover:bg-[#C05030] text-white"
                 }`}
               >
-                Update password <ArrowRight className="h-4 w-4" />
+                {updating ? <><Loader className="h-4 w-4 animate-spin" /> Updating...</> : <>Update password <ArrowRight className="h-4 w-4" /></>}
               </button>
               <p className="text-xs text-stone-500 text-center flex items-center justify-center gap-1.5">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />

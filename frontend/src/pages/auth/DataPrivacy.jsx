@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, Trash2, ShieldCheck, AlertTriangle, ArrowLeft, Check, Loader } from "lucide-react";
+import { Download, Trash2, ShieldCheck, AlertTriangle, ArrowLeft, Check, Loader, FileText, Users, MapPin } from "lucide-react";
+import { useRouteMe } from "@/context/RouteMeContext";
 
 export default function DataPrivacy() {
+  const { clients, visits, nurse, audit } = useRouteMe();
   const [exportState, setExportState] = useState("idle"); // idle | preparing | ready
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirm, setConfirm] = useState("");
@@ -10,6 +12,20 @@ export default function DataPrivacy() {
 
   const startExport = () => {
     setExportState("preparing");
+    // Build a real data export
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      profile: nurse,
+      clients: clients,
+      visits: visits,
+      auditLog: audit,
+      totalClients: clients.length,
+      totalVisits: visits.length,
+    };
+    // Store it so the download button can retrieve it
+    try {
+      localStorage.setItem("routeme.export", JSON.stringify(exportData));
+    } catch {}
     setTimeout(() => setExportState("ready"), 2200);
   };
 
@@ -52,8 +68,13 @@ export default function DataPrivacy() {
             </div>
           </div>
           <p className="mt-4 text-sm text-stone-600">
-            You&apos;ll receive a ZIP containing JSON exports of your profile, clients, visit notes, audit trail, and voice-note transcripts. PHI is included and encrypted with a password we send separately.
+            You&apos;ll receive a JSON containing your profile, {clients.length} clients, {visits.length} visits, and {audit.length} audit entries. PHI is included.
           </p>
+          <div className="mt-4 flex flex-wrap gap-4 text-xs text-stone-500">
+            <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> {clients.length} clients</span>
+            <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> {visits.length} visits</span>
+            <span className="inline-flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" /> {audit.length} audit events</span>
+          </div>
           <div className="mt-6">
             {exportState === "idle" && (
               <button onClick={startExport} data-testid="data-export-btn" className="inline-flex items-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 text-white px-5 py-2.5 text-sm font-semibold">
@@ -66,9 +87,23 @@ export default function DataPrivacy() {
               </div>
             )}
             {exportState === "ready" && (
-              <a href="#" className="inline-flex items-center gap-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 text-sm font-semibold" data-testid="data-export-ready">
-                <Check className="h-4 w-4" /> Download routeme-export.zip (4.2 MB)
-              </a>
+              <button
+                onClick={() => {
+                  const raw = localStorage.getItem("routeme.export");
+                  if (!raw) return;
+                  const blob = new Blob([raw], { type: "application/json" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `routeme-export-${new Date().toISOString().split("T")[0]}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="inline-flex items-center gap-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 text-sm font-semibold"
+                data-testid="data-export-ready"
+              >
+                <Check className="h-4 w-4" /> Download export ({clients.length} clients)
+              </button>
             )}
           </div>
           <p className="mt-4 text-xs text-stone-500 flex items-center gap-1.5">

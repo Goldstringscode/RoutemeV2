@@ -1,24 +1,33 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { Bell, Check, Clock, MessageCircle, ShieldAlert, ArrowRight, Route, ArrowLeft } from "lucide-react";
+import { Bell, Check, Clock, MessageCircle, ShieldAlert, Route, ArrowLeft } from "lucide-react";
+import { useRouteMe } from "@/context/RouteMeContext";
 
-const NOTIFS_SEED = [
-  { id: "n1", type: "route", title: "Route optimized for tomorrow", body: "6 stops · saves you 22 minutes", t: "5 min ago", read: false, icon: Route, color: "#D95D39" },
-  { id: "n2", type: "compliance", title: "License renewal reminder", body: "Your RN #2418906 expires in 47 days", t: "2 hours ago", read: false, icon: ShieldAlert, color: "#F59E0B" },
-  { id: "n3", type: "message", title: "Priya Nair (Sunrise HH)", body: "Please add care flag for Eleanor Mabry (gate code changed)", t: "3 hours ago", read: false, icon: MessageCircle, color: "#7FA08B" },
-  { id: "n4", type: "route", title: "Traffic advisory · East Austin", body: "I-35 closure — 2 stops reordered", t: "yesterday", read: true, icon: Route, color: "#D95D39" },
-  { id: "n5", type: "system", title: "Signed in on new device", body: "iPhone 15 · Austin, TX · 07:14 AM", t: "yesterday", read: true, icon: ShieldAlert, color: "#7FA08B" },
-];
+const NOTIF_TYPE_META = {
+  route: { icon: Route, color: "#D95D39" },
+  compliance: { icon: ShieldAlert, color: "#F59E0B" },
+  message: { icon: MessageCircle, color: "#7FA08B" },
+  visit: { icon: Bell, color: "#7FA08B" },
+  write: { icon: Bell, color: "#D95D39" },
+  auth: { icon: ShieldAlert, color: "#7FA08B" },
+  error: { icon: ShieldAlert, color: "#DC2626" },
+  addendum: { icon: Bell, color: "#7FA08B" },
+  system: { icon: ShieldAlert, color: "#7FA08B" },
+};
 
 export default function Notifications() {
-  const [notifs, setNotifs] = useState(NOTIFS_SEED);
+  const { notifications, dismissNotification, markAllNotificationsRead } = useRouteMe();
   const [filter, setFilter] = useState("all");
 
-  const unread = notifs.filter((n) => !n.read).length;
-  const filtered = notifs.filter((n) => filter === "all" || (filter === "unread" ? !n.read : n.type === filter));
+  const unread = notifications.filter((n) => !n.read).length;
+  const filtered = notifications.filter((n) =>
+    filter === "all" ? true : filter === "unread" ? !n.read : n.type === filter
+  );
 
-  const markRead = (id) => setNotifs((ns) => ns.map((n) => (n.id === id ? { ...n, read: true } : n)));
-  const markAllRead = () => setNotifs((ns) => ns.map((n) => ({ ...n, read: true })));
+  const typeCounts = notifications.reduce((acc, n) => {
+    acc[n.type] = (acc[n.type] || 0) + 1;
+    return acc;
+  }, {});
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -32,9 +41,16 @@ export default function Notifications() {
             {unread > 0 ? <><strong>{unread}</strong> unread</> : "All caught up."}
           </p>
         </div>
-        <button data-testid="notif-mark-all-read" onClick={markAllRead} disabled={unread === 0} className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold ${
-          unread > 0 ? "border border-stone-300 hover:bg-stone-100 text-stone-900" : "border border-stone-200 text-stone-400 cursor-not-allowed"
-        }`}>
+        <button
+          data-testid="notif-mark-all-read"
+          onClick={markAllNotificationsRead}
+          disabled={unread === 0}
+          className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold ${
+            unread > 0
+              ? "border border-stone-300 hover:bg-stone-100 text-stone-900"
+              : "border border-stone-200 text-stone-400 cursor-not-allowed"
+          }`}
+        >
           <Check className="h-4 w-4" /> Mark all read
         </button>
       </div>
@@ -42,11 +58,9 @@ export default function Notifications() {
       {/* Filter */}
       <div className="inline-flex rounded-full border border-stone-200 bg-white p-1">
         {[
-          ["all", "All", notifs.length],
+          ["all", "All", notifications.length],
           ["unread", "Unread", unread],
-          ["route", "Routes", notifs.filter(n => n.type === "route").length],
-          ["compliance", "Compliance", notifs.filter(n => n.type === "compliance").length],
-          ["message", "Messages", notifs.filter(n => n.type === "message").length],
+          ...Object.entries(typeCounts).map(([type, count]) => [type, type.charAt(0).toUpperCase() + type.slice(1), count]),
         ].map(([id, label, c]) => (
           <button
             key={id}
@@ -63,31 +77,50 @@ export default function Notifications() {
 
       {/* List */}
       <ul className="rounded-2xl border border-stone-200 bg-white divide-y divide-stone-100 overflow-hidden">
-        {filtered.map((n) => (
-          <li key={n.id} data-testid={`notif-${n.id}`} className={`p-5 flex gap-4 hover:bg-stone-50 transition-colors ${!n.read ? "bg-[#FDFAF4]" : ""}`}>
-            <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${n.color}15`, color: n.color }}>
-              <n.icon className="h-4 w-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <p className="font-semibold text-stone-900 truncate">{n.title}</p>
-                {!n.read && <span className="h-1.5 w-1.5 rounded-full bg-[#D95D39]" />}
+        {filtered.map((n) => {
+          const meta = NOTIF_TYPE_META[n.type] || { icon: Bell, color: "#7FA08B" };
+          const Icon = meta.icon;
+          return (
+            <li
+              key={n.id}
+              data-testid={`notif-${n.id}`}
+              className={`p-5 flex gap-4 hover:bg-stone-50 transition-colors ${!n.read ? "bg-[#FDFAF4]" : ""}`}
+            >
+              <div
+                className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: `${meta.color}15`, color: meta.color }}
+              >
+                <Icon className="h-4 w-4" />
               </div>
-              <p className="text-sm text-stone-600 mt-0.5">{n.body}</p>
-              <p className="text-xs text-stone-400 mt-1 flex items-center gap-1"><Clock className="h-3 w-3" /> {n.t}</p>
-            </div>
-            {!n.read && (
-              <button onClick={() => markRead(n.id)} data-testid={`notif-read-${n.id}`} className="text-xs font-semibold text-stone-500 hover:text-stone-900 shrink-0">
-                Mark read
-              </button>
-            )}
-          </li>
-        ))}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-stone-900 truncate">{n.title || n.label}</p>
+                  {!n.read && <span className="h-1.5 w-1.5 rounded-full bg-[#D95D39]" />}
+                </div>
+                <p className="text-sm text-stone-600 mt-0.5">{n.body || n.label}</p>
+                <p className="text-xs text-stone-400 mt-1 flex items-center gap-1">
+                  <Clock className="h-3 w-3" /> {n.t || "just now"}
+                </p>
+              </div>
+              {!n.read && (
+                <button
+                  onClick={() => dismissNotification(n.id)}
+                  data-testid={`notif-read-${n.id}`}
+                  className="text-xs font-semibold text-stone-500 hover:text-stone-900 shrink-0"
+                >
+                  Mark read
+                </button>
+              )}
+            </li>
+          );
+        })}
         {filtered.length === 0 && <li className="p-10 text-center text-stone-400">No notifications match.</li>}
       </ul>
 
       <p className="text-xs text-stone-500 text-center">
-        <Link to="/app/settings" className="underline underline-offset-2 decoration-stone-300 hover:text-stone-900">Adjust notification preferences →</Link>
+        <Link to="/app/settings" className="underline underline-offset-2 decoration-stone-300 hover:text-stone-900">
+          Adjust notification preferences →
+        </Link>
       </p>
     </div>
   );

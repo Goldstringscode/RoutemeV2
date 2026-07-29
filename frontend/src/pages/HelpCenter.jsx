@@ -147,9 +147,9 @@ export default function HelpCenter() {
             <p className="text-xs uppercase tracking-[0.22em] text-white/60 font-semibold mb-2">Still stuck?</p>
             <h3 className="font-display text-2xl">Talk to a real human in under 4 hours.</h3>
           </div>
-          <Link to="/contact" data-testid="help-contact-btn" className="inline-flex items-center gap-2 rounded-full bg-white text-stone-900 px-5 py-3 text-sm font-semibold hover:bg-stone-100">
+          <a href="mailto:hello@routeme.app" data-testid="help-contact-btn" className="inline-flex items-center gap-2 rounded-full bg-white text-stone-900 px-5 py-3 text-sm font-semibold hover:bg-stone-100">
             <MessageCircle className="h-4 w-4" /> Contact support
-          </Link>
+          </a>
         </div>
       </section>
 

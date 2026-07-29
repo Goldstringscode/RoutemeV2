@@ -1,15 +1,30 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Mail, ArrowRight, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Mail, ArrowRight, ShieldCheck, CheckCircle2, Loader } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (!email) return;
-    setSent(true);
+    setSending(true);
+    setError("");
+    try {
+      const { error: supabaseError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (supabaseError) throw supabaseError;
+      setSent(true);
+    } catch (err) {
+      setError(err.message || "Failed to send reset link. Please try again.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -45,6 +60,11 @@ export default function ForgotPassword() {
               </p>
 
               <form onSubmit={submit} className="mt-8 space-y-4" data-testid="forgot-form">
+                {error && (
+                  <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700" data-testid="forgot-error">
+                    {error}
+                  </div>
+                )}
                 <div>
                   <label className="text-xs font-semibold text-stone-700 tracking-wide">Email</label>
                   <div className="mt-1.5 flex items-center gap-2 h-12 rounded-xl border border-stone-200 bg-white px-3 focus-within:border-stone-500 focus-within:ring-4 focus-within:ring-stone-100">
@@ -57,8 +77,12 @@ export default function ForgotPassword() {
                     />
                   </div>
                 </div>
-                <button data-testid="forgot-submit" type="submit" className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white h-12 text-sm font-semibold">
-                  Send reset link <ArrowRight className="h-4 w-4" />
+                <button data-testid="forgot-submit" type="submit" disabled={sending} className={`w-full inline-flex items-center justify-center gap-2 rounded-full h-12 text-sm font-semibold ${
+                  sending
+                    ? "bg-stone-400 text-white cursor-wait"
+                    : "bg-[#D95D39] hover:bg-[#C05030] text-white"
+                }`}>
+                  {sending ? <><Loader className="h-4 w-4 animate-spin" /> Sending...</> : <>Send reset link <ArrowRight className="h-4 w-4" /></>}
                 </button>
               </form>
             </>
