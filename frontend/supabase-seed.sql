@@ -8,7 +8,8 @@
 -- ============================================================
 
 -- Ensure columns exist on existing tables (table may already exist)
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;
+-- Note: UNIQUE constraint added separately to avoid conflicts with existing data
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS license TEXT;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS region TEXT;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
