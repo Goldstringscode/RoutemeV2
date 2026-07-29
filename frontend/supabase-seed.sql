@@ -47,7 +47,7 @@ SELECT
     jsonb_build_object('name', 'Vitamin D 2000IU', 'freq', 'daily')
   )
 FROM auth.users u WHERE u.email = 'amara.okafor@nurse.demo'
-WHERE NOT EXISTS (SELECT 1 FROM clients WHERE full_name = 'Eleanor M.');
+AND NOT EXISTS (SELECT 1 FROM clients WHERE full_name = 'Eleanor M.');
 
 INSERT INTO clients (full_name, initials, dob, phone, address, lat, lng, time_window, duration, priority, flags, condition, last_visit, nurse_id, medications)
 SELECT
@@ -63,7 +63,7 @@ SELECT
     jsonb_build_object('name', 'Lisinopril 10mg', 'freq', 'daily')
   )
 FROM auth.users u WHERE u.email = 'amara.okafor@nurse.demo'
-WHERE NOT EXISTS (SELECT 1 FROM clients WHERE full_name = 'Rafael T.');
+AND NOT EXISTS (SELECT 1 FROM clients WHERE full_name = 'Rafael T.');
 
 INSERT INTO clients (full_name, initials, dob, phone, address, lat, lng, time_window, duration, priority, flags, condition, last_visit, nurse_id, medications)
 SELECT
@@ -79,7 +79,7 @@ SELECT
     jsonb_build_object('name', 'Prednisone 5mg', 'freq', 'daily')
   )
 FROM auth.users u WHERE u.email = 'amara.okafor@nurse.demo'
-WHERE NOT EXISTS (SELECT 1 FROM clients WHERE full_name = 'Margaret K.');
+AND NOT EXISTS (SELECT 1 FROM clients WHERE full_name = 'Margaret K.');
 
 INSERT INTO clients (full_name, initials, dob, phone, address, lat, lng, time_window, duration, priority, flags, condition, last_visit, nurse_id, medications)
 SELECT
@@ -95,7 +95,7 @@ SELECT
     jsonb_build_object('name', 'Potassium 20mEq', 'freq', 'daily')
   )
 FROM auth.users u WHERE u.email = 'amara.okafor@nurse.demo'
-WHERE NOT EXISTS (SELECT 1 FROM clients WHERE full_name = 'Jerome O.');
+AND NOT EXISTS (SELECT 1 FROM clients WHERE full_name = 'Jerome O.');
 
 INSERT INTO clients (full_name, initials, dob, phone, address, lat, lng, time_window, duration, priority, flags, condition, last_visit, nurse_id, medications)
 SELECT
@@ -111,7 +111,7 @@ SELECT
     jsonb_build_object('name', 'Prochlorperazine 10mg', 'freq', 'every 6 hours PRN')
   )
 FROM auth.users u WHERE u.email = 'amara.okafor@nurse.demo'
-WHERE NOT EXISTS (SELECT 1 FROM clients WHERE full_name = 'Lucía V.');
+AND NOT EXISTS (SELECT 1 FROM clients WHERE full_name = 'Lucía V.');
 
 INSERT INTO clients (full_name, initials, dob, phone, address, lat, lng, time_window, duration, priority, flags, condition, last_visit, nurse_id, medications)
 SELECT
@@ -127,4 +127,4 @@ SELECT
     jsonb_build_object('name', 'Sertraline 50mg', 'freq', 'daily')
   )
 FROM auth.users u WHERE u.email = 'amara.okafor@nurse.demo'
-WHERE NOT EXISTS (SELECT 1 FROM clients WHERE full_name = 'Harold B.');
+AND NOT EXISTS (SELECT 1 FROM clients WHERE full_name = 'Harold B.');
