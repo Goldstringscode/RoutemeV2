@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, Check, Sparkles, Route, Mic, ShieldCheck, X } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Sparkles, Route, Mic, ShieldCheck, ArrowRight, X } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 
 const STEPS = [
@@ -12,13 +12,24 @@ const STEPS = [
 
 export default function Onboarding() {
   const navigate = useNavigate();
-  const { nurse } = useRouteMe();
+  const { nurse, onboardingComplete, markOnboardingComplete } = useRouteMe();
   const [step, setStep] = useState(0);
   const cur = STEPS[step];
   const Art = cur.art;
 
-  const next = () => (step === STEPS.length - 1 ? navigate("/app/dashboard") : setStep((s) => s + 1));
-  const skip = () => navigate("/app/dashboard");
+  // If already completed, redirect straight to dashboard
+  useEffect(() => {
+    if (onboardingComplete) {
+      navigate("/app/dashboard", { replace: true });
+    }
+  }, [onboardingComplete, navigate]);
+
+  const finish = () => {
+    markOnboardingComplete();
+    navigate("/app/dashboard");
+  };
+
+  const next = () => (step === STEPS.length - 1 ? finish() : setStep((s) => s + 1));
 
   return (
     <div className="min-h-screen bg-[#F9F8F6] flex items-center justify-center p-6">
@@ -30,47 +41,44 @@ export default function Onboarding() {
           ))}
         </div>
 
-        <div className="p-8 md:p-12 grid md:grid-cols-2 gap-10 items-center">
-          {/* Left: art */}
-          <div className="relative rounded-3xl bg-stone-900 aspect-square flex items-center justify-center overflow-hidden">
-            <div className="absolute -top-20 -right-16 h-56 w-56 rounded-full bg-[#D95D39]/40 blur-3xl" />
-            <div className="relative flex flex-col items-center gap-3">
-              <div className="h-24 w-24 rounded-3xl bg-white/10 border border-white/10 flex items-center justify-center backdrop-blur">
-                <Art className="h-12 w-12 text-[#F7E5DD]" strokeWidth={1.5} />
+        <div className="relative p-8 md:p-12">
+          <div className="grid md:grid-cols-5 gap-8 md:gap-12 items-center">
+            {/* Art */}
+            <div className="md:col-span-2 flex justify-center">
+              <div className="h-44 w-44 rounded-[2rem] bg-[#F9F8F6] border border-stone-200 flex items-center justify-center">
+                <Art className="h-20 w-20 text-stone-800" style={{ opacity: 0.7 }} />
               </div>
-              <p className="text-[10px] uppercase tracking-[0.22em] text-white/50 font-semibold">
+            </div>
+            {/* Content */}
+            <div className="md:col-span-3">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-stone-500 font-semibold">
                 Step {step + 1} of {STEPS.length}
               </p>
-            </div>
-          </div>
+              <h2 className="mt-2 font-display text-3xl md:text-4xl leading-tight">
+                {cur.title.includes("RouteMe") ? (
+                  <>Welcome to <span className="font-serif-i text-[#D95D39]">RouteMe</span></>
+                ) : (
+                  cur.title
+                )}
+              </h2>
+              <p className="mt-4 text-stone-600 leading-relaxed">{cur.body}</p>
 
-          {/* Right: copy */}
-          <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-stone-500 font-semibold">
-              Welcome, {nurse.name.split(" ")[0]}
-            </p>
-            <h1 className="mt-3 font-display text-4xl leading-tight">
-              {cur.title.includes("RouteMe") ? (
-                <>Welcome to <span className="font-serif-i text-[#D95D39]">RouteMe</span></>
-              ) : cur.title}
-            </h1>
-            <p className="mt-4 text-stone-600 leading-relaxed">{cur.body}</p>
-
-            <div className="mt-8 flex items-center gap-3">
-              <button onClick={skip} data-testid="tour-skip" className="text-sm text-stone-500 hover:text-stone-900">
-                Skip tour
-              </button>
-              <button
-                onClick={next} data-testid="tour-next"
-                className="ml-auto inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-5 py-2.5 text-sm font-semibold"
-              >
-                {step === STEPS.length - 1 ? <>Go to dashboard <ArrowRight className="h-4 w-4" /></> : <>Next <ArrowRight className="h-4 w-4" /></>}
-              </button>
+              <div className="mt-8 flex items-center gap-3">
+                <button onClick={finish} data-testid="tour-skip" className="text-sm text-stone-500 hover:text-stone-900">
+                  Skip tour
+                </button>
+                <button
+                  onClick={next} data-testid="tour-next"
+                  className="ml-auto inline-flex items-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] text-white px-5 py-2.5 text-sm font-semibold"
+                >
+                  {step === STEPS.length - 1 ? <>Go to dashboard <ArrowRight className="h-4 w-4" /></> : <>Next <ArrowRight className="h-4 w-4" /></>}
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        <button onClick={skip} className="absolute top-6 right-6 h-8 w-8 rounded-full hover:bg-stone-100 text-stone-400 flex items-center justify-center" data-testid="tour-close">
+        <button onClick={finish} className="absolute top-6 right-6 h-8 w-8 rounded-full hover:bg-stone-100 text-stone-400 flex items-center justify-center" data-testid="tour-close">
           <X className="h-4 w-4" />
         </button>
       </div>

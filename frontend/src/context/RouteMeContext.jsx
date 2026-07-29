@@ -138,6 +138,7 @@ export function RouteMeProvider({ children }) {
   const [audit, setAudit] = useState(initial?.audit ?? AUDIT_LOG);
   const [optimized, setOptimized] = useState(initial?.optimized ?? true);
   const [nurse, setNurse] = useState(NURSE);
+  const [onboardingComplete, setOnboardingComplete] = useState(initial?.onboardingComplete ?? false);
   const [savedRoutes, setSavedRoutes] = useState(initial?.savedRoutes ?? []);
   const [notifications, setNotifications] = useState(initial?.notifications ?? [
     { id: "n1", type: "route", title: "Route optimized for tomorrow", body: "6 stops · saves you 22 minutes", t: "5 min ago", read: false },
@@ -451,13 +452,13 @@ export function RouteMeProvider({ children }) {
     useEffect(() => {
       try {
         localStorage.setItem(KEY, JSON.stringify({
-          authed, clients, scheduleIds, notes, audit, optimized, savedRoutes, notifications,
-                              agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
-                              superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
-                              globalAudit, activeSessions, billingLedger, featureFlags,
-                              phiRevealed, maintenanceMode, impersonation, routeResult, routeGeoJson, routeDistance, routeDuration, rescheduledClients,
-                              routeActive, visitedIds, visits, soapNotes,
-                                                          }));
+                  authed, clients, scheduleIds, notes, audit, optimized, savedRoutes, notifications,
+                                      agencyAuthed, nurses, liveActivity, agencyClients, complianceLog,
+                                      superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
+                                      globalAudit, activeSessions, billingLedger, featureFlags,
+                                      phiRevealed, maintenanceMode, impersonation, routeResult, routeGeoJson, routeDistance, routeDuration, rescheduledClients,
+                                      routeActive, visitedIds, visits, soapNotes, onboardingComplete,
+                                                                                                        }));
       } catch { /* quota exceeded — ignore */ }
     }, [
       authed, clients, scheduleIds, notes, audit, optimized, savedRoutes, notifications,
@@ -465,7 +466,7 @@ export function RouteMeProvider({ children }) {
                   superAdminAuthed, agencies, globalNurses, globalClients, superAdmins,
                   globalAudit, activeSessions, billingLedger, featureFlags,
                   phiRevealed, maintenanceMode, impersonation, routeResult, routeGeoJson, routeDistance, routeDuration, rescheduledClients,
-                  routeActive, visitedIds, visits, soapNotes,
+                  routeActive, visitedIds, visits, soapNotes, onboardingComplete,
                                   ]);
 
   const schedule = useMemo(
@@ -625,52 +626,57 @@ export function RouteMeProvider({ children }) {
                 }, [schedule, routeGeoJson]);
 
                         /* ─── Weather fetch ──────────────────────────────────── */
-                                const fetchWeather = useCallback(async () => {
-                          if (weatherLoading || weatherData) return;
-                          setWeatherLoading(true);
-                          try {
-                            const OPENWEATHER_KEY = process.env.REACT_APP_OPENWEATHER_KEY;
-                                        if (!OPENWEATHER_KEY) {
-                                          setWeatherLoading(false);
-                                          return;
-                                        }
-                                        const res = await fetch(
-                              `https://api.openweathermap.org/data/2.5/weather?lat=34.05&lon=-118.24&appid=${OPENWEATHER_KEY}&units=imperial`
-                            );
-                            if (!res.ok) throw new Error(`Weather API ${res.status}`);
-                            const data = await res.json();
-                            setWeatherData({
-                              temp: Math.round(data.main.temp),
-                              feelsLike: Math.round(data.main.feels_like),
-                              humidity: data.main.humidity,
-                              condition: data.weather[0].main,
-                              description: data.weather[0].description,
-                              icon: data.weather[0].icon,
-                              windSpeed: Math.round(data.wind.speed),
-                              visibility: data.visibility,
-                              city: data.name,
-                            });
-                          } catch (e) {
-                            console.warn("[RouteMe] Weather fetch failed:", e);
-                            // Fallback to mock weather
-                            const dow = new Date().getDay();
-                            const mock = { condition: "clear", visibility: 1.0, wind: 0.95 };
-                            setWeatherData({
-                              temp: 78, feelsLike: 82, humidity: 45,
-                              condition: "Clear", description: "clear sky",
-                              icon: "01d", windSpeed: 6, visibility: 10000,
-                              city: "Los Angeles",
-                            });
-                          } finally {
-                            setWeatherLoading(false);
-                          }
-                        }, [weatherLoading, weatherData]);
+                                                        const fetchWeather = useCallback(async () => {
+                                                  if (weatherLoading || weatherData) return;
+                                                  const lat = nurse?.homeBase?.lat || 33.7726;
+                                                  const lng = nurse?.homeBase?.lng || -117.5928;
+                                                  const city = nurse?.homeBase?.address?.split(",")[0] || "Corona";
+                                                  setWeatherLoading(true);
+                                                  try {
+                                                    const OPENWEATHER_KEY = process.env.REACT_APP_OPENWEATHER_KEY;
+                                                                if (!OPENWEATHER_KEY) {
+                                                                  setWeatherLoading(false);
+                                                                  return;
+                                                                }
+                                                                const res = await fetch(
+                                                      `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${OPENWEATHER_KEY}&units=imperial`
+                                                    );
+                                                    if (!res.ok) throw new Error(`Weather API ${res.status}`);
+                                                    const data = await res.json();
+                                                    setWeatherData({
+                                                      temp: Math.round(data.main.temp),
+                                                      feelsLike: Math.round(data.main.feels_like),
+                                                      humidity: data.main.humidity,
+                                                      condition: data.weather[0]?.main || "Clear",
+                                                      description: data.weather[0]?.description || "clear sky",
+                                                      icon: data.weather[0]?.icon || "01d",
+                                                      windSpeed: data.wind?.speed || 0,
+                                                      visibility: data.visibility || 10000,
+                                                      city: data.name || city,
+                                                    });
+                                                  } catch {
+                                                    // Fallback to mock data at the nurse's home location
+                                                    const dows = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+                                                    const dow = dows[new Date().getDay()];
+                                                    const mock = getDrivingConditions(dow);
+                                                    setWeatherData({
+                                                      temp: Math.round(68 + Math.random() * 20),
+                                                      feelsLike: Math.round(66 + Math.random() * 18),
+                                                      humidity: Math.round(40 + Math.random() * 30),
+                                                      condition: "Clear", description: "clear sky",
+                                                      icon: "01d", windSpeed: 6, visibility: 10000,
+                                                      city,
+                                                    });
+                                                  } finally {
+                                                    setWeatherLoading(false);
+                                                  }
+                                                }, [weatherLoading, weatherData, nurse?.homeBase?.lat, nurse?.homeBase?.lng]);
 
-                        // Fetch weather on mount
-                        useEffect(() => { fetchWeather(); }, [fetchWeather]);
+                                                // Fetch weather on mount
+                                                useEffect(() => { fetchWeather(); }, [fetchWeather]);
 
-                        const addNote = useCallback((clientId, text) => {
-    setNotes(n => ({
+                                                                        const addNote = useCallback((clientId, text) => {
+                                                    setNotes(n => ({
       ...n,
       [clientId]: [{ id: Math.random().toString(36).slice(2, 8), text, date: new Date().toISOString() }, ...(n[clientId] ?? [])],
     }));
@@ -684,9 +690,13 @@ export function RouteMeProvider({ children }) {
   }, [pushAudit]);
 
   const openVoice = useCallback((clientId) => {
-    setVoiceTarget(clientId);
-    setVoiceOpen(true);
-  }, []);
+      setVoiceTarget(clientId);
+      setVoiceOpen(true);
+    }, []);
+
+    const markOnboardingComplete = useCallback(() => {
+      setOnboardingComplete(true);
+    }, []);
 
   const resetRouteOrder = useCallback(() => {
     setScheduleIds([...originalOrderRef.current]);
@@ -1024,6 +1034,7 @@ export function RouteMeProvider({ children }) {
     nurse, clients, setClients, schedule, scheduleIds, reorder, optimize, optimized,
     notes, addNote, audit, pushAudit, addClient, updateClient, removeClient,
     voiceOpen, setVoiceOpen, voiceTarget, setVoiceTarget, openVoice, noteViewMode, setNoteViewMode,
+    onboardingComplete, markOnboardingComplete,
     optimizationMode, setOptimizationMode, resetRouteOrder, navPreference, setNavPreference,
         savedRoutes, saveRoute, loadRoute, deleteSavedRoute, routeResult,
                     routeGeoJson, routeDistance, routeDuration, routeKey,

@@ -126,7 +126,9 @@ function App() {
             <Route path="/payment" element={<Payment />} />
             <Route path="/welcome" element={<Welcome />} />
             <Route path="/thank-you" element={<Welcome />} />
-            <Route path="/emails" element={<EmailPreview />} />
+            {process.env.NODE_ENV === 'development' && (
+              <Route path="/emails" element={<EmailPreview />} />
+            )}
             <Route path="/login" element={<Login />} />
             <Route path="/agency/login" element={<AgencyLogin />} />
             <Route path="/superadmin/login" element={<SuperAdminLogin />} />
