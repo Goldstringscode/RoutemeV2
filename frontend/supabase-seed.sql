@@ -7,7 +7,17 @@
 -- Step 2: Run this entire script in SQL Editor
 -- ============================================================
 
--- Create profiles table
+-- Ensure columns exist on existing tables (table may already exist)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS license TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS region TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS home_base JSONB;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS weekly_saved_minutes INT DEFAULT 0;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS weekly_saved_miles FLOAT8 DEFAULT 0;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS agency_id UUID;
+
+-- Create profiles table (if starting fresh)
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT,
