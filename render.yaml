@@ -1,33 +1,11 @@
 services:
-  - type: web_service
+  - type: web
     name: routeme-v2
-    env: node
-    buildCommand: cd frontend && npm install --legacy-peer-deps && npm run build
-    startCommand: cd frontend && node server.js
-    healthCheckPath: /
+    runtime: node
+    region: oregon
+    rootDir: frontend
+    buildCommand: npm run build
+    startCommand: node server.js
     envVars:
       - key: NODE_VERSION
         value: 20
-      - key: REACT_APP_MAPBOX_TOKEN
-        sync: false
-      - key: GENERATE_SOURCEMAP
-        value: "false"
-      - key: NODE_OPTIONS
-        value: "--max-old-space-size=2048"
-      - key: REACT_APP_SUPABASE_URL
-        sync: false
-      - key: REACT_APP_SUPABASE_ANON_KEY
-        sync: false
-      - key: OPENWEATHER_API_KEY
-        sync: false
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_ANON_KEY
-        sync: false
-    headers:
-      - path: /*
-        name: X-Frame-Options
-        value: DENY
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
