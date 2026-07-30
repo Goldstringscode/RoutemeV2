@@ -279,7 +279,7 @@ export function NurseProvider({ children }) {
     clients, setClients,
     schedule, scheduleIds, setScheduleIds, originalOrderRef,
     notes, setNotes,
-    audit, pushAudit,
+    audit, setAudit, pushAudit,
     optimized, setOptimized,
     onboardingComplete, markOnboardingComplete,
     savedRoutes, setSavedRoutes,
