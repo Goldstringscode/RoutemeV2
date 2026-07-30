@@ -230,8 +230,8 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", uptime: process.uptime() });
 });
 
-/* ─── SPA fallback ─────────────────────────────────────── */
-app.get("*", (_req, res) => {
+/* ─── SPA fallback (Express 5 compatible) ──────────────── */
+app.get("/{*splat}", (_req, res) => {
   res.sendFile(path.join(buildDir, "index.html"));
 });
 
