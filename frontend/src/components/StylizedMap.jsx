@@ -169,36 +169,42 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
     };
 
     map.on("load", () => {
-      if (!map.getSource("mapbox-dem")) {
-        map.addSource("mapbox-dem", {
-          type: "raster-dem",
-          url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-          tileSize: 512,
-          maxzoom: 14,
+          if (!map.getSource("mapbox-dem")) {
+            map.addSource("mapbox-dem", {
+              type: "raster-dem",
+              url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+              tileSize: 512,
+              maxzoom: 14,
+            });
+          }
+
+          if (!map.getSource(ROUTE_SOURCE)) {
+            try {
+              map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+              map.addLayer({ id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 } });
+              map.addLayer({ id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 } });
+            } catch (e) {}
+          }
+
+          if (!map.getLayer("sky")) {
+            try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
+          }
+
+          updatePositions();
         });
-      }
-      enableTerrain();
 
-      if (!map.getSource(ROUTE_SOURCE)) {
-        try {
-          map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-          map.addLayer({ id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 } });
-          map.addLayer({ id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 } });
-        } catch (e) {}
-      }
+        // Delay terrain setup until map is fully settled — avoids a production build
+        // race where setTerrain() triggers a style update that makes 'composite'
+        // source temporarily undefined.
+        map.once("idle", () => {
+          enableTerrain();
+        });
 
-      if (!map.getLayer("sky")) {
-        try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
-      }
-
-      updatePositions();
-    });
-
-    map.on("sourcedata", (e) => {
-      if (e.sourceId === "mapbox-dem" && !terrainEnabled) {
-        if (e.isSourceLoaded) enableTerrain();
-      }
-    });
+        map.on("sourcedata", (e) => {
+          if (e.sourceId === "mapbox-dem" && !terrainEnabled) {
+            if (e.isSourceLoaded) enableTerrain();
+          }
+        });
 
     map.on("move", scheduleUpdate);
     map.on("resize", scheduleUpdate);
