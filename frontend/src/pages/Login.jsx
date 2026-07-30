@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { ArrowRight, ShieldCheck, LogIn, Clock } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
@@ -14,6 +14,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [rateLimited, setRateLimited] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const justLoggedIn = useRef(false); // only navigate on fresh login, not mount
 
   // Countdown timer for rate limit
   useEffect(() => {
@@ -22,9 +23,9 @@ export default function Login() {
     return () => clearInterval(t);
   }, [rateLimited, countdown]);
 
-  // Navigate only after authed state has committed — prevents race
+  // Navigate only when user explicitly signs in (not on mount with stale session)
   useEffect(() => {
-    if (authed) {
+    if (authed && justLoggedIn.current) {
       pushAudit("Signed in", "read");
       navigate("/app/dashboard");
     }
@@ -51,31 +52,33 @@ export default function Login() {
       return;
     }
     if (user) {
-      setAuthed(true);
-    }
-  };
+          justLoggedIn.current = true;
+          setAuthed(true);
+        }
+      };
 
-  const demoLogin = async () => {
-    setError("");
-    setLoading(true);
-    const { user, error: signInError, rateLimited: rl, waitSeconds } = await signIn(
-      DEMO_ACCOUNTS.nurse.email, DEMO_ACCOUNTS.nurse.password
-    );
-    setLoading(false);
-    if (rl) {
-      setRateLimited(true);
-      setCountdown(waitSeconds || 15);
-      setError(signInError?.message || "Too many login attempts.");
-      return;
-    }
-    if (signInError) {
-      setError("Demo login failed: " + signInError.message + '. Make sure the demo user is created in Supabase Auth.');
-      return;
-    }
-    if (user) {
-      setAuthed(true);
-    }
-  };
+      const demoLogin = async () => {
+        setError("");
+        setLoading(true);
+        const { user, error: signInError, rateLimited: rl, waitSeconds } = await signIn(
+          DEMO_ACCOUNTS.nurse.email, DEMO_ACCOUNTS.nurse.password
+        );
+        setLoading(false);
+        if (rl) {
+          setRateLimited(true);
+          setCountdown(waitSeconds || 15);
+          setError(signInError?.message || "Too many login attempts.");
+          return;
+        }
+        if (signInError) {
+          setError("Demo login failed: " + signInError.message + '. Make sure the demo user is created in Supabase Auth.');
+          return;
+        }
+        if (user) {
+          justLoggedIn.current = true;
+          setAuthed(true);
+        }
+      };
 
   const isDisabled = loading || (rateLimited && countdown > 0);
 
