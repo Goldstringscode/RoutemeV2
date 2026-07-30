@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, KeyRound, Shield, Fingerprint } from "lucide-react";
+import { ArrowRight, KeyRound, Shield, Fingerprint, Clock } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { signIn, DEMO_ACCOUNTS } from "@/lib/supabase";
 
 export default function SuperAdminLogin() {
-  const { setSuperAdminAuthed } = useRouteMe();
+  const { setSuperAdminAuthed, superAdminAuthed } = useRouteMe();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -13,6 +13,22 @@ export default function SuperAdminLogin() {
   const [step, setStep] = useState(1);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [rateLimited, setRateLimited] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
+  // Countdown timer for rate limit
+  useEffect(() => {
+    if (!rateLimited || countdown <= 0) return;
+    const t = setInterval(() => setCountdown((c) => c - 1), 1000);
+    return () => clearInterval(t);
+  }, [rateLimited, countdown]);
+
+  // Navigate only after superAdminAuthed state has committed
+  useEffect(() => {
+    if (superAdminAuthed) {
+      navigate("/superadmin/overview");
+    }
+  }, [superAdminAuthed, navigate]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -24,8 +40,14 @@ export default function SuperAdminLogin() {
         return;
       }
       setLoading(true);
-      const { user, error: signInError } = await signIn(email.trim(), password);
+      const { user, error: signInError, rateLimited: rl, waitSeconds } = await signIn(email.trim(), password);
       setLoading(false);
+      if (rl) {
+        setRateLimited(true);
+        setCountdown(waitSeconds || 15);
+        setError(signInError?.message || "Too many login attempts.");
+        return;
+      }
       if (signInError) {
         setError(signInError.message || "Invalid credentials.");
         return;
@@ -39,17 +61,22 @@ export default function SuperAdminLogin() {
         return;
       }
       setSuperAdminAuthed(true);
-      navigate("/superadmin/overview");
     }
   };
 
   const demoLogin = async () => {
     setError("");
     setLoading(true);
-    const { user, error: signInError } = await signIn(
+    const { user, error: signInError, rateLimited: rl, waitSeconds } = await signIn(
       DEMO_ACCOUNTS.superAdmin.email, DEMO_ACCOUNTS.superAdmin.password
     );
     setLoading(false);
+    if (rl) {
+      setRateLimited(true);
+      setCountdown(waitSeconds || 15);
+      setError(signInError?.message || "Too many login attempts.");
+      return;
+    }
     if (signInError) {
       setError("Demo login failed: " + signInError.message);
       return;
@@ -58,6 +85,8 @@ export default function SuperAdminLogin() {
       setStep(2);
     }
   };
+
+  const isDisabled = loading || (rateLimited && countdown > 0);
 
   return (
     <div className="min-h-screen bg-stone-950 text-white grid lg:grid-cols-5 rm-grain">
@@ -80,26 +109,37 @@ export default function SuperAdminLogin() {
               <>
                 <div>
                   <label className="text-xs font-semibold text-white/70 tracking-wide">Root email</label>
-                  <input data-testid="sa-email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required disabled={loading} className="mt-1.5 w-full h-12 rounded-xl border border-white/10 bg-white/5 px-4 text-sm text-white focus:border-[#D95D39] focus:outline-none focus:ring-4 focus:ring-[#D95D39]/20" />
+                  <input data-testid="sa-email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required disabled={isDisabled} className="mt-1.5 w-full h-12 rounded-xl border border-white/10 bg-white/5 px-4 text-sm text-white focus:border-[#D95D39] focus:outline-none focus:ring-4 focus:ring-[#D95D39]/20" />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-white/70 tracking-wide flex items-center gap-2"><KeyRound className="h-3.5 w-3.5" /> Password</label>
-                  <input data-testid="sa-password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" required disabled={loading} className="mt-1.5 w-full h-12 rounded-xl border border-white/10 bg-white/5 px-4 text-sm text-white focus:border-[#D95D39] focus:outline-none focus:ring-4 focus:ring-[#D95D39]/20" />
+                  <input data-testid="sa-password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" required disabled={isDisabled} className="mt-1.5 w-full h-12 rounded-xl border border-white/10 bg-white/5 px-4 text-sm text-white focus:border-[#D95D39] focus:outline-none focus:ring-4 focus:ring-[#D95D39]/20" />
                 </div>
                 {error && (
-                  <div className="rounded-xl bg-red-900/40 border border-red-500/30 px-4 py-3 text-sm text-red-200 font-medium flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
-                    {error}
+                  <div className={`rounded-xl px-4 py-3 text-sm font-medium flex items-center gap-2 ${
+                    rateLimited
+                      ? "bg-amber-900/40 border border-amber-500/30 text-amber-200"
+                      : "bg-red-900/40 border border-red-500/30 text-red-200"
+                  }`}>
+                    {rateLimited ? <Clock className="h-4 w-4 shrink-0" /> : <span className="h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />}
+                    <span>{error}</span>
+                    {countdown > 0 && <span className="ml-auto font-bold text-sm tabular-nums">{countdown}s</span>}
                   </div>
                 )}
-                <button data-testid="sa-continue-btn" type="submit" disabled={loading} className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] disabled:opacity-50 disabled:cursor-not-allowed text-white h-12 text-sm font-semibold transition-colors">
-                  {loading ? <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <>Continue to MFA <ArrowRight className="h-4 w-4" /></>}
+                <button data-testid="sa-continue-btn" type="submit" disabled={isDisabled} className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] disabled:opacity-50 disabled:cursor-not-allowed text-white h-12 text-sm font-semibold transition-colors">
+                  {loading ? (
+                    <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                  ) : rateLimited ? (
+                    <>Try again in {countdown}s <Clock className="h-4 w-4" /></>
+                  ) : (
+                    <>Continue to MFA <ArrowRight className="h-4 w-4" /></>
+                  )}
                 </button>
                 <div className="relative my-4">
                   <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
                   <div className="relative flex justify-center"><span className="bg-stone-900/60 px-3 text-xs text-white/40 font-semibold">or</span></div>
                 </div>
-                <button type="button" onClick={demoLogin} disabled={loading} data-testid="sa-demo-btn" className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-white/20 hover:border-white/50 text-white/80 h-12 text-sm font-semibold transition-colors disabled:opacity-50">
+                <button type="button" onClick={demoLogin} disabled={isDisabled} data-testid="sa-demo-btn" className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-white/20 hover:border-white/50 text-white/80 h-12 text-sm font-semibold transition-colors disabled:opacity-50">
                   <Shield className="h-4 w-4" />
                   Demo Login - Dr. Isla Fernandez
                 </button>

@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Check, ArrowRight, Sparkles, Building2, Users, Zap, Crown } from "lucide-react";
 import HipaaBadge from "@/components/HipaaBadge";
-import { useRouteMe } from "@/context/RouteMeContext";
 
 const TIERS = [
   {
@@ -29,9 +28,9 @@ const TIERS = [
     name: "Growth",
     kicker: "For small home health teams",
     icon: Sparkles,
-    price: 65,
-    priceLabel: "$65",
-    priceSub: "per seat / month · up to 20 seats",
+    price: 69,
+        priceLabel: "$69",
+        priceSub: "per seat / month · up to 25 seats",
     cta: "Start Growth trial",
         ctaLink: "/signup?plan=growth",
     highlight: true,
@@ -50,11 +49,11 @@ const TIERS = [
     name: "Scale",
     kicker: "For multi-region agencies",
     icon: Zap,
-    price: 55,
-    priceLabel: "$55",
-    priceSub: "per seat / month · up to 100 seats",
-    cta: "Talk to sales",
-        ctaLink: "/signup?plan=scale",
+    price: 79,
+        priceLabel: "$79",
+        priceSub: "per seat / month · up to 100 seats",
+        cta: "Talk to sales",
+            ctaLink: "/signup?plan=scale",
     features: [
       "Everything in Growth",
       "SSO / SAML authentication",
@@ -111,14 +110,46 @@ const FAQ = [
 
 export default function Pricing() {
   const [billing, setBilling] = useState("monthly");
-  const {  } = useRouteMe();
-    const navigate = useNavigate();
+  const [subscribing, setSubscribing] = useState(null); // tier id being processed
+  const navigate = useNavigate();
 
-  const handleCta = (tier) => {
+  const handleCta = async (tier) => {
       if (tier.ctaLink.startsWith("mailto:")) {
         window.location.href = tier.ctaLink;
-      } else {
+        return;
+      }
+      // Free tier: navigate to signup directly
+      if (tier.price === 0) {
         navigate(tier.ctaLink);
+        return;
+      }
+      // Paid tiers: create Stripe Checkout session via server proxy
+      setSubscribing(tier.id);
+      try {
+        // Map tier+interval to Stripe Price ID via server-side PRICE_MAP
+        const priceId = tier.id === "growth"
+          ? (billing === "annual" ? "price_growth_annual" : "price_growth_monthly")
+          : (billing === "annual" ? "price_scale_annual" : "price_scale_monthly");
+        // These placeholder price IDs will be replaced with real Stripe IDs from .env
+        const res = await fetch("/api/create-checkout-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            priceId,
+            agencyId: "new", // set after signup flow — agency creates account first
+            email: "",
+          }),
+        });
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          console.error("Checkout error:", data.error);
+          setSubscribing(null);
+        }
+      } catch (err) {
+        console.error("Checkout error:", err);
+        setSubscribing(null);
       }
     };
 
@@ -255,7 +286,8 @@ export default function Pricing() {
                   <button
                     data-testid={`tier-cta-${t.id}`}
                     onClick={() => handleCta(t)}
-                    className={`mt-6 w-full inline-flex items-center justify-center gap-2 rounded-full h-11 text-sm font-semibold transition-colors ${
+                                        disabled={subscribing !== null}
+                                        className={`mt-6 w-full inline-flex items-center justify-center gap-2 rounded-full h-11 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-wait ${
                       t.highlight
                         ? "bg-[#D95D39] hover:bg-[#C05030] text-white"
                         : t.id === "enterprise"

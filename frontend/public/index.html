@@ -5,6 +5,17 @@
             <meta name="viewport" content="width=device-width, initial-scale=1" />
             <meta name="theme-color" content="#2e4a3a" />
             <meta name="description" content="RouteMe — home health routing that saves you 30 minutes a day." />
+            <meta http-equiv="Content-Security-Policy" content="
+              default-src 'self';
+              script-src 'self' https://api.mapbox.com https://events.mapbox.com https://js.stripe.com 'unsafe-inline';
+              style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+              font-src 'self' https://fonts.gstatic.com;
+              img-src 'self' data: blob: https://*.mapbox.com https://images.unsplash.com https://api.mapbox.com;
+              connect-src 'self' https://*.supabase.co https://api.mapbox.com https://events.mapbox.com https://api.openweathermap.org https://openrouter.ai https://api.stripe.com;
+                            frame-src https://js.stripe.com https://hooks.stripe.com;
+              object-src 'none';
+              base-uri 'self';
+            ">
             <link rel="preconnect" href="https://fonts.googleapis.com" />
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
             <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />

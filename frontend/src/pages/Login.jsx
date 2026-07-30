@@ -1,17 +1,34 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ArrowRight, ShieldCheck, LogIn } from "lucide-react";
+import { ArrowRight, ShieldCheck, LogIn, Clock } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { signIn, DEMO_ACCOUNTS } from "@/lib/supabase";
 import HipaaBadge from "@/components/HipaaBadge";
 
 export default function Login() {
-  const { setAuthed, pushAudit } = useRouteMe();
+  const { setAuthed, authed, pushAudit } = useRouteMe();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [rateLimited, setRateLimited] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
+  // Countdown timer for rate limit
+  useEffect(() => {
+    if (!rateLimited || countdown <= 0) return;
+    const t = setInterval(() => setCountdown((c) => c - 1), 1000);
+    return () => clearInterval(t);
+  }, [rateLimited, countdown]);
+
+  // Navigate only after authed state has committed — prevents race
+  useEffect(() => {
+    if (authed) {
+      pushAudit("Signed in", "read");
+      navigate("/app/dashboard");
+    }
+  }, [authed, navigate, pushAudit]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -21,34 +38,46 @@ export default function Login() {
       return;
     }
     setLoading(true);
-    const { user, error: signInError } = await signIn(email.trim(), password);
+    const { user, error: signInError, rateLimited: rl, waitSeconds } = await signIn(email.trim(), password);
     setLoading(false);
+    if (rl) {
+      setRateLimited(true);
+      setCountdown(waitSeconds || 15);
+      setError(signInError?.message || "Too many login attempts.");
+      return;
+    }
     if (signInError) {
       setError(signInError.message || "Invalid email or password.");
       return;
     }
     if (user) {
-      pushAudit("Signed in", "read");
-      navigate("/app/dashboard");
+      setAuthed(true);
     }
   };
 
   const demoLogin = async () => {
     setError("");
     setLoading(true);
-    const { user, error: signInError } = await signIn(
+    const { user, error: signInError, rateLimited: rl, waitSeconds } = await signIn(
       DEMO_ACCOUNTS.nurse.email, DEMO_ACCOUNTS.nurse.password
     );
     setLoading(false);
+    if (rl) {
+      setRateLimited(true);
+      setCountdown(waitSeconds || 15);
+      setError(signInError?.message || "Too many login attempts.");
+      return;
+    }
     if (signInError) {
       setError("Demo login failed: " + signInError.message + '. Make sure the demo user is created in Supabase Auth.');
       return;
     }
     if (user) {
-      pushAudit("Demo signed in", "read");
-      navigate("/app/dashboard");
+      setAuthed(true);
     }
   };
+
+  const isDisabled = loading || (rateLimited && countdown > 0);
 
   return (
     <div className="min-h-screen bg-[#F9F8F6] grid lg:grid-cols-2">
@@ -91,24 +120,33 @@ export default function Login() {
           <form onSubmit={submit} className="mt-8 space-y-4">
             <div>
               <label className="text-xs font-semibold text-stone-700 tracking-wide">Email</label>
-              <input data-testid="login-email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required disabled={loading} placeholder="nurse@agency.com" className="mt-1.5 w-full h-12 rounded-xl border border-stone-200 bg-white px-4 text-sm focus:border-stone-400 focus:outline-none focus:ring-4 focus:ring-stone-100 transition-colors disabled:opacity-50" />
+              <input data-testid="login-email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required disabled={isDisabled} placeholder="nurse@agency.com" className="mt-1.5 w-full h-12 rounded-xl border border-stone-200 bg-white px-4 text-sm focus:border-stone-400 focus:outline-none focus:ring-4 focus:ring-stone-100 transition-colors disabled:opacity-50" />
             </div>
             <div>
               <label className="text-xs font-semibold text-stone-700 tracking-wide">Password</label>
-              <input data-testid="login-password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" required disabled={loading} placeholder="Enter your password" className="mt-1.5 w-full h-12 rounded-xl border border-stone-200 bg-white px-4 text-sm focus:border-stone-400 focus:outline-none focus:ring-4 focus:ring-stone-100 transition-colors disabled:opacity-50" />
+              <input data-testid="login-password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" required disabled={isDisabled} placeholder="Enter your password" className="mt-1.5 w-full h-12 rounded-xl border border-stone-200 bg-white px-4 text-sm focus:border-stone-400 focus:outline-none focus:ring-4 focus:ring-stone-100 transition-colors disabled:opacity-50" />
               <div className="flex justify-end mt-1">
                 <Link to="/forgot-password" className="text-xs text-stone-500 hover:text-stone-900 hover:underline font-semibold">Forgot password?</Link>
               </div>
             </div>
             {error && (
-              <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 font-medium flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
-                {error}
+              <div className={`rounded-xl px-4 py-3 text-sm font-medium flex items-center gap-2 ${
+                rateLimited
+                  ? "bg-amber-50 border border-amber-200 text-amber-700"
+                  : "bg-red-50 border border-red-200 text-red-700"
+              }`}>
+                {rateLimited ? <Clock className="h-4 w-4 shrink-0" /> : <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />}
+                <span>{error}</span>
+                {countdown > 0 && (
+                  <span className="ml-auto font-bold text-sm tabular-nums">{countdown}s</span>
+                )}
               </div>
             )}
-            <button data-testid="login-submit" type="submit" disabled={loading} className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] disabled:bg-stone-300 disabled:cursor-not-allowed text-white h-12 text-sm font-semibold transition-colors">
+            <button data-testid="login-submit" type="submit" disabled={isDisabled} className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#D95D39] hover:bg-[#C05030] disabled:bg-stone-300 disabled:cursor-not-allowed text-white h-12 text-sm font-semibold transition-colors">
               {loading ? (
                 <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+              ) : rateLimited ? (
+                <>Try again in {countdown}s <Clock className="h-4 w-4" /></>
               ) : (
                 <>Enter workspace <ArrowRight className="h-4 w-4" /></>
               )}
@@ -117,7 +155,7 @@ export default function Login() {
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-stone-200" /></div>
               <div className="relative flex justify-center"><span className="bg-white px-3 text-xs text-stone-400 font-semibold">or</span></div>
             </div>
-            <button type="button" onClick={demoLogin} disabled={loading} data-testid="demo-login-btn" className="w-full inline-flex items-center justify-center gap-2 rounded-full border-2 border-[#D95D39]/30 hover:border-[#D95D39] text-[#D95D39] h-12 text-sm font-semibold transition-colors disabled:opacity-50">
+            <button type="button" onClick={demoLogin} disabled={isDisabled} data-testid="demo-login-btn" className="w-full inline-flex items-center justify-center gap-2 rounded-full border-2 border-[#D95D39]/30 hover:border-[#D95D39] text-[#D95D39] h-12 text-sm font-semibold transition-colors disabled:opacity-50">
               <LogIn className="h-4 w-4" />
               Demo Login - Amara Okafor, RN
             </button>

@@ -7,7 +7,12 @@ import RouteBuilderModal from "@/components/RouteBuilderModal";
 import RemoveFromRouteModal from "@/components/RemoveFromRouteModal";
 import { formatTimeWindow } from "@/lib/utils";
 import { metersToMiles, secondsToShort, googleMapsUrl, appleMapsUrl } from "@/lib/directions";
+import { detectMapsApp, resolveNav, getRawNav } from "@/lib/maps";
 import { logRouteState, logBaselineChange } from "@/lib/routeDebugger";
+import EvvClockInOut from "@/components/EvvClockInOut";
+import ServiceCodePicker from "@/components/ServiceCodePicker";
+import OverrideReasonDialog from "@/components/OverrideReasonDialog";
+import { captureGps, prewarmGps, checkGeofence, DEFAULT_SERVICE_CODES } from "@/lib/evvService";
 
 const OPTIMIZATION_MODES = [
   { id: "ai", label: "AI smart route", icon: Brain, desc: "Balances priority, traffic, time windows, and distance using a weighted heuristic model. Considers day-of-week traffic patterns & weather." },
@@ -27,9 +32,28 @@ export default function RouteView() {
     weatherData, weatherLoading, nurse, resetRouteOrder, navPreference,
     routeActive, startRoute, endRoute, visitedIds, markVisited,
     builderOpen, setBuilderOpen, builderTab, setBuilderTab,
+    evvVisits, evvOverrideOpen, setEvvOverrideOpen,
+    evvClockIn, evvClockOut, evvSetCode, evvAddOverrideReason,
+    evvRecentCodes,
   } = useRouteMe();
 
+  // Pre-warm GPS chip when route page mounts
+  useEffect(() => {
+    prewarmGps();
+  }, []);
+
   const [selected, setSelected] = useState(schedule[0]?.id);
+  const [routeNavOverride, setRouteNavOverride] = useState(() => {
+    try { return sessionStorage.getItem("routeme:routeNavOverride") || ""; }
+    catch { return ""; }
+  });
+
+  // Persist routeNavOverride to sessionStorage on change (survives page navigation)
+  useEffect(() => {
+    try { sessionStorage.setItem("routeme:routeNavOverride", routeNavOverride); }
+    catch { /* sessionStorage unavailable */ }
+  }, [routeNavOverride]);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [removeModalOpen, setRemoveModalOpen] = useState(false);
   const [clientToRemove, setClientToRemove] = useState(null);
@@ -38,7 +62,30 @@ export default function RouteView() {
   const [dragOverIdx, setDragOverIdx] = useState(null);
   const [justSaved, setJustSaved] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
+  const [geofenceEnabled, setGeofenceEnabled] = useState(false);
+  const [geofencePrompt, setGeofencePrompt] = useState(null); // { clientId, distance }
   const dragItem = useRef(null);
+
+  // Geofence: periodically check if nurse is near an unvisited client
+  useEffect(() => {
+    if (!geofenceEnabled || !routeActive) {
+      setGeofencePrompt(null);
+      return;
+    }
+    const check = async () => {
+      const unvisited = schedule.filter((c) => !visitedIds.includes(c.id) && c.lat && c.lng);
+      if (unvisited.length === 0) return;
+      // Check against the first unvisited client (closest in distance)
+      const target = unvisited[0];
+      const result = await checkGeofence(target.lat, target.lng, 50);
+      if (result?.matched) {
+        setGeofencePrompt({ clientId: target.id, distance: Math.round(result.distance) });
+      }
+    };
+    check();
+    const id = setInterval(check, 30000);
+    return () => clearInterval(id);
+  }, [geofenceEnabled, routeActive, schedule, visitedIds]);
 
   const active = schedule.find((s) => s.id === selected) || schedule[0];
   const totalMin = schedule.reduce((s, c) => s + (c.duration || 30), 0);
@@ -254,6 +301,62 @@ export default function RouteView() {
               </button>
             )
           )}
+          {/* Per-route nav override */}
+          <div className="relative group">
+            <button
+              onClick={() => {
+                const opts = ["", "auto", "google", "apple", "both"];
+                const idx = opts.indexOf(routeNavOverride);
+                setRouteNavOverride(opts[(idx + 1) % opts.length]);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-stone-300 px-4 py-3 text-sm font-semibold text-stone-700 hover:bg-stone-50 transition-colors"
+              title={`Navigation: ${routeNavOverride || "Profile default"}`}
+            >
+              <Navigation className="h-4 w-4" />
+              <span className="hidden sm:inline text-xs">
+                {routeNavOverride
+                  ? routeNavOverride === "auto" ? "Auto" : routeNavOverride === "google" ? "Google" : routeNavOverride === "apple" ? "Apple" : "Ask each"
+                  : "Default"}
+              </span>
+            </button>
+            <div className="absolute right-0 top-full mt-1 bg-white border border-stone-200 rounded-xl shadow-lg p-1.5 hidden group-hover:block min-w-[140px] z-50">
+              {[
+                { value: "", label: "Profile default" },
+                { value: "auto", label: "Auto-detect" },
+                { value: "google", label: "Google Maps" },
+                { value: "apple", label: "Apple Maps" },
+                { value: "both", label: "Ask each time" },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setRouteNavOverride(opt.value)}
+                  className={`block w-full text-left px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                    routeNavOverride === opt.value
+                      ? "bg-[#D95D39]/10 text-[#D95D39] font-semibold"
+                      : "text-stone-700 hover:bg-stone-100"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Geofence auto-detect toggle */}
+          {routeActive && (
+            <button
+              onClick={() => setGeofenceEnabled(prev => !prev)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-3 text-sm font-semibold transition-colors ${
+                geofenceEnabled
+                  ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                  : "border-stone-300 text-stone-600 hover:bg-stone-50"
+              }`}
+              title={geofenceEnabled ? "Auto-detect when near a client" : "Tap to enable auto-detect"}
+            >
+              <MapPin className="h-4 w-4" />
+              <span className="hidden sm:inline text-xs">Geofence</span>
+              {geofenceEnabled && <CheckCircle className="h-3 w-3 text-emerald-500" />}
+            </button>
+          )}
           <button
             onClick={handleSaveRoute}
             data-testid="save-route-header-btn"
@@ -352,11 +455,47 @@ export default function RouteView() {
         </div>
       )}
 
+      {/* ── Geofence prompt ── */}
+      {geofencePrompt && (() => {
+        const matched = schedule.find((s) => s.id === geofencePrompt.clientId);
+        if (!matched) return null;
+        return (
+          <div className="flex items-center gap-3 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">
+            <MapPin className="h-5 w-5 shrink-0 text-emerald-600" />
+            <div className="flex-1">
+              <p className="font-semibold">
+                You're near {matched.fullName || "a client"} ({geofencePrompt.distance}m away)
+              </p>
+              <p className="text-xs text-emerald-600 mt-0.5">
+                Tap the stop to clock in and start the visit.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setSelected(geofencePrompt.clientId);
+                setGeofencePrompt(null);
+              }}
+              className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-semibold transition-colors"
+            >
+              <PlayCircle className="h-3.5 w-3.5" />
+              Select Stop
+            </button>
+            <button
+              onClick={() => setGeofencePrompt(null)}
+              className="shrink-0 p-1.5 rounded-full hover:bg-emerald-100 transition-colors"
+              title="Dismiss"
+            >
+              <X className="h-4 w-4 text-emerald-500" />
+            </button>
+          </div>
+        );
+      })()}
+
       {/* ── Map + Timeline ── */}
       <div className="grid lg:grid-cols-12 gap-6">
         {/* Map */}
         <div className="lg:col-span-8 space-y-4">
-          <StylizedMap onStopClick={setSelected} />
+          <StylizedMap onStopClick={setSelected} routeNavOverride={routeNavOverride} />
 
           {/* Route summary strip */}
           <div className="grid grid-cols-4 gap-3">
@@ -484,21 +623,32 @@ export default function RouteView() {
                         )}
                       </div>
 
-                      {/* Action buttons: Mark visited + Remove */}
+                      {/* EVV: Clock-in/out + Service code */}
                       {routeActive && !isVisited && !dragEnabled && (
-                        <div className="flex items-center gap-1 shrink-0 mt-2">
-                          {/* Mark as visited */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              markVisited(c.id, c.fullName);
-                            }}
-                            data-testid={`mark-visited-${idx + 1}`}
-                            className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-100 text-emerald-600 hover:bg-emerald-200 transition-colors"
-                            title="Mark as visited"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                          </button>
+                        <div className="flex flex-col items-end gap-1.5 shrink-0 mt-1">
+                          <EvvClockInOut
+                            clientId={c.id}
+                            clientName={c.fullName}
+                            clientLat={c.lat}
+                            clientLng={c.lng}
+                            evvStatus={evvVisits[c.id]?.status || null}
+                            onClockIn={evvClockIn}
+                            onClockOut={evvClockOut}
+                            disabled={false}
+                          />
+                          {evvVisits[c.id]?.status === "clocked_in" && (
+                            <div className="w-32">
+                              <ServiceCodePicker
+                                value={evvVisits[c.id]?.serviceCode || ""}
+                                onChange={(code) => {
+                                  const match = DEFAULT_SERVICE_CODES.find((s) => s.code === code);
+                                  evvSetCode(c.id, code, match?.description || null);
+                                }}
+                                disabled={false}
+                                recentCodes={evvRecentCodes}
+                              />
+                            </div>
+                          )}
                           {/* Remove from route */}
                           <button
                             onClick={(e) => {
@@ -531,7 +681,8 @@ export default function RouteView() {
                             setRemoveModalOpen(true);
                           }}
                           data-testid={`remove-stop-${idx + 1}`}
-                          className="h-7 w-7 rounded-full flex items-center justify-center text-stone-400 hover:text-[#D95D39] hover:bg-[#F7E5DD] transition-colors shrink-0 mt-2.5"
+                          className="h-7 w-7 rounded-full flex items-center justify-center text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          title="Remove from route"
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
@@ -638,26 +789,36 @@ export default function RouteView() {
                 <Stethoscope className="h-4 w-4" /> Visit note
               </button>
               {/* Navigation buttons */}
-              {active.lat && active.lng && (navPreference === "google" || navPreference === "both") && (
-                <a
-                  href={googleMapsUrl(active.lat, active.lng, active.address)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-full border border-blue-300 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50 transition-colors"
-                >
-                  <Navigation className="h-4 w-4" /> Google Maps
-                </a>
-              )}
-              {active.lat && active.lng && (navPreference === "apple" || navPreference === "both") && (
-                <a
-                  href={appleMapsUrl(active.lat, active.lng)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-full border border-stone-300 px-4 py-2.5 text-sm font-semibold text-stone-800 hover:bg-stone-50 transition-colors"
-                >
-                  <Navigation className="h-4 w-4" /> Apple Maps
-                </a>
-              )}
+              {active.lat && active.lng && (() => {
+                const panelNav = resolveNav(routeNavOverride, navPreference);
+                const panelRaw = getRawNav(routeNavOverride, navPreference);
+                return (
+                  <>
+                    {(panelNav === "google" || panelRaw === "both") && (
+                      <a
+                        href={googleMapsUrl(active.lat, active.lng)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 rounded-full border border-blue-300 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50 transition-colors"
+                        aria-label={`Open directions to ${active.fullName} in Google Maps (opens in new tab)`}
+                      >
+                        <Navigation className="h-4 w-4" /> Google Maps
+                      </a>
+                    )}
+                    {(panelNav === "apple" || panelRaw === "both") && (
+                      <a
+                        href={appleMapsUrl(active.lat, active.lng)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 rounded-full border border-stone-300 px-4 py-2.5 text-sm font-semibold text-stone-800 hover:bg-stone-50 transition-colors"
+                        aria-label={`Open directions to ${active.fullName} in Apple Maps (opens in new tab)`}
+                      >
+                        <Navigation className="h-4 w-4" /> Apple Maps
+                      </a>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -767,6 +928,12 @@ export default function RouteView() {
         client={clientToRemove}
         onRemoveFromRoute={removeFromRoute}
         onReschedule={rescheduleClient}
+      />
+
+      <OverrideReasonDialog
+        open={evvOverrideOpen !== null}
+        onClose={() => setEvvOverrideOpen(null)}
+        onSubmit={(data) => evvAddOverrideReason(evvOverrideOpen, data)}
       />
     </div>
   );

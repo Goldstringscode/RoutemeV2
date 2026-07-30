@@ -37,13 +37,36 @@ export default function AgencyOverview() {
             {activeNurses.length} nurses on shift · {visitsToday} visits in motion · {agency.hipaaScore}% HIPAA score.
           </p>
         </div>
-        <Link
-          to="/agency/nurses"
-          data-testid="overview-invite-btn"
-          className="inline-flex items-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 text-white px-5 py-3 text-sm font-semibold transition-colors self-start"
-        >
-          <Plus className="h-4 w-4" /> Invite nurse
-        </Link>
+        <div className="flex items-center gap-3 flex-wrap">
+                  <Link
+                    to="/agency/nurses"
+                    data-testid="overview-invite-btn"
+                    className="inline-flex items-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 text-white px-5 py-3 text-sm font-semibold transition-colors self-start"
+                  >
+                    <Plus className="h-4 w-4" /> Invite nurse
+                  </Link>
+                  {/* Subscription status + Manage Billing */}
+                  {agency.stripeCustomerId && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch("/api/create-portal-session", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ customerId: agency.stripeCustomerId }),
+                          });
+                          const data = await res.json();
+                          if (data.url) window.location.href = data.url;
+                        } catch (err) {
+                          console.error("Portal error:", err);
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 rounded-full border border-stone-300 hover:bg-stone-50 text-stone-700 px-5 py-3 text-sm font-semibold transition-colors self-start"
+                    >
+                      Manage Billing
+                    </button>
+                  )}
+                </div>
       </div>
 
       {/* KPI row */}

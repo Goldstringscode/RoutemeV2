@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import { Link } from "react-router-dom";
 import mapboxgl from "mapbox-gl";
 import { useRouteMe } from "@/context/RouteMeContext";
+import { detectMapsApp, googleMapsUrl, appleMapsUrl, resolveNav, getRawNav } from "@/lib/maps";
 
 const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 const ROUTE_SOURCE = "route-source";
@@ -15,7 +16,7 @@ const devLog = (...args) => { if (process.env.NODE_ENV !== 'production') console
  * When route is active, visited stops show green checkmarks and are excluded from the route line.
  * Hovering over a stop shows a tooltip with client info, profile link, and remove button.
  */
-export default function StylizedMap({ compact = false, onStopClick }) {
+export default function StylizedMap({ compact = false, onStopClick, routeNavOverride }) {
   const { schedule, routeGeoJson, routeDistance, routeDuration, nurse, routeActive, visitedIds, removeFromRoute, clients, navPreference } = useRouteMe();
   const homeBase = nurse?.homeBase;
   const mapContainer = useRef(null);
@@ -272,29 +273,33 @@ export default function StylizedMap({ compact = false, onStopClick }) {
 
   const hoveredClient = hoveredStop ? clientMap[hoveredStop.id] : null;
 
-  const openGoogleMaps = (e, lat, lng) => {
-    e.stopPropagation();
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
-    setNavChooserOpen(false);
-  };
+    // Resolve nav preference: per-route override > profile default > auto-detect
+    const resolvedNav = routeNavOverride || navPreference;
+    const effectiveNav = resolvedNav === 'auto' ? detectMapsApp() : resolvedNav;
 
-  const openAppleMaps = (e, lat, lng) => {
-    e.stopPropagation();
-    window.open(`https://maps.apple.com/?daddr=${lat},${lng}`, '_blank');
-    setNavChooserOpen(false);
-  };
+    const openGoogleMaps = (e, lat, lng) => {
+        e.stopPropagation();
+        window.open(googleMapsUrl(lat, lng), '_blank', 'noopener,noreferrer');
+        setNavChooserOpen(false);
+      };
+
+      const openAppleMaps = (e, lat, lng) => {
+        e.stopPropagation();
+        window.open(appleMapsUrl(lat, lng), '_blank', 'noopener,noreferrer');
+        setNavChooserOpen(false);
+      };
 
   const handleAddressClick = (e, lat, lng) => {
-    e.stopPropagation();
-    if (navPreference === "google") {
-      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
-    } else if (navPreference === "apple") {
-      window.open(`https://maps.apple.com/?daddr=${lat},${lng}`, '_blank');
-    } else {
-      // "both" - show chooser popup
-      setNavChooserOpen(true);
-    }
-  };
+        e.stopPropagation();
+        if (effectiveNav === "google") {
+          window.open(googleMapsUrl(lat, lng), '_blank', 'noopener,noreferrer');
+        } else if (effectiveNav === "apple") {
+          window.open(appleMapsUrl(lat, lng), '_blank', 'noopener,noreferrer');
+        } else {
+        // "both" - show chooser popup
+        setNavChooserOpen(true);
+      }
+    };
 
   return (
     <div
@@ -395,32 +400,34 @@ export default function StylizedMap({ compact = false, onStopClick }) {
                         <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">Seen</span>
                       )}
                     </div>
-                    {navPreference === "both" ? (
-                                          <button
-                                            className="text-xs text-stone-500 truncate text-left w-full hover:text-blue-600 hover:underline transition-colors"
-                                            onClick={(e) => hoveredClient.lat && hoveredClient.lng && handleAddressClick(e, hoveredClient.lat, hoveredClient.lng)}
-                                            title="Choose navigation app"
-                                          >
-                                            {hoveredClient.address}
-                                            <span className="ml-1 text-[10px] opacity-60">↗</span>
-                                          </button>
-                                        ) : (
-                                          <a
-                                            href={hoveredClient.lat && hoveredClient.lng
-                                              ? (navPreference === "google"
-                                                  ? `https://www.google.com/maps/dir/?api=1&destination=${hoveredClient.lat},${hoveredClient.lng}`
-                                                  : `https://maps.apple.com/?daddr=${hoveredClient.lat},${hoveredClient.lng}`)
-                                              : "#"}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-xs text-stone-500 truncate hover:text-blue-600 hover:underline transition-colors"
-                                            title={`Open in ${navPreference === "google" ? "Google" : "Apple"} Maps`}
-                                            onClick={(e) => e.stopPropagation()}
-                                          >
-                                            {hoveredClient.address}
-                                            <span className="ml-1 text-[10px] opacity-60">↗</span>
-                                          </a>
-                                        )}
+                    {resolvedNav === "both" ? (
+                                                                                  <button
+                                                                                    className="text-xs text-stone-500 truncate text-left w-full hover:text-blue-600 hover:underline transition-colors"
+                                                                                    onClick={(e) => hoveredClient.lat && hoveredClient.lng && handleAddressClick(e, hoveredClient.lat, hoveredClient.lng)}
+                                                                                    title="Choose navigation app"
+                                                                                    aria-label={`Open directions to ${hoveredClient.address} — choose Google or Apple Maps`}
+                                                                                  >
+                                                                {hoveredClient.address}
+                                                                <span className="ml-1 text-[10px] opacity-60">↗</span>
+                                                              </button>
+                                                            ) : (
+                                                              <a
+                                                                                                                              href={hoveredClient.lat && hoveredClient.lng
+                                                                                                                                ? (effectiveNav === "google"
+                                                                                                                                    ? googleMapsUrl(hoveredClient.lat, hoveredClient.lng)
+                                                                                                                                    : appleMapsUrl(hoveredClient.lat, hoveredClient.lng))
+                                                                                                                                : "#"}
+                                                                                                                              target="_blank"
+                                                                                                                              rel="noopener noreferrer"
+                                                                                                                              className="text-xs text-stone-500 truncate hover:text-blue-600 hover:underline transition-colors"
+                                                                                                                              title={`Open in ${effectiveNav === "google" ? "Google" : "Apple"} Maps`}
+                                                                                                                              aria-label={`Open directions to ${hoveredClient.address} in ${effectiveNav === "google" ? "Google" : "Apple"} Maps (opens in new tab)`}
+                                                                                                                              onClick={(e) => e.stopPropagation()}
+                                                                                                                            >
+                                                                {hoveredClient.address}
+                                                                <span className="ml-1 text-[10px] opacity-60">↗</span>
+                                                              </a>
+                                                            )}
                     <p className="text-xs text-stone-500 mt-0.5">{hoveredClient.condition}</p>
                     <div className="flex items-center gap-2 mt-3">
                       <Link

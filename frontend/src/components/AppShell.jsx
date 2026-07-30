@@ -261,9 +261,9 @@ export default function AppShell() {
         </button>
 
         {/* Toast notification */}
-        <ToastNotification notification={latestToast} onDismiss={dismissNotification} />
+                <ToastNotification notification={latestToast} onDismiss={dismissNotification} />
 
-        {/* Modals */}
+                {/* Modals */}
         <NoteModal />
         <NewActionModal open={newActionOpen} onClose={() => setNewActionOpen(false)} />
 

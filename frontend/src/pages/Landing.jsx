@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, ShieldCheck, MapPin, FileText, Clock, Fuel, Building2 } from "lucide-react";
 import HipaaBadge from "@/components/HipaaBadge";
@@ -26,12 +26,19 @@ const HIGHLIGHTS = [
 ];
 
 export default function Landing() {
-  const { setAgencyAuthed } = useRouteMe();
+  const { setAgencyAuthed, agencyAuthed } = useRouteMe();
   const navigate = useNavigate();
+
+  // Navigate only after agencyAuthed state has committed
+  useEffect(() => {
+    if (agencyAuthed) {
+      navigate("/agency/overview");
+    }
+  }, [agencyAuthed, navigate]);
 
   const enterAgency = () => {
     setAgencyAuthed(true);
-    navigate("/agency/overview");
+    // Navigation happens in useEffect above
   };
 
   return (

@@ -1,18 +1,34 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Building2 } from "lucide-react";
+import { ArrowRight, Building2, Clock } from "lucide-react";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { signIn, DEMO_ACCOUNTS } from "@/lib/supabase";
 import HipaaBadge from "@/components/HipaaBadge";
 
 export default function AgencyLogin() {
-  const { setAgencyAuthed, agency } = useRouteMe();
+  const { setAgencyAuthed, agencyAuthed, agency } = useRouteMe();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [rateLimited, setRateLimited] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
+  // Countdown timer for rate limit
+  useEffect(() => {
+    if (!rateLimited || countdown <= 0) return;
+    const t = setInterval(() => setCountdown((c) => c - 1), 1000);
+    return () => clearInterval(t);
+  }, [rateLimited, countdown]);
+
+  // Navigate only after agencyAuthed state has committed
+  useEffect(() => {
+    if (agencyAuthed) {
+      navigate("/agency/overview");
+    }
+  }, [agencyAuthed, navigate]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -22,25 +38,36 @@ export default function AgencyLogin() {
       return;
     }
     setLoading(true);
-    const { user, error: signInError } = await signIn(email.trim(), password);
+    const { user, error: signInError, rateLimited: rl, waitSeconds } = await signIn(email.trim(), password);
     setLoading(false);
+    if (rl) {
+      setRateLimited(true);
+      setCountdown(waitSeconds || 15);
+      setError(signInError?.message || "Too many login attempts.");
+      return;
+    }
     if (signInError) {
       setError(signInError.message || "Invalid credentials.");
       return;
     }
     if (user) {
       setAgencyAuthed(true);
-      navigate("/agency/overview");
     }
   };
 
   const demoLogin = async () => {
     setError("");
     setLoading(true);
-    const { user, error: signInError } = await signIn(
+    const { user, error: signInError, rateLimited: rl, waitSeconds } = await signIn(
       DEMO_ACCOUNTS.agency.email, DEMO_ACCOUNTS.agency.password
     );
     setLoading(false);
+    if (rl) {
+      setRateLimited(true);
+      setCountdown(waitSeconds || 15);
+      setError(signInError?.message || "Too many login attempts.");
+      return;
+    }
     if (signInError) {
       setError("Demo login failed: " + signInError.message);
       return;
@@ -48,9 +75,10 @@ export default function AgencyLogin() {
     if (user) {
       setCode(DEMO_ACCOUNTS.agency.code);
       setAgencyAuthed(true);
-      navigate("/agency/overview");
     }
   };
+
+  const isDisabled = loading || (rateLimited && countdown > 0);
 
   return (
     <div className="min-h-screen bg-[#F9F8F6] grid lg:grid-cols-5">
@@ -72,31 +100,42 @@ export default function AgencyLogin() {
               <label className="text-xs font-semibold text-stone-700 tracking-wide">Agency code</label>
               <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 h-12">
                 <Building2 className="h-4 w-4 text-stone-400" />
-                <input data-testid="agency-code" value={code} onChange={(e) => setCode(e.target.value)} disabled={loading} className="flex-1 bg-transparent text-sm outline-none tracking-widest font-semibold" />
+                <input data-testid="agency-code" value={code} onChange={(e) => setCode(e.target.value)} disabled={isDisabled} className="flex-1 bg-transparent text-sm outline-none tracking-widest font-semibold" />
               </div>
             </div>
             <div>
               <label className="text-xs font-semibold text-stone-700 tracking-wide">Director email</label>
-              <input data-testid="agency-email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required disabled={loading} className="mt-1.5 w-full h-12 rounded-xl border border-stone-200 bg-white px-4 text-sm focus:border-stone-400" />
+              <input data-testid="agency-email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required disabled={isDisabled} className="mt-1.5 w-full h-12 rounded-xl border border-stone-200 bg-white px-4 text-sm focus:border-stone-400" />
             </div>
             <div>
               <label className="text-xs font-semibold text-stone-700 tracking-wide">Password</label>
-              <input data-testid="agency-password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" required disabled={loading} className="mt-1.5 w-full h-12 rounded-xl border border-stone-200 bg-white px-4 text-sm focus:border-stone-400" />
+              <input data-testid="agency-password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" required disabled={isDisabled} className="mt-1.5 w-full h-12 rounded-xl border border-stone-200 bg-white px-4 text-sm focus:border-stone-400" />
             </div>
             {error && (
-              <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 font-medium flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
-                {error}
+              <div className={`rounded-xl px-4 py-3 text-sm font-medium flex items-center gap-2 ${
+                rateLimited
+                  ? "bg-amber-50 border border-amber-200 text-amber-700"
+                  : "bg-red-50 border border-red-200 text-red-700"
+              }`}>
+                {rateLimited ? <Clock className="h-4 w-4 shrink-0" /> : <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />}
+                <span>{error}</span>
+                {countdown > 0 && <span className="ml-auto font-bold text-sm tabular-nums">{countdown}s</span>}
               </div>
             )}
-            <button data-testid="agency-login-submit" type="submit" disabled={loading} className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 disabled:bg-stone-400 disabled:cursor-not-allowed text-white h-12 text-sm font-semibold transition-colors">
-              {loading ? <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <>Enter command center <ArrowRight className="h-4 w-4" /></>}
+            <button data-testid="agency-login-submit" type="submit" disabled={isDisabled} className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 disabled:bg-stone-400 disabled:cursor-not-allowed text-white h-12 text-sm font-semibold transition-colors">
+              {loading ? (
+                <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+              ) : rateLimited ? (
+                <>Try again in {countdown}s <Clock className="h-4 w-4" /></>
+              ) : (
+                <>Enter command center <ArrowRight className="h-4 w-4" /></>
+              )}
             </button>
             <div className="relative my-4">
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-stone-200" /></div>
               <div className="relative flex justify-center"><span className="bg-white px-3 text-xs text-stone-400 font-semibold">or</span></div>
             </div>
-            <button type="button" onClick={demoLogin} disabled={loading} data-testid="agency-demo-btn" className="w-full inline-flex items-center justify-center gap-2 rounded-full border-2 border-stone-300 hover:border-stone-900 text-stone-700 h-12 text-sm font-semibold transition-colors disabled:opacity-50">
+            <button type="button" onClick={demoLogin} disabled={isDisabled} data-testid="agency-demo-btn" className="w-full inline-flex items-center justify-center gap-2 rounded-full border-2 border-stone-300 hover:border-stone-900 text-stone-700 h-12 text-sm font-semibold transition-colors disabled:opacity-50">
               <Building2 className="h-4 w-4" />
               Demo Login - Priya Nair (Sunrise HH)
             </button>

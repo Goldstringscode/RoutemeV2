@@ -204,19 +204,19 @@ export default function Profile() {
                         Choose which map app to use when opening directions for a client stop.
                       </p>
                       <div className="flex items-center gap-3 mt-3">
-                        {["google", "apple", "both"].map((opt) => (
-                          <button
-                            key={opt}
-                            onClick={() => setNavPreference(opt)}
-                            className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${
-                              navPreference === opt
-                                ? "bg-[#D95D39] text-white border-[#D95D39]"
-                                : "bg-white text-stone-700 border-stone-200 hover:border-stone-300"
-                            }`}
-                          >
-                            {opt === "google" ? "Google Maps" : opt === "apple" ? "Apple Maps" : "Both"}
-                          </button>
-                        ))}
+                        {["auto", "google", "apple", "both"].map((opt) => (
+                                                  <button
+                                                    key={opt}
+                                                    onClick={() => setNavPreference(opt)}
+                                                    className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${
+                                                      navPreference === opt
+                                                        ? "bg-[#D95D39] text-white border-[#D95D39]"
+                                                        : "bg-white text-stone-700 border-stone-200 hover:border-stone-300"
+                                                    }`}
+                                                  >
+                                                    {opt === "auto" ? "Auto-detect" : opt === "google" ? "Google Maps" : opt === "apple" ? "Apple Maps" : "Ask each time"}
+                                                  </button>
+                                                ))}
                       </div>
                     </div>
                   </div>

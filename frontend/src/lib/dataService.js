@@ -99,7 +99,8 @@ export async function updateSOAPNote(id, patch, userId) {
     if (patch.quickNote !== undefined) update.quick_note = patch.quickNote;
     if (patch.addendums !== undefined) update.addendums = patch.addendums;
 
-    const { error } = await supabase.from("soap_notes").update(update).eq("id", id);
+    // Ownership check: verify note belongs to this user
+    const { error } = await supabase.from("soap_notes").update(update).eq("id", id).eq("nurse_id", userId);
     if (error) throw error;
     return { error: null };
   } catch (err) {
@@ -108,8 +109,15 @@ export async function updateSOAPNote(id, patch, userId) {
   }
 }
 
-export async function addSOAPAddendum(noteId, { reason, text, author }) {
+export async function addSOAPAddendum(noteId, { reason, text, author }, userId) {
   try {
+    // Ownership check: verify note belongs to this user
+    if (userId) {
+      const { data: note } = await supabase.from("soap_notes").select("nurse_id").eq("id", noteId).single();
+      if (note?.nurse_id !== userId) {
+        return { data: null, error: "Unauthorized: this note does not belong to you" };
+      }
+    }
     // Read current addendums, append new one
     const { data: current, error: readError } = await supabase
       .from("soap_notes")
@@ -205,8 +213,15 @@ export async function saveVisit(visit, nurseId) {
   }
 }
 
-export async function updateVisitNote(visitId, notes) {
+export async function updateVisitNote(visitId, notes, nurseId) {
   try {
+    // Ownership check: verify visit belongs to this nurse
+    if (nurseId) {
+      const { data: visit } = await supabase.from("visits").select("nurse_id").eq("id", visitId).single();
+      if (visit?.nurse_id !== nurseId) {
+        return { error: "Unauthorized: visit does not belong to this nurse" };
+      }
+    }
     const { error } = await supabase.from("visits").update({ notes }).eq("id", visitId);
     if (error) throw error;
     return { error: null };
@@ -321,5 +336,202 @@ export async function loadLatestRouteSession(nurseId) {
   } catch (err) {
     devLog("loadLatestRouteSession error:", err.message);
     return { data: null };
+  }
+}
+
+/* ─── EVV (Electronic Visit Verification) ────────────── */
+
+/**
+ * Save an EVV clock-in event.
+ */
+export async function evvClockIn(nurseId, clientId, { lat, lng, accuracy, capturedAt, altitude, heading, speed, gpsFallbackMode }) {
+  if (!nurseId || !clientId) return { error: "nurseId and clientId required" };
+  try {
+    const { data, error } = await supabase
+      .from("evv_visits")
+      .insert([{
+        nurse_id: nurseId,
+        client_id: clientId,
+        visit_started_at: capturedAt || new Date().toISOString(),
+        start_lat: lat,
+        start_lng: lng,
+        start_gps_accuracy: accuracy,
+        start_gps_timestamp: capturedAt || new Date().toISOString(),
+        start_altitude: altitude ?? null,
+        start_heading: heading ?? null,
+        start_speed: speed ?? null,
+        gps_fallback_mode: gpsFallbackMode || null,
+        status: "clocked_in",
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    devLog("evvClockIn error:", err.message);
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Update an EVV visit with clock-out data.
+ */
+export async function evvClockOut(evvVisitId, { lat, lng, accuracy, capturedAt, altitude, heading, speed, gpsFallbackMode }) {
+  if (!evvVisitId) return { error: "evvVisitId required" };
+  try {
+    const { data, error } = await supabase
+      .from("evv_visits")
+      .update({
+        visit_ended_at: capturedAt || new Date().toISOString(),
+        end_lat: lat,
+        end_lng: lng,
+        end_gps_accuracy: accuracy,
+        end_gps_timestamp: capturedAt || new Date().toISOString(),
+        end_altitude: altitude ?? null,
+        end_heading: heading ?? null,
+        end_speed: speed ?? null,
+        status: "clocked_out",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", evvVisitId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    devLog("evvClockOut error:", err.message);
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Update EVV visit with service code.
+ */
+export async function evvSetServiceCode(evvVisitId, code, description) {
+  if (!evvVisitId) return { error: "evvVisitId required" };
+  try {
+    const { data, error } = await supabase
+      .from("evv_visits")
+      .update({ service_code: code, service_description: description, updated_at: new Date().toISOString() })
+      .eq("id", evvVisitId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    devLog("evvSetServiceCode error:", err.message);
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Add an override reason to an EVV visit.
+ */
+export async function evvAddOverride(evvVisitId, { reason, details, timestamp }) {
+  if (!evvVisitId) return { error: "evvVisitId required" };
+  try {
+    const { data, error } = await supabase
+      .from("evv_visits")
+      .update({
+        override_reason: details,
+        override_category: reason,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", evvVisitId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    devLog("evvAddOverride error:", err.message);
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Load EVV visits for a nurse on a given date.
+ */
+export async function loadEvvVisits(nurseId, date) {
+  if (!nurseId) return { data: [] };
+  try {
+    const startOfDay = date || new Date().toISOString().split("T")[0];
+    const { data, error } = await supabase
+      .from("evv_visits")
+      .select("*")
+      .eq("nurse_id", nurseId)
+      .gte("visit_started_at", `${startOfDay}T00:00:00Z`)
+      .lte("visit_started_at", `${startOfDay}T23:59:59Z`)
+      .order("visit_started_at", { ascending: true });
+
+    if (error) throw error;
+    return { data: data || [], error: null };
+  } catch (err) {
+    devLog("loadEvvVisits error:", err.message);
+    return { data: [], error: err };
+  }
+}
+
+/**
+ * Load agency EVV configuration.
+ */
+export async function loadAgencyEvvConfig(agencyId) {
+  if (!agencyId) return { data: null };
+  try {
+    const { data, error } = await supabase
+      .from("agency_evv_config")
+      .select("*")
+      .eq("agency_id", agencyId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    devLog("loadAgencyEvvConfig error:", err.message);
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Save agency EVV configuration.
+ */
+export async function saveAgencyEvvConfig(agencyId, config) {
+  if (!agencyId) return { error: "agencyId required" };
+  try {
+    const { data, error } = await supabase
+      .from("agency_evv_config")
+      .upsert({ agency_id: agencyId, ...config, updated_at: new Date().toISOString() })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    devLog("saveAgencyEvvConfig error:", err.message);
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Save continuous GPS readings to an EVV visit.
+ */
+export async function saveGpsReadings(evvVisitId, readings) {
+  if (!evvVisitId || !readings?.length) return { error: "evvVisitId and readings required" };
+  try {
+    const { data, error } = await supabase
+      .from("evv_visits")
+      .update({ gps_readings: readings, updated_at: new Date().toISOString() })
+      .eq("id", evvVisitId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    devLog("saveGpsReadings error:", err.message);
+    return { data: null, error: err };
   }
 }

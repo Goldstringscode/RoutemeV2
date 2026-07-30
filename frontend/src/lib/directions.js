@@ -152,13 +152,13 @@ function getManeuverIcon(type, modifier) {
 /**
  * Build Google Maps navigation URL
  */
-export function googleMapsUrl(lat, lng, address) {
-  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&destination_place_id=${encodeURIComponent(address)}`;
+export function googleMapsUrl(lat, lng, _address) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
 }
 
 /**
  * Build Apple Maps navigation URL
  */
 export function appleMapsUrl(lat, lng) {
-  return `https://maps.apple.com/?daddr=${lat},${lng}`;
+  return `https://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`;
 }

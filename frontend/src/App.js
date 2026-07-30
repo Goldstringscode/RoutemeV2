@@ -1,69 +1,95 @@
+import React, { Suspense } from "react";
+import "mapbox-gl/dist/mapbox-gl.css";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { RouteMeProvider, useRouteMe } from "@/context/RouteMeContext";
+import { RouteMeProvider } from "@/context";
+import { useRouteMe } from "@/context/RouteMeContext";
 import AppShell from "@/components/AppShell";
 import AgencyShell from "@/components/AgencyShell";
 import SuperAdminShell from "@/components/SuperAdminShell";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import Landing from "@/pages/Landing";
-import Login from "@/pages/Login";
-import Dashboard from "@/pages/Dashboard";
-import RouteView from "@/pages/RouteView";
-import Visits from "@/pages/Visits";
-import RoutesPage from "@/pages/Routes";
-import Notifications from "@/pages/Notifications";
-import Schedule from "@/pages/Schedule";
-import Clients from "@/pages/Clients";
-import ClientDetail from "@/pages/ClientDetail";
-import Profile from "@/pages/Profile";
-import SOAPHub from "@/pages/SOAPHub";
-import SOAPEditorPage from "@/pages/SOAPEditorPage";
-import Pricing from "@/pages/Pricing";
-import Signup from "@/pages/Signup";
-import Payment from "@/pages/Payment";
-import Welcome from "@/pages/Welcome";
-import NotFound from "@/pages/NotFound";
-import EmailPreview from "@/pages/EmailPreview";
-import ForgotPassword from "@/pages/auth/ForgotPassword";
-import SetNewPassword from "@/pages/auth/SetNewPassword";
-import VerifyEmail from "@/pages/auth/VerifyEmail";
-import DataPrivacy from "@/pages/auth/DataPrivacy";
-import BAA from "@/pages/legal/BAA";
-import Privacy from "@/pages/legal/Privacy";
-import Terms from "@/pages/legal/Terms";
-import SecurityPage from "@/pages/legal/SecurityPage";
-import Cookies from "@/pages/legal/Cookies";
-import ClientForm from "@/pages/ClientForm";
-import CarePlan from "@/pages/CarePlan";
-import VitalsEntry from "@/pages/VitalsEntry";
-import VisitSignature from "@/pages/VisitSignature";
-import HelpCenter from "@/pages/HelpCenter";
-import Onboarding from "@/pages/Onboarding";
-import NurseSettings from "@/pages/NurseSettings";
-import SuperAdminDataRetention from "@/pages/superadmin/DataRetention";
-import SuperAdminGlobalSearch from "@/pages/superadmin/GlobalSearch";
-import AgencyLogin from "@/pages/AgencyLogin";
-import AgencyOverview from "@/pages/agency/Overview";
-import AgencyNurses from "@/pages/agency/Nurses";
-import AgencyActivity from "@/pages/agency/Activity";
-import AgencyClientsDir from "@/pages/agency/ClientsDir";
-import AgencyClientDetail from "@/pages/agency/AgencyClientDetail";
-import AgencyCompliance from "@/pages/agency/Compliance";
-import AgencyBilling from "@/pages/agency/Billing";
-import NurseDetail from "@/pages/agency/NurseDetail";
-import SuperAdminLogin from "@/pages/SuperAdminLogin";
-import SuperAdminOverview from "@/pages/superadmin/Overview";
-import SuperAdminAgencies from "@/pages/superadmin/Agencies";
-import SuperAdminAgencyDetail from "@/pages/superadmin/AgencyDetail";
-import SuperAdminNurses from "@/pages/superadmin/NursesGlobal";
-import SuperAdminNurseDetail from "@/pages/superadmin/NurseGlobalDetail";
-import SuperAdminClients from "@/pages/superadmin/ClientsGlobal";
-import SuperAdminClientPHI from "@/pages/superadmin/ClientPHI";
-import SuperAdminStaff from "@/pages/superadmin/AdminStaff";
-import SuperAdminAudit from "@/pages/superadmin/AuditGlobal";
-import SuperAdminSecurity from "@/pages/superadmin/Security";
-import SuperAdminBilling from "@/pages/superadmin/BillingPlatform";
-import SuperAdminSystem from "@/pages/superadmin/SystemHealth";
+import { Toaster } from "@/components/ui/sonner";
+
+// Lazy-loaded page chunks — split into 4 groups for optimal loading
+// Public (loaded first, always needed)
+const Landing = React.lazy(() => import("@/pages/Landing"));
+const Login = React.lazy(() => import("@/pages/Login"));
+const AgencyLogin = React.lazy(() => import("@/pages/AgencyLogin"));
+const SuperAdminLogin = React.lazy(() => import("@/pages/SuperAdminLogin"));
+const Pricing = React.lazy(() => import("@/pages/Pricing"));
+const Signup = React.lazy(() => import("@/pages/Signup"));
+const Payment = React.lazy(() => import("@/pages/Payment"));
+const Welcome = React.lazy(() => import("@/pages/Welcome"));
+const ForgotPassword = React.lazy(() => import("@/pages/auth/ForgotPassword"));
+const SetNewPassword = React.lazy(() => import("@/pages/auth/SetNewPassword"));
+const VerifyEmail = React.lazy(() => import("@/pages/auth/VerifyEmail"));
+const DataPrivacy = React.lazy(() => import("@/pages/auth/DataPrivacy"));
+const BAA = React.lazy(() => import("@/pages/legal/BAA"));
+const Privacy = React.lazy(() => import("@/pages/legal/Privacy"));
+const Terms = React.lazy(() => import("@/pages/legal/Terms"));
+const SecurityPage = React.lazy(() => import("@/pages/legal/SecurityPage"));
+const Cookies = React.lazy(() => import("@/pages/legal/Cookies"));
+const Success = React.lazy(() => import("@/pages/Success"));
+const Cancel = React.lazy(() => import("@/pages/Cancel"));
+const Onboarding = React.lazy(() => import("@/pages/Onboarding"));
+const NotFound = React.lazy(() => import("@/pages/NotFound"));
+const EmailPreview = React.lazy(() => import("@/pages/EmailPreview"));
+
+// Nurse app (loaded when user navigates to /app/*)
+const Dashboard = React.lazy(() => import("@/pages/Dashboard"));
+const RouteView = React.lazy(() => import("@/pages/RouteView"));
+const Visits = React.lazy(() => import("@/pages/Visits"));
+const RoutesPage = React.lazy(() => import("@/pages/Routes"));
+const Notifications = React.lazy(() => import("@/pages/Notifications"));
+const Schedule = React.lazy(() => import("@/pages/Schedule"));
+const Clients = React.lazy(() => import("@/pages/Clients"));
+const ClientDetail = React.lazy(() => import("@/pages/ClientDetail"));
+const Profile = React.lazy(() => import("@/pages/Profile"));
+const SOAPHub = React.lazy(() => import("@/pages/SOAPHub"));
+const SOAPEditorPage = React.lazy(() => import("@/pages/SOAPEditorPage"));
+const ClientForm = React.lazy(() => import("@/pages/ClientForm"));
+const CarePlan = React.lazy(() => import("@/pages/CarePlan"));
+const VitalsEntry = React.lazy(() => import("@/pages/VitalsEntry"));
+const VisitSignature = React.lazy(() => import("@/pages/VisitSignature"));
+const HelpCenter = React.lazy(() => import("@/pages/HelpCenter"));
+const NurseSettings = React.lazy(() => import("@/pages/NurseSettings"));
+
+// Agency console (loaded when user navigates to /agency/*)
+const AgencyOverview = React.lazy(() => import("@/pages/agency/Overview"));
+const AgencyNurses = React.lazy(() => import("@/pages/agency/Nurses"));
+const AgencyActivity = React.lazy(() => import("@/pages/agency/Activity"));
+const AgencyClientsDir = React.lazy(() => import("@/pages/agency/ClientsDir"));
+const AgencyClientDetail = React.lazy(() => import("@/pages/agency/AgencyClientDetail"));
+const AgencyCompliance = React.lazy(() => import("@/pages/agency/Compliance"));
+const AgencyBilling = React.lazy(() => import("@/pages/agency/Billing"));
+const EvvSettings = React.lazy(() => import("@/pages/agency/EvvSettings"));
+const NurseDetail = React.lazy(() => import("@/pages/agency/NurseDetail"));
+
+// Super admin (loaded when user navigates to /superadmin/*)
+const SuperAdminOverview = React.lazy(() => import("@/pages/superadmin/Overview"));
+const SuperAdminAgencies = React.lazy(() => import("@/pages/superadmin/Agencies"));
+const SuperAdminAgencyDetail = React.lazy(() => import("@/pages/superadmin/AgencyDetail"));
+const SuperAdminNurses = React.lazy(() => import("@/pages/superadmin/NursesGlobal"));
+const SuperAdminNurseDetail = React.lazy(() => import("@/pages/superadmin/NurseGlobalDetail"));
+const SuperAdminClients = React.lazy(() => import("@/pages/superadmin/ClientsGlobal"));
+const SuperAdminClientPHI = React.lazy(() => import("@/pages/superadmin/ClientPHI"));
+const SuperAdminStaff = React.lazy(() => import("@/pages/superadmin/AdminStaff"));
+const SuperAdminAudit = React.lazy(() => import("@/pages/superadmin/AuditGlobal"));
+const SuperAdminSecurity = React.lazy(() => import("@/pages/superadmin/Security"));
+const SuperAdminBilling = React.lazy(() => import("@/pages/superadmin/BillingPlatform"));
+const SuperAdminSystem = React.lazy(() => import("@/pages/superadmin/SystemHealth"));
+const SuperAdminDataRetention = React.lazy(() => import("@/pages/superadmin/DataRetention"));
+const SuperAdminGlobalSearch = React.lazy(() => import("@/pages/superadmin/GlobalSearch"));
+
+// Shared loading fallback for Suspense
+const PageLoader = () => (
+  <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center">
+    <div className="text-center">
+      <div className="h-10 w-10 rounded-full border-2 border-[#D95D39] border-t-transparent animate-spin mx-auto" />
+      <p className="mt-4 text-sm text-stone-500">Loading...</p>
+    </div>
+  </div>
+);
 
 function Protected({ children }) {
   const { authed, supabaseReady, dataReady, loadingError } = useRouteMe();
@@ -119,121 +145,125 @@ function App() {
   return (
     <div className="App">
       <RouteMeProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/payment" element={<Payment />} />
-            <Route path="/welcome" element={<Welcome />} />
-            <Route path="/thank-you" element={<Welcome />} />
-            {process.env.NODE_ENV === 'development' && (
-              <Route path="/emails" element={<EmailPreview />} />
-            )}
-            <Route path="/login" element={<Login />} />
-            <Route path="/agency/login" element={<AgencyLogin />} />
-            <Route path="/superadmin/login" element={<SuperAdminLogin />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<SetNewPassword />} />
-            <Route path="/verify-email" element={<VerifyEmail />} />
-            <Route path="/data-privacy" element={<DataPrivacy />} />
-            <Route path="/onboarding" element={<Onboarding />} />
-            <Route path="/legal/baa" element={<BAA />} />
-            <Route path="/legal/privacy" element={<Privacy />} />
-            <Route path="/legal/terms" element={<Terms />} />
-            <Route path="/legal/security" element={<SecurityPage />} />
-            <Route path="/legal/cookies" element={<Cookies />} />
+                    <Toaster />
+                    <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Suspense fallback={<PageLoader />}><Landing /></Suspense>} />
+                  <Route path="/pricing" element={<Suspense fallback={<PageLoader />}><Pricing /></Suspense>} />
+                  <Route path="/signup" element={<Suspense fallback={<PageLoader />}><Signup /></Suspense>} />
+                  <Route path="/payment" element={<Suspense fallback={<PageLoader />}><Payment /></Suspense>} />
+                  <Route path="/welcome" element={<Suspense fallback={<PageLoader />}><Welcome /></Suspense>} />
+                  <Route path="/thank-you" element={<Suspense fallback={<PageLoader />}><Welcome /></Suspense>} />
+                  {process.env.NODE_ENV === 'development' && (
+                    <Route path="/emails" element={<Suspense fallback={<PageLoader />}><EmailPreview /></Suspense>} />
+                  )}
+                  <Route path="/login" element={<Suspense fallback={<PageLoader />}><Login /></Suspense>} />
+                  <Route path="/agency/login" element={<Suspense fallback={<PageLoader />}><AgencyLogin /></Suspense>} />
+                  <Route path="/superadmin/login" element={<Suspense fallback={<PageLoader />}><SuperAdminLogin /></Suspense>} />
+                  <Route path="/forgot-password" element={<Suspense fallback={<PageLoader />}><ForgotPassword /></Suspense>} />
+                  <Route path="/reset-password" element={<Suspense fallback={<PageLoader />}><SetNewPassword /></Suspense>} />
+                  <Route path="/verify-email" element={<Suspense fallback={<PageLoader />}><VerifyEmail /></Suspense>} />
+                  <Route path="/data-privacy" element={<Suspense fallback={<PageLoader />}><DataPrivacy /></Suspense>} />
+                  <Route path="/onboarding" element={<Suspense fallback={<PageLoader />}><Onboarding /></Suspense>} />
+                  <Route path="/legal/baa" element={<Suspense fallback={<PageLoader />}><BAA /></Suspense>} />
+                  <Route path="/legal/privacy" element={<Suspense fallback={<PageLoader />}><Privacy /></Suspense>} />
+                  <Route path="/legal/terms" element={<Suspense fallback={<PageLoader />}><Terms /></Suspense>} />
+                  <Route path="/legal/security" element={<Suspense fallback={<PageLoader />}><SecurityPage /></Suspense>} />
+                                    <Route path="/legal/cookies" element={<Suspense fallback={<PageLoader />}><Cookies /></Suspense>} />
+                                    <Route path="/success" element={<Suspense fallback={<PageLoader />}><Success /></Suspense>} />
+                                    <Route path="/cancel" element={<Suspense fallback={<PageLoader />}><Cancel /></Suspense>} />
 
-            <Route
-                          path="/app"
-                          element={
-                            <ErrorBoundary fallbackMessage="The nurse workspace encountered an error.">
-                              <Protected>
-                                <AppShell />
-                              </Protected>
-                            </ErrorBoundary>
-                          }
-            >
-              <Route index element={<Navigate to="/app/dashboard" replace />} />
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="route" element={<RouteView />} />
-                            <Route path="visits" element={<Visits />} />
-                            <Route path="routes" element={<RoutesPage />} />
-              <Route path="notifications" element={<Notifications />} />
-              <Route path="schedule" element={<Schedule />} />
-              <Route path="clients" element={<Clients />} />
-              <Route path="clients/:id" element={<ClientDetail />} />
-              <Route path="profile" element={<Profile />} />
-              <Route path="soap" element={<SOAPHub />} />
-              <Route path="soap/new" element={<SOAPEditorPage />} />
-                            <Route path="soap/new/:clientId" element={<SOAPEditorPage />} />
-              <Route path="soap/:id" element={<SOAPEditorPage />} />
-                            <Route path="clients/new" element={<ClientForm />} />
-                            <Route path="clients/:id/edit" element={<ClientForm />} />
-                            <Route path="clients/:id/care-plan" element={<CarePlan />} />
-                            <Route path="clients/:id/vitals" element={<VitalsEntry />} />
-                            <Route path="clients/:id/sign" element={<VisitSignature />} />
-                            <Route path="help" element={<HelpCenter />} />
-                            <Route path="settings" element={<NurseSettings />} />
-                            <Route path="*" element={<NotFound />} />
-            </Route>
+                  <Route
+                                path="/app"
+                                element={
+                                  <ErrorBoundary fallbackMessage="The nurse workspace encountered an error.">
+                                    <Protected>
+                                      <AppShell />
+                                    </Protected>
+                                  </ErrorBoundary>
+                                }
+                  >
+                    <Route index element={<Navigate to="/app/dashboard" replace />} />
+                    <Route path="dashboard" element={<Suspense fallback={<PageLoader />}><Dashboard /></Suspense>} />
+                    <Route path="route" element={<Suspense fallback={<PageLoader />}><RouteView /></Suspense>} />
+                                  <Route path="visits" element={<Suspense fallback={<PageLoader />}><Visits /></Suspense>} />
+                                  <Route path="routes" element={<Suspense fallback={<PageLoader />}><RoutesPage /></Suspense>} />
+                    <Route path="notifications" element={<Suspense fallback={<PageLoader />}><Notifications /></Suspense>} />
+                    <Route path="schedule" element={<Suspense fallback={<PageLoader />}><Schedule /></Suspense>} />
+                    <Route path="clients" element={<Suspense fallback={<PageLoader />}><Clients /></Suspense>} />
+                    <Route path="clients/:id" element={<Suspense fallback={<PageLoader />}><ClientDetail /></Suspense>} />
+                    <Route path="profile" element={<Suspense fallback={<PageLoader />}><Profile /></Suspense>} />
+                    <Route path="soap" element={<Suspense fallback={<PageLoader />}><SOAPHub /></Suspense>} />
+                    <Route path="soap/new" element={<Suspense fallback={<PageLoader />}><SOAPEditorPage /></Suspense>} />
+                                  <Route path="soap/new/:clientId" element={<Suspense fallback={<PageLoader />}><SOAPEditorPage /></Suspense>} />
+                    <Route path="soap/:id" element={<Suspense fallback={<PageLoader />}><SOAPEditorPage /></Suspense>} />
+                                  <Route path="clients/new" element={<Suspense fallback={<PageLoader />}><ClientForm /></Suspense>} />
+                                  <Route path="clients/:id/edit" element={<Suspense fallback={<PageLoader />}><ClientForm /></Suspense>} />
+                                  <Route path="clients/:id/care-plan" element={<Suspense fallback={<PageLoader />}><CarePlan /></Suspense>} />
+                                  <Route path="clients/:id/vitals" element={<Suspense fallback={<PageLoader />}><VitalsEntry /></Suspense>} />
+                                  <Route path="clients/:id/sign" element={<Suspense fallback={<PageLoader />}><VisitSignature /></Suspense>} />
+                                  <Route path="help" element={<Suspense fallback={<PageLoader />}><HelpCenter /></Suspense>} />
+                                  <Route path="settings" element={<Suspense fallback={<PageLoader />}><NurseSettings /></Suspense>} />
+                                  <Route path="*" element={<Suspense fallback={<PageLoader />}><NotFound /></Suspense>} />
+                  </Route>
 
-            <Route
-                          path="/agency"
-                          element={
-                            <ErrorBoundary fallbackMessage="The agency console encountered an error.">
-                              <AgencyProtected>
-                                <AgencyShell />
-                              </AgencyProtected>
-                            </ErrorBoundary>
-                          }
-            >
-              <Route index element={<Navigate to="/agency/overview" replace />} />
-              <Route path="overview" element={<AgencyOverview />} />
-              <Route path="nurses" element={<AgencyNurses />} />
-              <Route path="nurses/:id" element={<NurseDetail />} />
-              <Route path="activity" element={<AgencyActivity />} />
-              <Route path="clients" element={<AgencyClientsDir />} />
-              <Route path="clients/:id" element={<AgencyClientDetail />} />
-              <Route path="compliance" element={<AgencyCompliance />} />
-              <Route path="billing" element={<AgencyBilling />} />
-              <Route path="*" element={<NotFound />} />
-            </Route>
+                  <Route
+                                path="/agency"
+                                element={
+                                  <ErrorBoundary fallbackMessage="The agency console encountered an error.">
+                                    <AgencyProtected>
+                                      <AgencyShell />
+                                    </AgencyProtected>
+                                  </ErrorBoundary>
+                                }
+                  >
+                    <Route index element={<Navigate to="/agency/overview" replace />} />
+                    <Route path="overview" element={<Suspense fallback={<PageLoader />}><AgencyOverview /></Suspense>} />
+                    <Route path="nurses" element={<Suspense fallback={<PageLoader />}><AgencyNurses /></Suspense>} />
+                    <Route path="nurses/:id" element={<Suspense fallback={<PageLoader />}><NurseDetail /></Suspense>} />
+                    <Route path="activity" element={<Suspense fallback={<PageLoader />}><AgencyActivity /></Suspense>} />
+                    <Route path="clients" element={<Suspense fallback={<PageLoader />}><AgencyClientsDir /></Suspense>} />
+                    <Route path="clients/:id" element={<Suspense fallback={<PageLoader />}><AgencyClientDetail /></Suspense>} />
+                    <Route path="compliance" element={<Suspense fallback={<PageLoader />}><AgencyCompliance /></Suspense>} />
+                    <Route path="billing" element={<Suspense fallback={<PageLoader />}><AgencyBilling /></Suspense>} />
+                    <Route path="evv" element={<Suspense fallback={<PageLoader />}><EvvSettings /></Suspense>} />
+                    <Route path="*" element={<Suspense fallback={<PageLoader />}><NotFound /></Suspense>} />
+                  </Route>
 
-            <Route
-                          path="/superadmin"
-                          element={
-                            <ErrorBoundary fallbackMessage="The superadmin console encountered an error.">
-                              <SuperAdminProtected>
-                                <SuperAdminShell />
-                              </SuperAdminProtected>
-                            </ErrorBoundary>
-                          }
-            >
-              <Route index element={<Navigate to="/superadmin/overview" replace />} />
-              <Route path="overview" element={<SuperAdminOverview />} />
-              <Route path="agencies" element={<SuperAdminAgencies />} />
-              <Route path="agencies/:id" element={<SuperAdminAgencyDetail />} />
-              <Route path="nurses" element={<SuperAdminNurses />} />
-              <Route path="nurses/:id" element={<SuperAdminNurseDetail />} />
-              <Route path="clients" element={<SuperAdminClients />} />
-              <Route path="clients/:id" element={<SuperAdminClientPHI />} />
-              <Route path="staff" element={<SuperAdminStaff />} />
-              <Route path="audit" element={<SuperAdminAudit />} />
-              <Route path="security" element={<SuperAdminSecurity />} />
-              <Route path="billing" element={<SuperAdminBilling />} />
-              <Route path="system" element={<SuperAdminSystem />} />
-                            <Route path="data-retention" element={<SuperAdminDataRetention />} />
-                            <Route path="global-search" element={<SuperAdminGlobalSearch />} />
-                            <Route path="*" element={<NotFound />} />
-            </Route>
+                  <Route
+                                path="/superadmin"
+                                element={
+                                  <ErrorBoundary fallbackMessage="The superadmin console encountered an error.">
+                                    <SuperAdminProtected>
+                                      <SuperAdminShell />
+                                    </SuperAdminProtected>
+                                  </ErrorBoundary>
+                                }
+                  >
+                    <Route index element={<Navigate to="/superadmin/overview" replace />} />
+                    <Route path="overview" element={<Suspense fallback={<PageLoader />}><SuperAdminOverview /></Suspense>} />
+                    <Route path="agencies" element={<Suspense fallback={<PageLoader />}><SuperAdminAgencies /></Suspense>} />
+                    <Route path="agencies/:id" element={<Suspense fallback={<PageLoader />}><SuperAdminAgencyDetail /></Suspense>} />
+                    <Route path="nurses" element={<Suspense fallback={<PageLoader />}><SuperAdminNurses /></Suspense>} />
+                    <Route path="nurses/:id" element={<Suspense fallback={<PageLoader />}><SuperAdminNurseDetail /></Suspense>} />
+                    <Route path="clients" element={<Suspense fallback={<PageLoader />}><SuperAdminClients /></Suspense>} />
+                    <Route path="clients/:id" element={<Suspense fallback={<PageLoader />}><SuperAdminClientPHI /></Suspense>} />
+                    <Route path="staff" element={<Suspense fallback={<PageLoader />}><SuperAdminStaff /></Suspense>} />
+                    <Route path="audit" element={<Suspense fallback={<PageLoader />}><SuperAdminAudit /></Suspense>} />
+                    <Route path="security" element={<Suspense fallback={<PageLoader />}><SuperAdminSecurity /></Suspense>} />
+                    <Route path="billing" element={<Suspense fallback={<PageLoader />}><SuperAdminBilling /></Suspense>} />
+                    <Route path="system" element={<Suspense fallback={<PageLoader />}><SuperAdminSystem /></Suspense>} />
+                                  <Route path="data-retention" element={<Suspense fallback={<PageLoader />}><SuperAdminDataRetention /></Suspense>} />
+                                  <Route path="global-search" element={<Suspense fallback={<PageLoader />}><SuperAdminGlobalSearch /></Suspense>} />
+                                  <Route path="*" element={<Suspense fallback={<PageLoader />}><NotFound /></Suspense>} />
+                  </Route>
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </RouteMeProvider>
-    </div>
-  );
-}
+                  <Route path="*" element={<Suspense fallback={<PageLoader />}><NotFound /></Suspense>} />
+                </Routes>
+              </BrowserRouter>
+            </RouteMeProvider>
+          </div>
+        );
+      }
 
-export default App;
+      export default App;
