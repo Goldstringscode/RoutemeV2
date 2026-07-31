@@ -131,6 +131,7 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
     const map = new mapboxgl.Map({
           container: mapContainer.current,
           style: "mapbox://styles/mapbox/outdoors-v12",
+          projection: "mercator",
           center: [centerLng, centerLat],
           zoom: compact ? 9.5 : 9,
           pitch: compact ? 0 : 55,
@@ -139,48 +140,53 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
           logoPosition: "bottom-right",
         });
 
-        let terrainEnabled = false;
-        const enableTerrain = () => {
-          if (terrainEnabled) return;
-          try {
-            devLog("[Terrain] Attempting to enable...");
-            // Add DEM source for 3D terrain
-            if (!map.getSource("mapbox-dem")) {
-              map.addSource("mapbox-dem", {
-                type: "raster-dem",
-                url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-                tileSize: 512,
-                maxzoom: 14,
-              });
-            }
-            // Enable 3D terrain rendering — this makes all layers follow elevation
-            if (typeof map.setTerrain === "function") {
-              map.setTerrain({ source: "mapbox-dem", exaggeration: 1.5 });
-              devLog("[Terrain] setTerrain called");
-            }
-            terrainEnabled = true;
-            devLog("[Terrain] ✅ Active");
-          } catch (e) {
-            console.warn("[Terrain] ❌ Setup failed:", e);
-          }
-        };
+                // setTerrain() can trigger a style reload that wipes custom layers, so
+                // everything must be re-created on every style.load.
+                map.on("style.load", () => {
+                  if (!map.getSource(ROUTE_SOURCE)) {
+                    try {
+                      map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+                      map.addLayer({ id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 } });
+                      map.addLayer({ id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 } });
+                    } catch (e) { devLog("[Map] Route layers error:", e); }
+                  }
 
-        map.on("load", () => {
-          if (!map.getSource(ROUTE_SOURCE)) {
-            try {
-              map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-              map.addLayer({ id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 } });
-              map.addLayer({ id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 } });
-            } catch (e) { devLog("[Map] Route source/layer error:", e); }
-          }
+                  if (!map.getLayer("sky")) {
+                    try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere", "sky-atmosphere-sun": [0.0, 0.0], "sky-atmosphere-sun-intensity": 15 } }); } catch (e) { devLog("[Map] Sky layer error:", e); }
+                  }
 
-          if (!map.getLayer("sky")) {
-            try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere", "sky-atmosphere-sun": [0.0, 0.0], "sky-atmosphere-sun-intensity": 15 } }); } catch (e) { devLog("[Map] Sky layer error:", e); }
-          }
+                  // DEM source + 3D terrain + hillshade
+                  if (!map.getSource("mapbox-dem")) {
+                    try {
+                      map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
+                    } catch (e) { devLog("[Map] DEM source error:", e); }
+                  }
 
-          enableTerrain();
-          updatePositions();
-        });
+                  if (map.getSource("mapbox-dem") && typeof map.setTerrain === "function") {
+                    try {
+                      map.setTerrain({ source: "mapbox-dem", exaggeration: 1.5 });
+                      devLog("[Terrain] ✅ setTerrain called");
+                    } catch (e) { console.warn("[Terrain] ❌ setTerrain failed:", e); }
+                  }
+
+                  if (!map.getLayer("hillshade") && map.getSource("mapbox-dem")) {
+                    try {
+                      map.addLayer({
+                        id: "hillshade",
+                        type: "hillshade",
+                        source: "mapbox-dem",
+                        paint: {
+                          "hillshade-exaggeration": 1.2,
+                          "hillshade-shadow-color": "#1a1a2e",
+                          "hillshade-highlight-color": "#e8dcc8",
+                        },
+                      });
+                      devLog("[Terrain] ✅ hillshade layer added");
+                    } catch (e) { devLog("[Terrain] hillshade error:", e); }
+                  }
+
+                  updatePositions();
+                });
 
     map.on("move", scheduleUpdate);
     map.on("resize", scheduleUpdate);
