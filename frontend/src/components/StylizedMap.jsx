@@ -130,7 +130,7 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
 
     const map = new mapboxgl.Map({
       container: mapContainer.current,
-      style: "mapbox://styles/mapbox/light-v10",
+      style: "mapbox://styles/mapbox/light-v11",
       center: [centerLng, centerLat],
       zoom: compact ? 9.5 : 9,
       pitch: compact ? 0 : 55,

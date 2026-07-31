@@ -277,7 +277,22 @@ export function RouteProvider({ children }) {
 
   /* ─── Initial Mapbox route fetch ───────────────────── */
   const routeFetchedRef = useRef(false);
+  const prevScheduleKeyRef = useRef("");
   useEffect(() => {
+    // Build a key from schedule IDs — if it changes, we need a fresh route
+    const key = schedule.map(s => s.id).join(",");
+    if (key !== prevScheduleKeyRef.current && key.length > 0) {
+      prevScheduleKeyRef.current = key;
+      routeFetchedRef.current = false;
+      // Clear stale route data so a fresh fetch triggers
+      if (routeGeoJson) {
+        devLog("[RouteMe] Schedule changed — clearing stale route data");
+        setRouteGeoJson(null);
+        setRouteDistance(null);
+        setRouteDuration(null);
+        return; // will re-run with cleared routeGeoJson
+      }
+    }
     if (schedule.length >= 2 && !routeGeoJson && !routeFetchedRef.current) {
       routeFetchedRef.current = true;
       devLog("[RouteMe] Initial fetch for", schedule.length, "stops");
