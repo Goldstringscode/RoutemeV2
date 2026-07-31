@@ -175,22 +175,32 @@ export function DataInitializer({ children }) {
 
   /* ─── Supabase session check ──────────────────────── */
   useEffect(() => {
+    let cancelled = false;
     const init = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        if (cancelled) return;
         if (session?.user) {
-          userIdRef.current = session.user.id;
-          await loadData(session.user.id);
+          if (lastUserId.current !== session.user.id) {
+            userIdRef.current = session.user.id;
+            await loadData(session.user.id);
+          }
           setAuthed(true);
+        } else {
+          setDataReady(true);
         }
         setSupabaseReady(true);
       } catch {
-        setSupabaseReady(true);
+        if (!cancelled) {
+          setDataReady(true);
+          setSupabaseReady(true);
+        }
       }
     };
     init();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authed]);
 
   return children;
 }

@@ -21,7 +21,7 @@ export function AuthProvider({ children }) {
   const [superAdminAuthed, setSuperAdminAuthed] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [userAgencyId, setUserAgencyId] = useState(null);
-  const [dataReady, setDataReady] = useState(true);
+  const [dataReady, setDataReady] = useState(false);
   const [loadingError, setLoadingError] = useState(null);
   const userIdRef = useRef(null);
 
