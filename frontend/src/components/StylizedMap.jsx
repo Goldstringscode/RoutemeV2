@@ -191,17 +191,20 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
           }
 
           updatePositions();
-        });
+                    // Enable terrain immediately after sources are ready
+                    // Using load event (not idle) to ensure terrain activates reliably.
+                    // The idle/sourcedata handlers below are kept as fallbacks.
+                    enableTerrain();
+                  });
 
-        // Delay terrain setup until map is fully settled — avoids a production build
-        // race where setTerrain() triggers a style update that makes 'composite'
-        // source temporarily undefined.
-        map.once("idle", () => {
-          enableTerrain();
-        });
+                  // Fallback: enable terrain on idle (catches edge cases)
+                  map.once("idle", () => {
+                    if (!terrainEnabled) enableTerrain();
+                  });
 
-        map.on("sourcedata", (e) => {
-          if (e.sourceId === "mapbox-dem" && !terrainEnabled) {
+                  // Fallback: enable terrain when DEM source tiles finish loading
+                  map.on("sourcedata", (e) => {
+                    if (e.sourceId === "mapbox-dem" && !terrainEnabled) {
             if (e.isSourceLoaded) enableTerrain();
           }
         });
