@@ -129,84 +129,57 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
       : -118.2437;
 
     const map = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: "mapbox://styles/mapbox/light-v11",
-      center: [centerLng, centerLat],
-      zoom: compact ? 9.5 : 9,
-      pitch: compact ? 0 : 55,
-      interactive: !compact,
-      attributionControl: false,
-      logoPosition: "bottom-right",
-    });
+          container: mapContainer.current,
+          style: "mapbox://styles/mapbox/outdoors-v12",
+          center: [centerLng, centerLat],
+          zoom: compact ? 9.5 : 9,
+          pitch: compact ? 0 : 55,
+          interactive: !compact,
+          attributionControl: false,
+          logoPosition: "bottom-right",
+        });
 
-    let terrainEnabled = false;
-    const enableTerrain = () => {
-      if (terrainEnabled) return;
-      try {
-        devLog("[Terrain] Attempting to enable...");
-        if (typeof map.setTerrain === "function") {
-          map.setTerrain({ source: "mapbox-dem", exaggeration: 1.5 });
-        }
-        if (!map.getLayer("rm-hillshade")) {
-          const firstLayerId = map.getStyle().layers?.[0]?.id;
-          map.addLayer({
-            id: "rm-hillshade",
-            type: "hillshade",
-            source: "mapbox-dem",
-            paint: {
-              "hillshade-exaggeration": 0.6,
-              "hillshade-shadow-color": "#1a1a2e",
-              "hillshade-highlight-color": "#e8dcc8",
-              "hillshade-illumination-anchor": "viewport",
-            },
-          }, firstLayerId);
-        }
-        terrainEnabled = true;
-        devLog("[Terrain] ✅ Active");
-      } catch (e) {
-        console.warn("[Terrain] ❌ Setup failed:", e);
-      }
-    };
-
-    map.on("load", () => {
-          if (!map.getSource("mapbox-dem")) {
-            map.addSource("mapbox-dem", {
-              type: "raster-dem",
-              url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-              tileSize: 512,
-              maxzoom: 14,
-            });
+        let terrainEnabled = false;
+        const enableTerrain = () => {
+          if (terrainEnabled) return;
+          try {
+            devLog("[Terrain] Attempting to enable...");
+            // Add DEM source for 3D terrain
+            if (!map.getSource("mapbox-dem")) {
+              map.addSource("mapbox-dem", {
+                type: "raster-dem",
+                url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+                tileSize: 512,
+                maxzoom: 14,
+              });
+            }
+            // Enable 3D terrain rendering — this makes all layers follow elevation
+            if (typeof map.setTerrain === "function") {
+              map.setTerrain({ source: "mapbox-dem", exaggeration: 1.5 });
+              devLog("[Terrain] setTerrain called");
+            }
+            terrainEnabled = true;
+            devLog("[Terrain] ✅ Active");
+          } catch (e) {
+            console.warn("[Terrain] ❌ Setup failed:", e);
           }
+        };
 
+        map.on("load", () => {
           if (!map.getSource(ROUTE_SOURCE)) {
             try {
               map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
               map.addLayer({ id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 } });
               map.addLayer({ id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 } });
-            } catch (e) {}
+            } catch (e) { devLog("[Map] Route source/layer error:", e); }
           }
 
           if (!map.getLayer("sky")) {
-            try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere" } }); } catch (e) {}
+            try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere", "sky-atmosphere-sun": [0.0, 0.0], "sky-atmosphere-sun-intensity": 15 } }); } catch (e) { devLog("[Map] Sky layer error:", e); }
           }
 
+          enableTerrain();
           updatePositions();
-                    // Enable terrain immediately after sources are ready
-                    // Using load event (not idle) to ensure terrain activates reliably.
-                    // The idle/sourcedata handlers below are kept as fallbacks.
-                    enableTerrain();
-                  });
-
-                  // Fallback: enable terrain on idle (catches edge cases)
-                  map.once("idle", () => {
-                    if (!terrainEnabled) enableTerrain();
-                  });
-
-                  // Fallback: enable terrain when DEM source tiles finish loading
-                  map.on("sourcedata", (e) => {
-                    if (e.sourceId === "mapbox-dem" && !terrainEnabled) {
-            if (e.isSourceLoaded) enableTerrain();
-          }
         });
 
     map.on("move", scheduleUpdate);
