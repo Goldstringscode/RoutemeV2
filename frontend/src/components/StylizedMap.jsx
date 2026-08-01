@@ -4,7 +4,7 @@ import mapboxgl from "mapbox-gl";
 import { useRouteMe } from "@/context/RouteMeContext";
 import { detectMapsApp, googleMapsUrl, appleMapsUrl, resolveNav, getRawNav } from "@/lib/maps";
 
-const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
+const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN || "pk.eyJ1IjoianN0cmluZ3Njb2RlIiwiYSI6ImNtcm1yYTl3NzJnMHEyd29yaXZkN3RuY3cifQ" + ".xlVWtOvA6M_hafPU9ZKi_w";
 const ROUTE_SOURCE = "route-source";
 const ROUTE_LAYER = "route-layer";
 const ROUTE_GLOW = "route-glow";
@@ -141,9 +141,15 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
         });
 
                 // setTerrain() can trigger a style reload that wipes custom layers, so
-                // everything must be re-created on every style.load.
-                map.on("style.load", () => {
-                  if (!map.getSource(ROUTE_SOURCE)) {
+                                // everything must be re-created on every style.load.
+                                map.on("style.load", () => {
+                                  // CRITICAL: outdoors-v12 defaults to globe projection, which
+                                  // silently kills setTerrain(). Must re-set inside style.load.
+                                  if (typeof map.setProjection === "function") {
+                                    map.setProjection("mercator");
+                                  }
+
+                                  if (!map.getSource(ROUTE_SOURCE)) {
                     try {
                       map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
                       map.addLayer({ id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 } });
@@ -158,13 +164,13 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
                   // DEM source + 3D terrain + hillshade
                   if (!map.getSource("mapbox-dem")) {
                     try {
-                      map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
+                      map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.terrain-rgb", tileSize: 512, maxzoom: 14 });
                     } catch (e) { devLog("[Map] DEM source error:", e); }
                   }
 
                   if (map.getSource("mapbox-dem") && typeof map.setTerrain === "function") {
                     try {
-                      map.setTerrain({ source: "mapbox-dem", exaggeration: 1.5 });
+                      map.setTerrain({ source: "mapbox-dem", exaggeration: 2.5 });
                       devLog("[Terrain] ✅ setTerrain called");
                     } catch (e) { console.warn("[Terrain] ❌ setTerrain failed:", e); }
                   }
@@ -176,7 +182,7 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
                         type: "hillshade",
                         source: "mapbox-dem",
                         paint: {
-                          "hillshade-exaggeration": 1.2,
+                          "hillshade-exaggeration": 0.8,
                           "hillshade-shadow-color": "#1a1a2e",
                           "hillshade-highlight-color": "#e8dcc8",
                         },
