@@ -140,59 +140,97 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
           logoPosition: "bottom-right",
         });
 
-                // setTerrain() can trigger a style reload that wipes custom layers, so
-                                // everything must be re-created on every style.load.
-                                map.on("style.load", () => {
+                // ════════════════════════════════════════════════════════════
+                                // 3D TERRAIN SETUP — mapbox-gl v2.15.0 proven pattern
+                                // Use "load" event for v2.x (style.load is unreliable for DEM tiles)
+                                // ════════════════════════════════════════════════════════════
+                                map.on("load", () => {
                                   // CRITICAL: outdoors-v12 defaults to globe projection, which
-                                  // silently kills setTerrain(). Must re-set inside style.load.
+                                  // silently kills setTerrain(). Must re-set after style loads.
                                   if (typeof map.setProjection === "function") {
                                     map.setProjection("mercator");
                                   }
 
+                                  // Route source + layers
                                   if (!map.getSource(ROUTE_SOURCE)) {
-                    try {
-                      map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-                      map.addLayer({ id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 } });
-                      map.addLayer({ id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 } });
-                    } catch (e) { devLog("[Map] Route layers error:", e); }
-                  }
+                                    try {
+                                      map.addSource(ROUTE_SOURCE, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+                                      map.addLayer({ id: ROUTE_GLOW, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-opacity": 0.2, "line-width": 12 } });
+                                      map.addLayer({ id: ROUTE_LAYER, type: "line", source: ROUTE_SOURCE, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": "#D95D39", "line-width": 4, "line-opacity": 0.85 } });
+                                    } catch (e) { devLog("[Map] Route layers error:", e); }
+                                  }
 
-                  if (!map.getLayer("sky")) {
-                    try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere", "sky-atmosphere-sun": [0.0, 0.0], "sky-atmosphere-sun-intensity": 15 } }); } catch (e) { devLog("[Map] Sky layer error:", e); }
-                  }
+                                  // Sky atmosphere
+                                  if (!map.getLayer("sky")) {
+                                    try { map.addLayer({ id: "sky", type: "sky", paint: { "sky-type": "atmosphere", "sky-atmosphere-sun": [0.0, 0.0], "sky-atmosphere-sun-intensity": 15 } }); } catch (e) { devLog("[Map] Sky layer error:", e); }
+                                  }
 
-                  // DEM source + 3D terrain + hillshade
-                  if (!map.getSource("mapbox-dem")) {
-                    try {
-                      map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.terrain-rgb", tileSize: 512, maxzoom: 14 });
-                    } catch (e) { devLog("[Map] DEM source error:", e); }
-                  }
+                                  // DEM source + 3D terrain + hillshade
+                                  if (!map.getSource("mapbox-dem")) {
+                                    try {
+                                      map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.terrain-rgb", tileSize: 512, maxzoom: 14 });
+                                    } catch (e) { console.warn("[Terrain] DEM source error:", e); }
+                                  }
 
-                  if (map.getSource("mapbox-dem") && typeof map.setTerrain === "function") {
-                    try {
-                      map.setTerrain({ source: "mapbox-dem", exaggeration: 2.5 });
-                      devLog("[Terrain] ✅ setTerrain called");
-                    } catch (e) { console.warn("[Terrain] ❌ setTerrain failed:", e); }
-                  }
+                                  if (map.getSource("mapbox-dem") && typeof map.setTerrain === "function") {
+                                    try {
+                                      map.setTerrain({ source: "mapbox-dem", exaggeration: 2.5 });
+                                      console.log("[Terrain] ✅ setTerrain called");
+                                    } catch (e) { console.warn("[Terrain] ❌ setTerrain failed:", e); }
+                                  }
 
-                  if (!map.getLayer("hillshade") && map.getSource("mapbox-dem")) {
-                    try {
-                      map.addLayer({
-                        id: "hillshade",
-                        type: "hillshade",
-                        source: "mapbox-dem",
-                        paint: {
-                          "hillshade-exaggeration": 0.8,
-                          "hillshade-shadow-color": "#1a1a2e",
-                          "hillshade-highlight-color": "#e8dcc8",
-                        },
-                      });
-                      devLog("[Terrain] ✅ hillshade layer added");
-                    } catch (e) { devLog("[Terrain] hillshade error:", e); }
-                  }
+                                  if (!map.getLayer("hillshade") && map.getSource("mapbox-dem")) {
+                                    try {
+                                      map.addLayer({
+                                        id: "hillshade",
+                                        type: "hillshade",
+                                        source: "mapbox-dem",
+                                        paint: {
+                                          "hillshade-exaggeration": 0.8,
+                                          "hillshade-shadow-color": "#1a1a2e",
+                                          "hillshade-highlight-color": "#e8dcc8",
+                                        },
+                                      });
+                                      console.log("[Terrain] ✅ hillshade layer added");
+                                    } catch (e) { console.warn("[Terrain] hillshade error:", e); }
+                                  }
 
-                  updatePositions();
-                });
+                                  updatePositions();
+                                });
+
+                                // Also handle style reloads (setTerrain may trigger them)
+                                map.on("style.load", () => {
+                                  // Re-set projection on every style reload
+                                  if (typeof map.setProjection === "function") {
+                                    map.setProjection("mercator");
+                                  }
+                                  // Re-add terrain if style reload wiped it
+                                  if (!map.getSource("mapbox-dem")) {
+                                    try {
+                                      map.addSource("mapbox-dem", { type: "raster-dem", url: "mapbox://mapbox.terrain-rgb", tileSize: 512, maxzoom: 14 });
+                                    } catch (e) { console.warn("[Terrain] DEM source re-add error:", e); }
+                                  }
+                                  if (map.getSource("mapbox-dem") && typeof map.setTerrain === "function") {
+                                    try {
+                                      map.setTerrain({ source: "mapbox-dem", exaggeration: 2.5 });
+                                    } catch (e) { console.warn("[Terrain] setTerrain re-add error:", e); }
+                                  }
+                                  // Re-add hillshade if wiped
+                                  if (!map.getLayer("hillshade") && map.getSource("mapbox-dem")) {
+                                    try {
+                                      map.addLayer({
+                                        id: "hillshade",
+                                        type: "hillshade",
+                                        source: "mapbox-dem",
+                                        paint: {
+                                          "hillshade-exaggeration": 0.8,
+                                          "hillshade-shadow-color": "#1a1a2e",
+                                          "hillshade-highlight-color": "#e8dcc8",
+                                        },
+                                      });
+                                    } catch (e) { console.warn("[Terrain] hillshade re-add error:", e); }
+                                  }
+                                });
 
     map.on("move", scheduleUpdate);
     map.on("resize", scheduleUpdate);
