@@ -130,7 +130,7 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
 
     const map = new mapboxgl.Map({
           container: mapContainer.current,
-          style: "mapbox://styles/mapbox/outdoors-v12",
+          style: "mapbox://styles/mapbox/streets-v11",
           projection: "mercator",
           center: [centerLng, centerLat],
           zoom: compact ? 9.5 : 9,
@@ -179,21 +179,21 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
                                     } catch (e) { console.warn("[Terrain] ❌ setTerrain failed:", e); }
                                   }
 
-                                  if (!map.getLayer("hillshade") && map.getSource("mapbox-dem")) {
-                                    try {
-                                      map.addLayer({
-                                        id: "hillshade",
-                                        type: "hillshade",
-                                        source: "mapbox-dem",
-                                        paint: {
-                                          "hillshade-exaggeration": 0.8,
-                                          "hillshade-shadow-color": "#1a1a2e",
-                                          "hillshade-highlight-color": "#e8dcc8",
-                                        },
-                                      });
-                                      console.log("[Terrain] ✅ hillshade layer added");
-                                    } catch (e) { console.warn("[Terrain] hillshade error:", e); }
-                                  }
+                                  if (!map.getLayer("custom-hillshade") && map.getSource("mapbox-dem")) {
+                                                      try {
+                                                        map.addLayer({
+                                                          id: "custom-hillshade",
+                                                          type: "hillshade",
+                                                          source: "mapbox-dem",
+                                                          paint: {
+                                                            "hillshade-exaggeration": 0.8,
+                                                            "hillshade-shadow-color": "#1a1a2e",
+                                                            "hillshade-highlight-color": "#e8dcc8",
+                                                          },
+                                                        }, "road");
+                                                        console.log("[Terrain] ✅ hillshade layer added");
+                                                      } catch (e) { console.warn("[Terrain] hillshade error:", e); }
+                                                    }
 
                                   updatePositions();
                                 });
@@ -216,20 +216,20 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
                                     } catch (e) { console.warn("[Terrain] setTerrain re-add error:", e); }
                                   }
                                   // Re-add hillshade if wiped
-                                  if (!map.getLayer("hillshade") && map.getSource("mapbox-dem")) {
-                                    try {
-                                      map.addLayer({
-                                        id: "hillshade",
-                                        type: "hillshade",
-                                        source: "mapbox-dem",
-                                        paint: {
-                                          "hillshade-exaggeration": 0.8,
-                                          "hillshade-shadow-color": "#1a1a2e",
-                                          "hillshade-highlight-color": "#e8dcc8",
-                                        },
-                                      });
-                                    } catch (e) { console.warn("[Terrain] hillshade re-add error:", e); }
-                                  }
+                                  if (!map.getLayer("custom-hillshade") && map.getSource("mapbox-dem")) {
+                                                                      try {
+                                                                        map.addLayer({
+                                                                          id: "custom-hillshade",
+                                                                          type: "hillshade",
+                                                                          source: "mapbox-dem",
+                                                                          paint: {
+                                                                            "hillshade-exaggeration": 0.8,
+                                                                            "hillshade-shadow-color": "#1a1a2e",
+                                                                            "hillshade-highlight-color": "#e8dcc8",
+                                                                          },
+                                                                        }, "road");
+                                                                      } catch (e) { console.warn("[Terrain] hillshade re-add error:", e); }
+                                                                    }
                                 });
 
     map.on("move", scheduleUpdate);
