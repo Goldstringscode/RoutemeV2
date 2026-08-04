@@ -174,8 +174,8 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
 
                                   if (map.getSource("mapbox-dem") && typeof map.setTerrain === "function") {
                                     try {
-                                      map.setTerrain({ source: "mapbox-dem", exaggeration: 2.5 });
-                                      console.log("[Terrain] ✅ setTerrain called");
+                                      map.setTerrain({ source: "mapbox-dem", exaggeration: 4 });
+                                      console.log("[Terrain] ✅ setTerrain called (exaggeration 4)");
                                     } catch (e) { console.warn("[Terrain] ❌ setTerrain failed:", e); }
                                   }
 
@@ -191,9 +191,9 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
                                                                             "hillshade-highlight-color": "#e8dcc8",
                                                                           },
                                                                         });
-                                                                        // Insert below the terrain-covered layers so the 3D relief
-                                                                        // isn't flattened by hillshade rendering on top of everything.
-                                                                        try { map.moveLayer("custom-hillshade", map.getStyle().layers[0].id); } catch (e) {}
+                                                                        // Place ABOVE the opaque land polygon so the shaded relief is
+                                                                        // visible on the terrain, but below roads/labels so they stay legible.
+                                                                        try { map.moveLayer("custom-hillshade", "landcover"); } catch (e) { try { map.moveLayer("custom-hillshade", "land"); } catch (e2) {} }
                                                                         console.log("[Terrain] ✅ hillshade layer added");
                                                                       } catch (e) { console.warn("[Terrain] hillshade error:", e); }
                                                                     }
@@ -215,8 +215,8 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
                                   }
                                   if (map.getSource("mapbox-dem") && typeof map.setTerrain === "function") {
                                     try {
-                                      map.setTerrain({ source: "mapbox-dem", exaggeration: 2.5 });
-                                    } catch (e) { console.warn("[Terrain] setTerrain re-add error:", e); }
+                                      map.setTerrain({ source: "mapbox-dem", exaggeration: 4 });
+                                                                          } catch (e) { console.warn("[Terrain] setTerrain re-add error:", e); }
                                   }
                                   // Re-add hillshade if wiped
                                   if (!map.getLayer("custom-hillshade") && map.getSource("mapbox-dem")) {
@@ -231,7 +231,7 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
                                                                                 "hillshade-highlight-color": "#e8dcc8",
                                                                               },
                                                                             });
-                                                                            try { map.moveLayer("custom-hillshade", map.getStyle().layers[0].id); } catch (e) {}
+                                                                            try { map.moveLayer("custom-hillshade", "landcover"); } catch (e) { try { map.moveLayer("custom-hillshade", "land"); } catch (e2) {} }
                                                                           } catch (e) { console.warn("[Terrain] hillshade re-add error:", e); }
                                                                         }
                                 });
