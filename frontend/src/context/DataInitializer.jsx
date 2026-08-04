@@ -128,6 +128,15 @@ export function DataInitializer({ children }) {
           setScheduleIds(schedData.map(s => s.client_id));
           originalOrderRef.current = schedData.map(s => s.client_id);
           setOptimized(true);
+        } else if (clientData?.length) {
+          // Fallback: no schedule rows for today (seed is date-specific and stale),
+          // but real clients DID load. Use the actual client UUIDs as the schedule —
+          // otherwise scheduleIds stays as mock "c1".."c6" and the derived schedule
+          // array is empty (UUIDs never match "c1"), breaking all summary cards.
+          const uuids = clientData.map(c => c.id);
+          setScheduleIds(uuids);
+          originalOrderRef.current = uuids;
+          setOptimized(true);
         }
 
         const { data: noteData } = await supabase
