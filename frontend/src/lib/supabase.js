@@ -56,7 +56,23 @@ export async function signIn(email, password) {
     };
   }
 
-  // 2. Try server proxy
+  // 2. Try direct Supabase FIRST — the Express proxy (/api/auth/login) is often
+  //    not running on Render and returns 200 with an empty body, which makes
+  //    resp.json() throw and delays login. Direct auth is the reliable path.
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      const delay = BACKOFF_DELAYS[Math.min(backoff.count, BACKOFF_DELAYS.length - 1)];
+      saveBackoff(backoff.count + 1, delay);
+      return { user: null, error };
+    }
+    clearBackoff();
+    return { user: data.user, error: null };
+  } catch (directErr) {
+    console.warn("Direct Supabase auth failed, trying server proxy:", directErr.message);
+  }
+
+  // 3. Proxy fallback — only used when direct Supabase threw (rare)
   try {
     const resp = await fetch("/api/auth/login", {
       method: "POST",
@@ -87,7 +103,7 @@ export async function signIn(email, password) {
       return { user: null, error: new Error(data.error || "Invalid email or password.") };
     }
 
-    // 3. Success — set the Supabase session from proxy tokens
+    // 4. Success — set the Supabase session from proxy tokens
     const { access_token, refresh_token } = data;
     if (access_token) {
       await supabase.auth.setSession({
@@ -99,16 +115,12 @@ export async function signIn(email, password) {
     clearBackoff();
     return { user: data.user, error: null };
   } catch (fetchErr) {
-    // 4. Proxy unreachable — fall back to direct Supabase call
-    console.warn("Auth proxy unreachable, falling back to direct Supabase:", fetchErr.message);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      const delay = BACKOFF_DELAYS[Math.min(backoff.count, BACKOFF_DELAYS.length - 1)];
-      saveBackoff(backoff.count + 1, delay);
-      return { user: null, error };
-    }
-    clearBackoff();
-    return { user: data.user, error: null };
+    // 5. Both paths failed
+    console.warn("Auth proxy unreachable:", fetchErr.message);
+    return {
+      user: null,
+      error: new Error("Unable to reach the authentication service. Please try again."),
+    };
   }
 }
 

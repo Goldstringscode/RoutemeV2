@@ -134,7 +134,7 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
           projection: "mercator",
           center: [centerLng, centerLat],
           zoom: compact ? 9.5 : 9,
-          pitch: compact ? 0 : 55,
+          pitch: 50, // keep terrain visible on both compact (dashboard) and full (route) maps
           interactive: !compact,
           attributionControl: false,
           logoPosition: "bottom-right",
