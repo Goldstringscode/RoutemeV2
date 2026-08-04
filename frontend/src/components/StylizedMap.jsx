@@ -186,7 +186,7 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
                                                                           type: "hillshade",
                                                                           source: "mapbox-dem",
                                                                           paint: {
-                                                                            "hillshade-exaggeration": 0.8,
+                                                                            "hillshade-exaggeration": 1.5,
                                                                             "hillshade-shadow-color": "#1a1a2e",
                                                                             "hillshade-highlight-color": "#e8dcc8",
                                                                           },
@@ -226,7 +226,7 @@ export default function StylizedMap({ compact = false, onStopClick, routeNavOver
                                                                               type: "hillshade",
                                                                               source: "mapbox-dem",
                                                                               paint: {
-                                                                                "hillshade-exaggeration": 0.8,
+                                                                                "hillshade-exaggeration": 1.5,
                                                                                 "hillshade-shadow-color": "#1a1a2e",
                                                                                 "hillshade-highlight-color": "#e8dcc8",
                                                                               },
